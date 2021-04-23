@@ -1,4 +1,3 @@
-# Logger
 import logging
 
 from fastapi import FastAPI
@@ -6,7 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
-from app.core.config import CustomFormatter, Settings
+from app.core.config import CustomFormatter, settings
+from app.core.database.mongodb_init import close_mongo_connection, connect_to_mongo
 from app.core.errors import (
     http_exception_handler,
     internal_server_error_handler,
@@ -14,23 +14,19 @@ from app.core.errors import (
     validation_exception_handler,
 )
 
-# Settings
-settings = Settings()
-
 # Logger
-logger = logging.getLogger(settings.APP_NAME)
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-ch.setFormatter(CustomFormatter())
-logger.addHandler(ch)
+rootLogger = logging.getLogger()
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(CustomFormatter())
+rootLogger.addHandler(consoleHandler)
+rootLogger.setLevel(logging.DEBUG)
 
 # FastAPI app
 app = FastAPI(title=settings.APP_NAME, openapi_url="/api/v1/openapi.json")
 
 # CORS - Set all CORS enabled origins
 origins = []
-logger.info("Set all CORS enabled origins")
+logging.info("Set all CORS enabled origins")
 if settings.BACKEND_CORS_ORIGINS:
     origins_raw = settings.BACKEND_CORS_ORIGINS.split(",")
     for origin in origins_raw:
@@ -47,11 +43,11 @@ if settings.BACKEND_CORS_ORIGINS:
 
 
 async def app_startup():
-    ...
+    await connect_to_mongo()
 
 
 async def app_shutdown():
-    ...
+    await close_mongo_connection()
 
 
 # App Events

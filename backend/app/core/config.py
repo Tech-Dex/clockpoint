@@ -21,7 +21,8 @@ class CustomFormatter(logging.Formatter):
     red = "\x1b[31;1m"
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
-    format = "%(levelname)s: %(name)s - %(asctime)s [%(threadName)s] - %(message)s (%(filename)s:%(lineno)d)"
+    format = "%(levelname)s: %(name)s -" \
+             " %(asctime)s [%(threadName)s] - %(message)s (%(filename)s:%(lineno)d)"
 
     FORMATS = {
         logging.DEBUG: grey + format + reset,

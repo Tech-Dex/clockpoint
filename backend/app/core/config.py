@@ -31,8 +31,8 @@ class Settings(BaseSettings):
         if not self.SECRET_KEY:
             self.SECRET_KEY = hexlify(os.urandom(32))
         self.MONGODB_URL = DatabaseURL(
-            f"mongodb://{self.MONGO_USER}:{self.MONGO_PASS}@{self.MONGO_HOST}:{self.MONGO_PORT}"
-            f"/{self.MONGO_DB}?authSource=admin"
+            f"mongodb://{self.MONGO_USER}:{self.MONGO_PASS}@{self.MONGO_HOST}:"
+            f"{self.MONGO_PORT}/{self.MONGO_DB}?authSource=admin"
         )
         self.DATABASE_NAME = self.MONGO_DB
 

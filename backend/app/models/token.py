@@ -6,9 +6,10 @@ from app.models.rwmodel import RWModel
 
 class TokenPayload(RWModel):
     email: str
+    username: str
 
 
 class TokenDB(DBModel, TokenPayload):
     token: str
-    scope: str
+    subject: str
     expire_datetime: datetime

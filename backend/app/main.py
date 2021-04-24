@@ -13,6 +13,12 @@ from app.core.errors import (
     not_found_error_handler,
     validation_exception_handler,
 )
+from app.routers.v1.router import (
+    HTTP_API_V1_STR,
+    WS_API_V1_STR,
+    router_http as api_v1_router_http,
+    router_ws as api_v1_router_ws,
+)
 
 # Logger
 rootLogger = logging.getLogger()
@@ -61,5 +67,5 @@ app.add_exception_handler(404, not_found_error_handler)
 app.add_exception_handler(500, internal_server_error_handler)
 
 # Routers
-# app.include_router(api_v1_router_http, prefix=HTTP_API_V1_STR)
-# app.include_router(api_v1_router_ws, prefix=WS_API_V1_STR)
+app.include_router(api_v1_router_http, prefix=HTTP_API_V1_STR)
+app.include_router(api_v1_router_ws, prefix=WS_API_V1_STR)

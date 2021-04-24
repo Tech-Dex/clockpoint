@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
     JWT_TOKEN_PREFIX: str
     SECRET_KEY: Optional[bytes]
+    ALGORITHM: str
     MONGO_HOST: str
     MONGO_PORT: int
     MONGO_USER: str

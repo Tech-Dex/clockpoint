@@ -111,9 +111,8 @@ async def update_user(
 
 
 async def delete_user(conn: AsyncIOMotorClient, user_current: UserTokenWrapper) -> bool:
-    user_db: UserDB
     user_db_id: str
-    user_db, user_db_id = await get_user_by_email(conn, user_current.email, get_id=True)
+    _, user_db_id = await get_user_by_email(conn, user_current.email, get_id=True)
 
     result: any = await conn[settings.DATABASE_NAME][COLLECTION_NAME].delete_one(
         {"_id": ObjectId(user_db_id)},

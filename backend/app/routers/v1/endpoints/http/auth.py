@@ -36,7 +36,7 @@ async def register(
     )
     async with await conn.start_session() as session, session.start_transaction():
         user_db: UserDB = await create_user(conn, user_create)
-        token = await TokenUtils.wrap_user_db_data_into_token(user_db)
+        token: str = await TokenUtils.wrap_user_db_data_into_token(user_db)
         return UserResponse(user=UserTokenWrapper(**user_db.dict(), token=token))
 
 
@@ -57,5 +57,5 @@ async def login(
         raise StarletteHTTPException(
             status_code=HTTP_400_BAD_REQUEST, detail="Invalid credentials"
         )
-    token = await TokenUtils.wrap_user_db_data_into_token(user_db)
+    token: str = await TokenUtils.wrap_user_db_data_into_token(user_db)
     return UserResponse(user=UserTokenWrapper(**user_db.dict(), token=token))

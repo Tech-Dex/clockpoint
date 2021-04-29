@@ -20,7 +20,7 @@ COLLECTION_NAME = "users"
 
 
 def check_user_object(
-    user_object: any, get_id: bool, raise_bad_request: bool
+    user_object: dict, get_id: bool, raise_bad_request: bool
 ) -> Union[Tuple[UserDB, str], UserDB]:
     if user_object:
         if get_id:
@@ -42,7 +42,7 @@ async def get_user_by_email(
     get_id: bool = False,
     raise_bad_request: bool = False,
 ) -> Union[Tuple[UserDB, str], UserDB]:
-    user_object: any = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
+    user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"email": email}
     )
     return check_user_object(user_object, get_id, raise_bad_request)
@@ -54,7 +54,7 @@ async def get_user_by_username(
     get_id: bool = False,
     raise_bad_request: bool = False,
 ) -> Union[Tuple[UserDB, str], UserDB]:
-    user_object: any = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
+    user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"username": username}
     )
     return check_user_object(user_object, get_id, raise_bad_request)
@@ -66,7 +66,7 @@ async def get_user_by_id(
     get_id: bool = False,
     raise_bad_request: bool = False,
 ) -> Union[Tuple[UserDB, str], UserDB]:
-    user_object = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
+    user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"_id": ObjectId(object_id)}
     )
     return check_user_object(user_object, get_id, raise_bad_request)

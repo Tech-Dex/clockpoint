@@ -23,7 +23,6 @@ itsdangerous==1.1.0
 Jinja2==2.11.3
 MarkupSafe==1.1.1
 motor==2.4.0
-mypy-extensions==0.4.3
 orjson==3.5.2
 pathspec==0.8.1
 promise==2.3

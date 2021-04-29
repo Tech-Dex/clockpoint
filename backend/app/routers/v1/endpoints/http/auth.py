@@ -32,7 +32,7 @@ async def register(
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> UserResponse:
     await check_availability_username_and_email(
-        conn, user_create.username, user_create.email
+        conn, user_create.email, user_create.username
     )
     async with await conn.start_session() as session, session.start_transaction():
         user_db: UserDB = await create_user(conn, user_create)

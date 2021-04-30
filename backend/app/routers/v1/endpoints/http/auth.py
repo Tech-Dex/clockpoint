@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, BackgroundTasks
 from motor.motor_asyncio import AsyncIOMotorClient
+from app.core.config import settings
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
-
+from app.services.email import background_send_new_account_email
+from fastapi_mail import FastMail
 from app.core.database.mongodb import get_database
 from app.core.jwt import TokenUtils
 from app.models.enums.token_subject import TokenSubject
@@ -18,6 +20,7 @@ from app.repositories.user import (
     create_user,
     get_user_by_email,
 )
+from app.core.smtp.smtp import get_smtp
 
 router = APIRouter()
 
@@ -29,8 +32,10 @@ router = APIRouter()
     response_model_exclude_unset=True,
 )
 async def register(
+    background_tasks: BackgroundTasks,
     user_create: UserCreate = Body(..., embed=True),
     conn: AsyncIOMotorClient = Depends(get_database),
+    smtp_conn: FastMail = Depends(get_smtp),
 ) -> UserResponse:
     await check_availability_username_and_email(
         conn, user_create.email, user_create.username
@@ -40,6 +45,12 @@ async def register(
         token: str = await TokenUtils.wrap_user_db_data_into_token(
             user_db, subject=TokenSubject.ACCESS
         )
+        token_activation: str = await TokenUtils.wrap_user_db_data_into_token(
+            user_db, subject=TokenSubject.ACTIVATE
+        )
+
+        action_link = f"{settings.FRONTEND_DNS}{settings.FRONTEND_ACTIVATION_PATH}?token={token_activation}"
+        await background_send_new_account_email(smtp_conn, background_tasks, user_db.email, action_link)
         return UserResponse(user=UserTokenWrapper(**user_db.dict(), token=token))
 
 

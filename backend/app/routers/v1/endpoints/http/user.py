@@ -6,10 +6,15 @@ from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 from app.core.database.mongodb import get_database
 from app.core.jwt import get_current_user
 from app.models.enums.token_subject import TokenSubject
+from app.models.generic_response import GenericResponse, GenericStatus
 from app.models.token import TokenDB
 from app.models.user import UserDB, UserResponse, UserTokenWrapper, UserUpdate
 from app.repositories.token import get_token
-from app.repositories.user import check_availability_username_and_email, update_user
+from app.repositories.user import (
+    check_availability_username_and_email,
+    delete_user,
+    update_user,
+)
 
 router = APIRouter()
 
@@ -72,3 +77,17 @@ async def activate_user(
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="Invalid activation"
     )
+
+
+@router.delete(
+    "/",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def delete_current_user(
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GenericResponse:
+    if await delete_user(conn, user_current):
+        return GenericResponse(status=GenericStatus.COMPLETED, message="Account deleted")

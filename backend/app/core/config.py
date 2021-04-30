@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     MAIL_TLS: bool
     MAIL_SSL: bool
     MAIL_USE_CREDENTIALS: bool
+
     def __init__(self, **values: Any):
         super().__init__(**values)
         if not self.SECRET_KEY:

@@ -1,6 +1,7 @@
 import logging
 
 from fastapi_mail import ConnectionConfig, FastMail
+
 from app.core.config import settings
 from app.core.smtp.smtp import smtp
 

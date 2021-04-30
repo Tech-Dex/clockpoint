@@ -31,7 +31,7 @@ async def current_user(
     return UserResponse(user=user_current)
 
 
-@router.get(
+@router.put(
     "/",
     response_model=UserResponse,
     status_code=HTTP_200_OK,

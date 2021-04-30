@@ -5,6 +5,7 @@ from starlette.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 
 from app.core.database.mongodb import get_database
 from app.core.jwt import TokenUtils
+from app.models.enums.token_subject import TokenSubject
 from app.models.user import (
     UserCreate,
     UserDB,
@@ -17,7 +18,6 @@ from app.repositories.user import (
     create_user,
     get_user_by_email,
 )
-from app.models.enums.token_subject import TokenSubject
 
 router = APIRouter()
 

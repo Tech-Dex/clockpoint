@@ -152,3 +152,15 @@ async def check_availability_username_and_email(
                 status_code=HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="User with this username already exists",
             )
+
+
+async def check_user_active(
+    conn: Optional[AsyncIOMotorClient],
+    user_db: Optional[UserDB],
+    user_email: Optional[str],
+):
+    if user_db:
+        return user_db.is_active
+
+    user_db = await get_user_by_email(conn, user_email)
+    return user_db.is_active

@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Body, Depends
 from motor.motor_asyncio import AsyncIOMotorClient
-from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+
 from app.core.database.mongodb import get_database
 from app.core.jwt import get_current_user
-from app.models.user import UserResponse, UserTokenWrapper, UserUpdate, UserDB
-from app.repositories.user import check_availability_username_and_email, update_user
-from app.models.token import TokenDB
-from app.repositories.token import get_token
 from app.models.enums.token_subject import TokenSubject
+from app.models.token import TokenDB
+from app.models.user import UserDB, UserResponse, UserTokenWrapper, UserUpdate
+from app.repositories.token import get_token
+from app.repositories.user import check_availability_username_and_email, update_user
 
 router = APIRouter()
 
@@ -60,10 +61,12 @@ async def update_current_user(
 async def activate_user(
     user_current: UserTokenWrapper = Depends(get_current_user),
     conn: AsyncIOMotorClient = Depends(get_database),
-):
+) -> UserResponse:
     token_db: TokenDB = await get_token(conn, user_current.token)
     if token_db.subject == TokenSubject.ACTIVATE:
-        user_db: UserDB = await update_user(conn, user_current, UserUpdate(is_active=True))
+        user_db: UserDB = await update_user(
+            conn, user_current, UserUpdate(is_active=True)
+        )
         return UserResponse(user=UserTokenWrapper(**user_db.dict()))
 
     raise StarletteHTTPException(

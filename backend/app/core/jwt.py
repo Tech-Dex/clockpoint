@@ -9,16 +9,18 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from app.core.config import settings
 from app.core.database.mongodb import get_database
+from app.models.enums.token_subject import TokenSubject
 from app.models.token import TokenDB, TokenPayload
 from app.models.user import UserDB, UserTokenWrapper
 from app.repositories.token import save_token
-from app.models.enums.token_subject import TokenSubject
 from app.repositories.user import get_user_by_email
 
 
 class TokenUtils:
     @classmethod
-    async def wrap_user_db_data_into_token(cls, user_db: UserDB, subject: TokenSubject) -> str:
+    async def wrap_user_db_data_into_token(
+        cls, user_db: UserDB, subject: TokenSubject
+    ) -> str:
         token_expires_delta: timedelta = timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )

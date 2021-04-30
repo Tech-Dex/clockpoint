@@ -4,6 +4,7 @@ from pydantic.networks import EmailStr
 
 from app.models.dbmodel import DBModel
 from app.models.rwmodel import RWModel
+from app.models.enums.token_subject import TokenSubject
 
 
 class TokenPayload(RWModel):
@@ -13,5 +14,5 @@ class TokenPayload(RWModel):
 
 class TokenDB(DBModel, TokenPayload):
     token: str
-    subject: str
+    subject: TokenSubject
     expire_datetime: datetime

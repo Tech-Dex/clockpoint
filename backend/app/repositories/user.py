@@ -24,7 +24,7 @@ def check_user_object(
 ) -> Union[Tuple[UserDB, str], UserDB]:
     if user_object:
         if get_id:
-            return Tuple[UserDB(**user_object), user_object.get("_id")]
+            return UserDB(**user_object), user_object.get("_id")
         return UserDB(**user_object)
 
     if raise_bad_request:

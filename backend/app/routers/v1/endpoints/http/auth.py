@@ -17,6 +17,7 @@ from app.repositories.user import (
     create_user,
     get_user_by_email,
 )
+from app.models.enums.token_subject import TokenSubject
 
 router = APIRouter()
 
@@ -36,7 +37,9 @@ async def register(
     )
     async with await conn.start_session() as session, session.start_transaction():
         user_db: UserDB = await create_user(conn, user_create)
-        token: str = await TokenUtils.wrap_user_db_data_into_token(user_db)
+        token: str = await TokenUtils.wrap_user_db_data_into_token(
+            user_db, subject=TokenSubject.ACCESS
+        )
         return UserResponse(user=UserTokenWrapper(**user_db.dict(), token=token))
 
 
@@ -57,5 +60,7 @@ async def login(
         raise StarletteHTTPException(
             status_code=HTTP_400_BAD_REQUEST, detail="Invalid credentials"
         )
-    token: str = await TokenUtils.wrap_user_db_data_into_token(user_db)
+    token: str = await TokenUtils.wrap_user_db_data_into_token(
+        user_db, subject=TokenSubject.ACCESS
+    )
     return UserResponse(user=UserTokenWrapper(**user_db.dict(), token=token))

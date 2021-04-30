@@ -62,6 +62,7 @@ class TokenUtils:
 def get_token(
     authorization: Optional[str] = Header(None),
     activation: Optional[str] = Header(None),
+    recovery: Optional[str] = Header(None),
 ) -> str:
     token: str
     if authorization:
@@ -76,6 +77,13 @@ def get_token(
         if settings.JWT_TOKEN_PREFIX != prefix:
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="Invalid activation"
+            )
+        return token
+    if recovery:
+        prefix, token = recovery.split(" ")
+        if settings.JWT_TOKEN_PREFIX != prefix:
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Invalid recover"
             )
         return token
 

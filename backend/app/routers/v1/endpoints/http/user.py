@@ -8,7 +8,13 @@ from app.core.jwt import get_current_user
 from app.models.enums.token_subject import TokenSubject
 from app.models.generic_response import GenericResponse, GenericStatus
 from app.models.token import TokenDB
-from app.models.user import UserDB, UserResponse, UserTokenWrapper, UserUpdate
+from app.models.user import (
+    UserDB,
+    UserRecover,
+    UserResponse,
+    UserTokenWrapper,
+    UserUpdate,
+)
 from app.repositories.token import get_token
 from app.repositories.user import (
     check_availability_username_and_email,
@@ -58,7 +64,7 @@ async def update_current_user(
 
 
 @router.patch(
-    "/",
+    "/activate",
     response_model=UserResponse,
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
@@ -77,6 +83,25 @@ async def activate_user(
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="Invalid activation"
     )
+
+
+@router.patch(
+    "/recover",
+    response_model=UserResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def recover_user_password(
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    user_recover: UserRecover = Body(..., embed=True),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> UserResponse:
+    token_db: TokenDB = await get_token(conn, user_current.token)
+    if token_db.subject == TokenSubject.RECOVER:
+        user_db: UserDB = await update_user(
+            conn, user_current, UserUpdate(password=user_recover.password)
+        )
+        return UserResponse(user=UserTokenWrapper(**user_db.dict()))
 
 
 @router.delete(

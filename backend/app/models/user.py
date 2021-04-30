@@ -63,3 +63,7 @@ class UserUpdate(RWModel):
     last_name: Optional[str] = None
     username: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class UserRecover(RWModel):
+    password: str = None

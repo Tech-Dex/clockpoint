@@ -5,6 +5,7 @@ from typing import List
 class TokenSubject(str, Enum):
     ACCESS: str = "ACCESS"
     ACTIVATE: str = "ACTIVATE"
+    RECOVER: str = "RECOVER"
 
     @classmethod
     def has_value(cls, value) -> bool:

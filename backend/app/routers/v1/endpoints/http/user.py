@@ -90,4 +90,6 @@ async def delete_current_user(
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> GenericResponse:
     if await delete_user(conn, user_current):
-        return GenericResponse(status=GenericStatus.COMPLETED, message="Account deleted")
+        return GenericResponse(
+            status=GenericStatus.COMPLETED, message="Account deleted"
+        )

@@ -27,7 +27,14 @@ class Settings(BaseSettings):
     DATABASE_NAME: Optional[str]
     MAX_CONNECTIONS_COUNT: str
     MIN_CONNECTIONS_COUNT: str
-
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_PORT: int
+    MAIL_SERVER: str
+    MAIL_TLS: bool
+    MAIL_SSL: bool
+    MAIL_USE_CREDENTIALS: bool
     def __init__(self, **values: Any):
         super().__init__(**values)
         if not self.SECRET_KEY:

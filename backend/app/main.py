@@ -13,6 +13,7 @@ from app.core.errors import (
     not_found_error_handler,
     validation_exception_handler,
 )
+from app.core.smtp.smtp_init import close_smtp_connection, connect_to_smtp
 from app.routers.v1.router import (
     HTTP_API_V1_STR,
     WS_API_V1_STR,
@@ -50,10 +51,12 @@ if settings.BACKEND_CORS_ORIGINS:
 
 async def app_startup():
     await connect_to_mongo()
+    await connect_to_smtp()
 
 
 async def app_shutdown():
     await close_mongo_connection()
+    await close_smtp_connection()
 
 
 # App Events

@@ -50,7 +50,7 @@ async def register(
             user_db, subject=TokenSubject.ACTIVATE
         )
 
-        action_link = f"{settings.FRONTEND_DNS}{settings.FRONTEND_ACTIVATION_PATH}?token={token_activation}"
+        action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_ACTIVATION_PATH}?token={token_activation}"
         await background_send_new_account_email(
             smtp_conn, background_tasks, user_db.email, action_link
         )

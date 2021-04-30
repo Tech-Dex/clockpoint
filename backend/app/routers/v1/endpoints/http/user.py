@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Body, Depends
+from typing import AnyStr, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
+from fastapi_mail import FastMail
+from httpagentparser import simple_detect
 from motor.motor_asyncio import AsyncIOMotorClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
+from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
+from app.core.config import settings
 from app.core.database.mongodb import get_database
-from app.core.jwt import get_current_user
+from app.core.jwt import TokenUtils, get_current_user
+from app.core.smtp.smtp import get_smtp
 from app.models.enums.token_subject import TokenSubject
 from app.models.generic_response import GenericResponse, GenericStatus
 from app.models.token import TokenDB
@@ -19,8 +25,10 @@ from app.repositories.token import get_token
 from app.repositories.user import (
     check_availability_username_and_email,
     delete_user,
+    get_user_by_email,
     update_user,
 )
+from services.email import background_send_recovery_email
 
 router = APIRouter()
 
@@ -31,7 +39,7 @@ router = APIRouter()
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
 )
-async def current_user(
+async def current(
     user_current: UserTokenWrapper = Depends(get_current_user),
 ) -> UserResponse:
     return UserResponse(user=user_current)
@@ -43,7 +51,7 @@ async def current_user(
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
 )
-async def update_current_user(
+async def update_current(
     user_update: UserUpdate = Body(..., embed=True),
     user_current: UserTokenWrapper = Depends(get_current_user),
     conn: AsyncIOMotorClient = Depends(get_database),
@@ -69,7 +77,7 @@ async def update_current_user(
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
 )
-async def activate_user(
+async def activate(
     user_current: UserTokenWrapper = Depends(get_current_user),
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> UserResponse:
@@ -85,23 +93,61 @@ async def activate_user(
     )
 
 
-@router.patch(
+@router.post(
     "/recover",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def recover(
+    background_tasks: BackgroundTasks,
+    user_agent: Optional[str] = Header(None),
+    user_recover: UserRecover = Body(..., embed=True),
+    conn: AsyncIOMotorClient = Depends(get_database),
+    smtp_conn: FastMail = Depends(get_smtp),
+) -> GenericResponse:
+    user_db: UserDB = await get_user_by_email(conn, user_recover.email)
+    if user_db.username == user_recover.username:
+        os: str
+        browser: str
+        os, browser = simple_detect(user_agent)
+        token_recovery: str = await TokenUtils.wrap_user_db_data_into_token(
+            user_db, subject=TokenSubject.RECOVER
+        )
+        action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_RECOVERY_PATH}?token={token_recovery}"
+        await background_send_recovery_email(
+            smtp_conn, background_tasks, user_db.email, action_link, os, browser
+        )
+        return GenericResponse(
+            status=GenericStatus.RUNNING,
+            message="Recovery account email has been processed",
+        )
+    raise StarletteHTTPException(
+        status_code=HTTP_404_NOT_FOUND, detail="This user doesn't exist"
+    )
+
+
+@router.patch(
+    "/password",
     response_model=UserResponse,
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
 )
-async def recover_user_password(
+async def change_password(
     user_current: UserTokenWrapper = Depends(get_current_user),
-    user_recover: UserRecover = Body(..., embed=True),
+    password: AnyStr = Body(..., embed=True),
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> UserResponse:
     token_db: TokenDB = await get_token(conn, user_current.token)
     if token_db.subject == TokenSubject.RECOVER:
         user_db: UserDB = await update_user(
-            conn, user_current, UserUpdate(password=user_recover.password)
+            conn, user_current, UserUpdate(password=password)
         )
         return UserResponse(user=UserTokenWrapper(**user_db.dict()))
+
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="Invalid recovery"
+    )
 
 
 @router.delete(
@@ -110,7 +156,7 @@ async def recover_user_password(
     status_code=HTTP_200_OK,
     response_model_exclude_unset=True,
 )
-async def delete_current_user(
+async def delete_current(
     user_current: UserTokenWrapper = Depends(get_current_user),
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> GenericResponse:

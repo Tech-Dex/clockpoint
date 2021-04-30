@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     MAIL_USE_CREDENTIALS: bool
     FRONTEND_DNS: str
     FRONTEND_ACTIVATION_PATH: str
+    FRONTEND_RECOVERY_PATH: str
 
     def __init__(self, **values: Any):
         super().__init__(**values)

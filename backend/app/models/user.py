@@ -66,4 +66,5 @@ class UserUpdate(RWModel):
 
 
 class UserRecover(RWModel):
-    password: str = None
+    email: EmailStr
+    username: str

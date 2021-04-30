@@ -97,16 +97,16 @@ async def get_current_user(
     token: str = Depends(get_token),
 ) -> UserTokenWrapper:
     try:
-        payload = decode(
+        payload: dict = decode(
             token, str(settings.SECRET_KEY), algorithms=[settings.ALGORITHM]
         )
-        token_data = TokenPayload(**payload)
+        token_data: TokenPayload = TokenPayload(**payload)
     except PyJWTError:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials"
         )
 
-    user_db = await get_user_by_email(conn, token_data.email)
+    user_db: UserDB = await get_user_by_email(conn, token_data.email)
     if not user_db:
         raise StarletteHTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="This user doesn't exist"

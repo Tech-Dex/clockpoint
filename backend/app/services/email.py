@@ -21,13 +21,50 @@ async def background_send_new_account_email(
     button_link["href"] = button_link["href"].replace("{{action_link}}", action_link)
 
     fallback_link: Union[Tag, NavigableString] = soup.find(id="fallback-link").find("a")
-    fallback_link["href"] = fallback_link["href"].replace(
+    fallback_link["href"]: str = fallback_link["href"].replace(
         "{{action_link}}", action_link
     )
     fallback_link.string = action_link
 
     message_schema: MessageSchema = MessageSchema(
         subject="Welcome to Clockpoint",
+        recipients=[email],
+        body=str(soup),
+        subtype="html",
+    )
+    background_tasks.add_task(smtp_conn.send_message, message_schema)
+
+
+async def background_send_recovery_email(
+    smtp_conn: FastMail,
+    background_tasks: BackgroundTasks,
+    email: EmailStr,
+    action_link: str,
+    os: str,
+    browser: str,
+):
+    with open("email-templates/recovery_account.html") as html_file:
+        text: AnyStr = html_file.read()
+        soup: BeautifulSoup = BeautifulSoup(text, "lxml")
+
+    button_link: Union[Tag, NavigableString] = soup.find(id="button-link").find("a")
+    button_link["href"] = button_link["href"].replace("{{action_link}}", action_link)
+
+    fallback_link: Union[Tag, NavigableString] = soup.find(id="fallback-link").find("a")
+    fallback_link["href"]: str = fallback_link["href"].replace(
+        "{{action_link}}", action_link
+    )
+    fallback_link.string = action_link
+
+    security_details: Union[Tag, NavigableString] = soup.find(id="security-details")
+    security_details.contents[0].replace_with(
+        security_details.contents[0]
+        .replace("{{operating_system}}", os)
+        .replace("{{browser_name}}", browser)
+    )
+
+    message_schema: MessageSchema = MessageSchema(
+        subject="Clockpoint Account Recovery",
         recipients=[email],
         body=str(soup),
         subtype="html",

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import AnyStr, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
@@ -118,8 +118,11 @@ async def recover(
         os: str
         browser: str
         os, browser = simple_detect(user_agent)
+        token_recovery_expires_delta = timedelta(minutes=60 * 24 * 1)  # 24 hours
         token_recovery: str = await TokenUtils.wrap_user_db_data_into_token(
-            user_db, subject=TokenSubject.RECOVER
+            user_db,
+            subject=TokenSubject.RECOVER,
+            token_expires_delta=token_recovery_expires_delta,
         )
         action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_RECOVERY_PATH}?token={token_recovery}"
         await background_send_recovery_email(

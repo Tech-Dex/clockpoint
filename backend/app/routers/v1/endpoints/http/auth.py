@@ -50,7 +50,9 @@ async def register(
         )
         token_activation_expires_delta = timedelta(minutes=60 * 24 * 7)  # 7 days
         token_activation: str = await TokenUtils.wrap_user_db_data_into_token(
-            user_db, subject=TokenSubject.ACTIVATE, token_expires_delta=token_activation_expires_delta
+            user_db,
+            subject=TokenSubject.ACTIVATE,
+            token_expires_delta=token_activation_expires_delta,
         )
 
         action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_ACTIVATION_PATH}?token={token_activation}"

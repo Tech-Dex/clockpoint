@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic.networks import EmailStr
 
@@ -16,3 +17,9 @@ class TokenDB(DBModel, TokenPayload):
     token: str
     subject: TokenSubject
     expire_datetime: datetime
+    used_at: Optional[datetime]
+
+
+class TokenUpdate(RWModel):
+    token: str
+    used_at: Optional[datetime] = None

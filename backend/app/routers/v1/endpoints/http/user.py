@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import AnyStr, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
@@ -13,7 +14,7 @@ from app.core.jwt import TokenUtils, get_current_user
 from app.core.smtp.smtp import get_smtp
 from app.models.enums.token_subject import TokenSubject
 from app.models.generic_response import GenericResponse, GenericStatus
-from app.models.token import TokenDB
+from app.models.token import TokenDB, TokenUpdate
 from app.models.user import (
     UserDB,
     UserRecover,
@@ -21,7 +22,7 @@ from app.models.user import (
     UserTokenWrapper,
     UserUpdate,
 )
-from app.repositories.token import get_token
+from app.repositories.token import get_token, update_token
 from app.repositories.user import (
     check_availability_username_and_email,
     delete_user,
@@ -62,12 +63,10 @@ async def update_current(
     user_update.email = (
         None if user_update.email == user_current.email else user_update.email
     )
-
     await check_availability_username_and_email(
         conn, user_update.email, user_update.username
     )
     user_db: UserDB = await update_user(conn, user_current, user_update)
-
     return UserResponse(user=UserTokenWrapper(**user_db.dict()))
 
 
@@ -83,11 +82,19 @@ async def activate(
 ) -> UserResponse:
     token_db: TokenDB = await get_token(conn, user_current.token)
     if token_db.subject == TokenSubject.ACTIVATE:
-        user_db: UserDB = await update_user(
-            conn, user_current, UserUpdate(is_active=True)
+        if not token_db.used_at:
+            user_db: UserDB = await update_user(
+                conn, user_current, UserUpdate(is_active=True)
+            )
+            await update_token(
+                conn,
+                TokenUpdate(token=token_db.token, used_at=datetime.utcnow()),
+                get_id=True,
+            )
+            return UserResponse(user=UserTokenWrapper(**user_db.dict()))
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Token has expired"
         )
-        return UserResponse(user=UserTokenWrapper(**user_db.dict()))
-
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="Invalid activation"
     )
@@ -140,11 +147,19 @@ async def change_password(
 ) -> UserResponse:
     token_db: TokenDB = await get_token(conn, user_current.token)
     if token_db.subject == TokenSubject.RECOVER:
-        user_db: UserDB = await update_user(
-            conn, user_current, UserUpdate(password=password)
+        if not token_db.used_at:
+            user_db: UserDB = await update_user(
+                conn, user_current, UserUpdate(password=password)
+            )
+            await update_token(
+                conn,
+                TokenUpdate(token=token_db.token, used_at=datetime.utcnow()),
+                get_id=True,
+            )
+            return UserResponse(user=UserTokenWrapper(**user_db.dict()))
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Token has expired"
         )
-        return UserResponse(user=UserTokenWrapper(**user_db.dict()))
-
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="Invalid recovery"
     )

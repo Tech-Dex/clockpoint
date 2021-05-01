@@ -19,11 +19,13 @@ from app.repositories.user import get_user_by_email
 class TokenUtils:
     @classmethod
     async def wrap_user_db_data_into_token(
-        cls, user_db: UserDB, subject: TokenSubject
-    ) -> str:
+        cls,
+        user_db: UserDB,
+        subject: TokenSubject,
         token_expires_delta: timedelta = timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        ),
+    ) -> str:
         token: str = await cls.create_token(
             data={
                 "email": user_db.email,

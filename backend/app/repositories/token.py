@@ -71,7 +71,6 @@ async def get_tokens_by_subject_and_lt_datetime(
         }
     )
     if not used:
-        del tokens_object
         tokens_object: dict = conn[settings.DATABASE_NAME][COLLECTION_NAME].find(
             {
                 "subject": subject,

@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 
 from bson.objectid import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 
@@ -27,6 +28,25 @@ def check_token_object(
     )
 
 
+async def fetch_async_tokens(
+    tokens_object: dict, get_ids
+) -> List[Union[Tuple[TokenDB, ObjectId], TokenDB]]:
+    if get_ids:
+        tokens_db: List[Tuple[TokenDB, ObjectId]] = []
+        async for token_object in tokens_object:
+            token_db: Tuple[TokenDB, ObjectId] = check_token_object(
+                token_object, get_id=get_ids
+            )
+            tokens_db.append(token_db)
+        return tokens_db
+
+    tokens_db: List[TokenDB] = []
+    async for token_object in tokens_object:
+        token_db: TokenDB = check_token_object(token_object, get_id=get_ids)
+        tokens_db.append(token_db)
+    return tokens_db
+
+
 async def get_token(
     conn: AsyncIOMotorClient, token: str, get_id: bool = False
 ) -> TokenDB:
@@ -42,7 +62,7 @@ async def get_tokens_by_subject_and_lt_datetime(
     needle_datetime: datetime,
     get_ids: bool = False,
     used: bool = True,
-) -> List[Union[TokenDB, Tuple[TokenDB, ObjectId]]]:
+) -> List[Union[Tuple[TokenDB, ObjectId], TokenDB]]:
     tokens_object: dict = conn[settings.DATABASE_NAME][COLLECTION_NAME].find(
         {
             "subject": subject,
@@ -60,20 +80,16 @@ async def get_tokens_by_subject_and_lt_datetime(
                 "deleted": False,
             }
         )
-    if get_ids:
-        tokens_db: List[Tuple[TokenDB, ObjectId]] = []
-        async for token_object in tokens_object:
-            token_db: Tuple[TokenDB, ObjectId] = check_token_object(
-                token_object, get_id=get_ids
-            )
-            tokens_db.append(token_db)
-        return tokens_db
+    return await fetch_async_tokens(tokens_object, get_ids)
 
-    tokens_db: List[TokenDB] = []
-    async for token_object in tokens_object:
-        token_db: TokenDB = check_token_object(token_object, get_id=get_ids)
-        tokens_db.append(token_db)
-    return tokens_db
+
+async def get_tokens_by_email(
+    conn: AsyncIOMotorClient, email: EmailStr, get_ids: bool = False
+) -> List[Union[Tuple[TokenDB, ObjectId], TokenDB]]:
+    tokens_object: dict = conn[settings.DATABASE_NAME][COLLECTION_NAME].find(
+        {"email": email}
+    )
+    return await fetch_async_tokens(tokens_object, get_ids)
 
 
 async def save_token(token: TokenDB) -> TokenDB:

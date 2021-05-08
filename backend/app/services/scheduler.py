@@ -7,7 +7,11 @@ from app.core.scheduler.apscheduler import get_scheduler
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import TokenDB, TokenUpdate
 from app.models.user import UserDB, UserTokenWrapper
-from app.repositories.token import get_tokens_by_subject_and_lt_datetime, update_token
+from app.repositories.token import (
+    get_tokens_by_email,
+    get_tokens_by_subject_and_lt_datetime,
+    update_token,
+)
 from app.repositories.user import delete_user, get_user_by_email
 
 DELETE_INACTIVE_USERS_ID = "delete_inactive_users"
@@ -39,4 +43,10 @@ class Scheduler:
         for token_db in tokens_db:
             user_db: UserDB = await get_user_by_email(conn, token_db.email)
             await delete_user(conn, UserTokenWrapper(**user_db.dict()))
-            await update_token(conn, TokenUpdate(token=token_db.token, deleted=True))
+            tokens_db_current_email: List[TokenDB] = await get_tokens_by_email(
+                conn, token_db.email
+            )
+            for token_db_current_email in tokens_db_current_email:
+                await update_token(
+                    conn, TokenUpdate(token=token_db_current_email.token, deleted=True)
+                )

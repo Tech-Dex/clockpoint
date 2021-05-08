@@ -13,6 +13,7 @@ from app.core.errors import (
     not_found_error_handler,
     validation_exception_handler,
 )
+from app.core.scheduler.apscheduler_init import close_scheduler, connect_scheduler
 from app.core.smtp.smtp_init import close_smtp_connection, connect_to_smtp
 from app.routers.v1.router import (
     HTTP_API_V1_STR,
@@ -20,13 +21,14 @@ from app.routers.v1.router import (
     router_http as api_v1_router_http,
     router_ws as api_v1_router_ws,
 )
+from app.services.scheduler import Scheduler
 
 # Logger
 rootLogger = logging.getLogger()
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(CustomFormatter())
 rootLogger.addHandler(consoleHandler)
-rootLogger.setLevel(logging.DEBUG)
+rootLogger.setLevel(logging.INFO)
 
 # FastAPI app
 app = FastAPI(title=settings.APP_NAME, openapi_url="/api/v1/openapi.json")
@@ -52,11 +54,15 @@ if settings.BACKEND_CORS_ORIGINS:
 async def app_startup():
     await connect_to_mongo()
     await connect_to_smtp()
+    await connect_scheduler()
+    await Scheduler.start_scheduler()
 
 
 async def app_shutdown():
     await close_mongo_connection()
     await close_smtp_connection()
+    await Scheduler.stop_scheduler()
+    await close_scheduler()
 
 
 # App Events

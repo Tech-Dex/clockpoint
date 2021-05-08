@@ -87,9 +87,7 @@ async def activate(
                 conn, user_current, UserUpdate(is_active=True)
             )
             await update_token(
-                conn,
-                TokenUpdate(token=token_db.token, used_at=datetime.utcnow()),
-                get_id=True,
+                conn, TokenUpdate(token=token_db.token, used_at=datetime.utcnow())
             )
             return UserResponse(user=UserTokenWrapper(**user_db.dict()))
         raise StarletteHTTPException(
@@ -155,9 +153,7 @@ async def change_password(
                 conn, user_current, UserUpdate(password=password)
             )
             await update_token(
-                conn,
-                TokenUpdate(token=token_db.token, used_at=datetime.utcnow()),
-                get_id=True,
+                conn, TokenUpdate(token=token_db.token, used_at=datetime.utcnow())
             )
             return UserResponse(user=UserTokenWrapper(**user_db.dict()))
         raise StarletteHTTPException(

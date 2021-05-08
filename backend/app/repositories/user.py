@@ -21,7 +21,7 @@ COLLECTION_NAME = "users"
 
 def check_user_object(
     user_object: dict, get_id: bool, raise_bad_request: bool
-) -> Union[Tuple[UserDB, str], UserDB]:
+) -> Union[Tuple[UserDB, ObjectId], UserDB]:
     if user_object:
         if get_id:
             return UserDB(**user_object), user_object.get("_id")
@@ -41,7 +41,7 @@ async def get_user_by_email(
     email: EmailStr,
     get_id: bool = False,
     raise_bad_request: bool = False,
-) -> Union[Tuple[UserDB, str], UserDB]:
+) -> Union[Tuple[UserDB, ObjectId], UserDB]:
     user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"email": email}
     )
@@ -53,7 +53,7 @@ async def get_user_by_username(
     username: str,
     get_id: bool = False,
     raise_bad_request: bool = False,
-) -> Union[Tuple[UserDB, str], UserDB]:
+) -> Union[Tuple[UserDB, ObjectId], UserDB]:
     user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"username": username}
     )
@@ -65,7 +65,7 @@ async def get_user_by_id(
     object_id: str,
     get_id: bool = False,
     raise_bad_request: bool = False,
-) -> Union[Tuple[UserDB, str], UserDB]:
+) -> Union[Tuple[UserDB, ObjectId], UserDB]:
     user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
         {"_id": ObjectId(object_id)}
     )
@@ -83,7 +83,7 @@ async def update_user(
     conn: AsyncIOMotorClient, user_current: UserTokenWrapper, user_update: UserUpdate
 ) -> UserDB:
     user_db: UserDB
-    user_db_id: str
+    user_db_id: ObjectId
     user_db, user_db_id = await get_user_by_email(conn, user_current.email, get_id=True)
 
     user_db.updated_at = datetime.utcnow()
@@ -104,18 +104,18 @@ async def update_user(
         user_db.change_password(user_update.password)
 
     await conn[settings.DATABASE_NAME][COLLECTION_NAME].update_one(
-        {"_id": ObjectId(user_db_id)}, {"$set": user_db.dict()}
+        {"_id": user_db_id}, {"$set": user_db.dict()}
     )
 
     return user_db
 
 
 async def delete_user(conn: AsyncIOMotorClient, user_current: UserTokenWrapper) -> bool:
-    user_db_id: str
+    user_db_id: ObjectId
     _, user_db_id = await get_user_by_email(conn, user_current.email, get_id=True)
 
     result: any = await conn[settings.DATABASE_NAME][COLLECTION_NAME].delete_one(
-        {"_id": ObjectId(user_db_id)},
+        {"_id": user_db_id},
     )
     if result.deleted_count:
         return True

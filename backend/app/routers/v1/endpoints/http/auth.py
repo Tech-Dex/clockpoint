@@ -48,7 +48,9 @@ async def register(
         token: str = await TokenUtils.wrap_user_db_data_into_token(
             user_db, subject=TokenSubject.ACCESS
         )
-        token_activation_expires_delta = timedelta(minutes=60 * 24 * 7)  # 7 days
+        token_activation_expires_delta = timedelta(
+            minutes=settings.ACTIVATE_TOKEN_EXPIRE_MINUTES
+        )  # 7 days
         token_activation: str = await TokenUtils.wrap_user_db_data_into_token(
             user_db,
             subject=TokenSubject.ACTIVATE,

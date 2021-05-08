@@ -22,4 +22,5 @@ class TokenDB(DBModel, TokenPayload):
 
 class TokenUpdate(RWModel):
     token: str
+    deleted: Optional[bool] = None
     used_at: Optional[datetime] = None

@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[bytes]
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 8  # 60 minutes * 24 hours * 8 days = 8 days
-    ACTIVATE_TOKEN_EXPIRE_MINUTES = 1  # 60 minutes * 24 hours * 7 days = 7 days
-    SCHEDULER_INACTIVE_USERS = 10 * 1  # 60 seconds * 1 minute = 1 minute
+    ACTIVATE_TOKEN_EXPIRE_MINUTES = (
+        60 * 24 * 7
+    )  # 60 minutes * 24 hours * 7 days = 7 days
+    SCHEDULER_INACTIVE_USERS = 60 * 1  # 60 seconds * 1 minute = 1 minute
     MONGO_HOST: str
     MONGO_PORT: int
     MONGO_USER: str

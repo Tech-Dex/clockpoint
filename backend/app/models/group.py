@@ -72,6 +72,10 @@ class GroupResponse(RWModel):
     group: GroupIdWrapper
 
 
+class GroupsResponse(RWModel):
+    groups: List[GroupIdWrapper]
+
+
 class GroupCreate(RWModel):
     name: str
     details: str

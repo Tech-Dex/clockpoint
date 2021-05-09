@@ -1,7 +1,7 @@
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 
 from bson.objectid import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCursor
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 
@@ -25,6 +25,19 @@ def check_group_object(
     )
 
 
+async def fetch_async_groups(
+    groups_object: AsyncIOMotorCursor,
+) -> List[Tuple[GroupDB, ObjectId]]:
+    groups_db: List[Tuple[GroupDB, ObjectId]] = []
+    async for group_object in groups_object:
+        group_db: Tuple[GroupDB, ObjectId] = check_group_object(
+            group_object, get_id=True
+        )
+        groups_db.append(group_db)
+
+    return groups_db
+
+
 async def get_group_by_id(
     conn: AsyncIOMotorClient,
     group_id: str,
@@ -34,6 +47,23 @@ async def get_group_by_id(
         {"_id": ObjectId(group_id)}
     )
     return check_group_object(group_object, get_id)
+
+
+async def get_groups_by_user(
+    conn: AsyncIOMotorClient, user_base: UserBase
+) -> List[Tuple[GroupDB, ObjectId]]:
+    groups_object_as_owner: AsyncIOMotorCursor = conn[settings.DATABASE_NAME][
+        COLLECTION_NAME
+    ].find({"owner.email": user_base.email})
+    # groups_object_as_co_owner: AsyncIOMotorCursor = None
+    # groups_object_as_member: AsyncIOMotorCursor = None
+
+    groups_db_as_owner: List[Tuple[GroupDB, ObjectId]] = await fetch_async_groups(
+        groups_object_as_owner
+    )
+    # groups_db_as_co_owner: List[Tuple[GroupDB, ObjectId]]  = await fetch_async_groups(groups_object_as_co_owner)
+    # groups_db_as_member: List[Tuple[GroupDB, ObjectId]]  = await fetch_async_groups(groups_object_as_member)
+    return [*groups_db_as_owner]
 
 
 async def create_group(

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import List, Tuple
 
 from bson.objectid import ObjectId
 from fastapi import APIRouter, BackgroundTasks, Body, Depends
@@ -20,13 +21,35 @@ from app.models.group import (
     GroupIdWrapper,
     GroupInvite,
     GroupResponse,
+    GroupsResponse,
 )
 from app.models.user import UserBase, UserDB, UserTokenWrapper
-from app.repositories.group import create_group, get_group_by_id
+from app.repositories.group import create_group, get_group_by_id, get_groups_by_user
 from app.repositories.user import get_user_by_email
 from app.services.email import background_send_group_invite_email
 
 router = APIRouter()
+
+
+@router.get(
+    "/",
+    response_model=GroupsResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def groups(
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GroupsResponse:
+    groups_db: List[Tuple[GroupDB, ObjectId]] = await get_groups_by_user(
+        conn, UserBase(**user_current.dict())
+    )
+
+    groups_id_wrapper: List[GroupIdWrapper] = []
+    for group_db, group_db_id in groups_db:
+        groups_id_wrapper.append(GroupIdWrapper(**group_db.dict(), id=str(group_db_id)))
+
+    return GroupsResponse(groups=groups_id_wrapper)
 
 
 @router.get(

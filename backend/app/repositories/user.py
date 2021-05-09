@@ -62,18 +62,18 @@ async def get_user_by_username(
 
 async def get_user_by_id(
     conn: AsyncIOMotorClient,
-    object_id: str,
+    user_id: str,
     get_id: bool = False,
     raise_bad_request: bool = False,
 ) -> Union[Tuple[UserDB, ObjectId], UserDB]:
     user_object: dict = await conn[settings.DATABASE_NAME][COLLECTION_NAME].find_one(
-        {"_id": ObjectId(object_id)}
+        {"_id": ObjectId(user_id)}
     )
     return check_user_object(user_object, get_id, raise_bad_request)
 
 
 async def create_user(conn: AsyncIOMotorClient, user_create: UserCreate) -> UserDB:
-    user_db = UserDB(**user_create.dict())
+    user_db: UserDB = UserDB(**user_create.dict())
     user_db.change_password(user_create.password)
     await conn[settings.DATABASE_NAME][COLLECTION_NAME].insert_one(user_db.dict())
     return user_db

@@ -34,11 +34,7 @@ class GroupDB(DBModel, GroupBase):
     def add_member(self, user: UserBase):
         user_member: Union[UserBase, bool] = self.user_is_member(user)
         user_co_owner: Union[UserBase, bool] = self.user_is_co_owner(user)
-        if (
-                not user_member
-                and not user_co_owner
-                and not self.user_is_owner(user)
-        ):
+        if not user_member and not user_co_owner and not self.user_is_owner(user):
             self.members.append(user)
 
     def remove_member(self, user: UserBase):
@@ -82,7 +78,9 @@ class GroupDB(DBModel, GroupBase):
         :param user: user entity that was created to query based on email
         :return: Object inside self.members or False
         """
-        members: List[UserBase] = [member for member in self.members if member.email == user.email]
+        members: List[UserBase] = [
+            member for member in self.members if member.email == user.email
+        ]
         if len(members) == 1:
             return members[0]
         if not members:
@@ -98,7 +96,9 @@ class GroupDB(DBModel, GroupBase):
         :param user: user entity that was created to query based on email
         :return: Object inside self.members or False
         """
-        co_owners: List[UserBase] = [co_owner for co_owner in self.co_owners if co_owner.email == user.email]
+        co_owners: List[UserBase] = [
+            co_owner for co_owner in self.co_owners if co_owner.email == user.email
+        ]
         if len(co_owners) == 1:
             return co_owners[0]
         if not co_owners:

@@ -85,6 +85,7 @@ class GroupDB(DBModel, GroupBase):
             return members[0]
         if not members:
             return False
+        return None
 
     def co_owners_object(self, user: UserBase) -> Union[UserBase, bool]:
         """
@@ -103,6 +104,7 @@ class GroupDB(DBModel, GroupBase):
             return co_owners[0]
         if not co_owners:
             return False
+        return None
 
 
 class GroupIdWrapper(GroupBase):

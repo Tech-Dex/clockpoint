@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Tuple, Union
 
 from bson.objectid import ObjectId
@@ -6,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_404_NOT_FOUND
 
 from app.core.config import settings
-from app.models.group import GroupCreate, GroupDB
+from app.models.group import GroupCreate, GroupDB, GroupIdWrapper, GroupUpdate
 from app.models.user import UserBase
 
 COLLECTION_NAME = "groups"
@@ -77,3 +78,27 @@ async def create_group(
         group_db.dict()
     )
     return group_db, group_object.inserted_id
+
+
+async def update_group(
+    conn: AsyncIOMotorClient,
+    group_current: GroupIdWrapper,
+    group_update: GroupUpdate,
+) -> Tuple[GroupDB, ObjectId]:
+    group_db: GroupDB = GroupDB(**group_current.dict())
+
+    group_db.updated_at = datetime.utcnow()
+    group_db.name = group_update.name or group_db.name
+    group_db.details = group_update.details or group_db.details
+
+    if group_update.co_owner:
+        group_db.add_co_owner(group_update.co_owner)
+
+    if group_update.member:
+        group_db.add_member(group_update.member)
+
+    await conn[settings.DATABASE_NAME][COLLECTION_NAME].update_one(
+        {"_id": ObjectId(group_current.id)}, {"$set": group_db.dict()}
+    )
+
+    return group_db, group_current.id

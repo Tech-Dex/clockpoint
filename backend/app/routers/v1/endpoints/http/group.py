@@ -10,7 +10,7 @@ from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.core.database.mongodb import get_database
-from app.core.jwt import TokenUtils, get_current_user
+from app.core.jwt import TokenUtils, get_current_user, get_user_from_invitation
 from app.core.smtp.smtp import get_smtp
 from app.models.enums.group_role import GroupRole
 from app.models.enums.token_subject import TokenSubject
@@ -22,9 +22,17 @@ from app.models.group import (
     GroupInvite,
     GroupResponse,
     GroupsResponse,
+    GroupUpdate,
 )
+from app.models.token import TokenDB
 from app.models.user import UserBase, UserDB, UserTokenWrapper
-from app.repositories.group import create_group, get_group_by_id, get_groups_by_user
+from app.repositories.group import (
+    create_group,
+    get_group_by_id,
+    get_groups_by_user,
+    update_group,
+)
+from app.repositories.token import get_token
 from app.repositories.user import get_user_by_email
 from app.services.email import background_send_group_invite_email
 
@@ -130,6 +138,7 @@ async def invite(
             )
             token_invite_co_owner: str = await TokenUtils.wrap_user_db_data_into_token(
                 user_invited,
+                group_id=group_invite.group_id,
                 subject=TokenSubject.GROUP_INVITE_CO_OWNER,
                 token_expires_delta=token_invite_co_owner_expires_delta,
             )
@@ -148,6 +157,7 @@ async def invite(
             )
             token_invite_member: str = await TokenUtils.wrap_user_db_data_into_token(
                 user_invited,
+                group_id=group_invite.group_id,
                 subject=TokenSubject.GROUP_INVITE_MEMBER,
                 token_expires_delta=token_invite_member_expires_delta,
             )
@@ -167,4 +177,47 @@ async def invite(
 
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="User is not allowed to invite"
+    )
+
+
+@router.post(
+    "/join",
+    response_model=GroupResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def join(
+    user_invitation: UserTokenWrapper = Depends(get_user_from_invitation),
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GroupResponse:
+    if user_current.email == user_invitation.email:
+        token_db: TokenDB = await get_token(conn, user_invitation.token)
+        group_db: GroupDB
+        group_db_id: str
+        group_db, group_db_id = await get_group_by_id(
+            conn, token_db.group_id, get_id=True
+        )
+
+        group_update: GroupUpdate = GroupUpdate(member=UserBase(**user_current.dict()))
+        if token_db.subject == TokenSubject.GROUP_INVITE_CO_OWNER:
+            group_update: GroupUpdate = GroupUpdate(
+                co_owner=UserBase(**user_current.dict())
+            )
+
+        group_id_wrapper: GroupIdWrapper = GroupIdWrapper(
+            **group_db.dict(), id=str(group_db_id)
+        )
+        group_db_updated: GroupDB
+        group_db_id_updated: ObjectId
+        group_db_updated, group_db_id_updated = await update_group(
+            conn, group_id_wrapper, group_update
+        )
+
+        return GroupResponse(
+            group=GroupIdWrapper(**group_db_updated.dict(), id=str(group_db_id_updated))
+        )
+
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="This user was not invited"
     )

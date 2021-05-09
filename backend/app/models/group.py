@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from pydantic.networks import EmailStr
 
@@ -20,9 +20,11 @@ class GroupDB(DBModel, GroupBase):
     check_ins: List[Any] = []
 
     def add_co_owner(self, user: UserBase):
-        if not self.user_is_co_owner(user):
-            if self.user_is_member(user):
-                self.remove_member(user)
+        user_co_owner: Union[UserBase, bool] = self.user_is_co_owner(user)
+        if not user_co_owner:
+            user_member: Union[UserBase, bool] = self.user_is_member(user)
+            if user_member:
+                self.remove_member(user_member)
             self.co_owners.append(user)
 
     def remove_co_owner(self, user: UserBase):
@@ -30,18 +32,20 @@ class GroupDB(DBModel, GroupBase):
             self.co_owners.remove(user)
 
     def add_member(self, user: UserBase):
+        user_member: Union[UserBase, bool] = self.user_is_member(user)
+        user_co_owner: Union[UserBase, bool] = self.user_is_co_owner(user)
         if (
-            not self.user_is_member(self)
-            and not self.user_is_co_owner(user)
-            and not self.user_is_owner(user)
+                not user_member
+                and not user_co_owner
+                and not self.user_is_owner(user)
         ):
             self.members.append(user)
 
     def remove_member(self, user: UserBase):
-        if self.user_is_member(self):
-            self.co_owners.remove(user)
+        if self.user_is_member(user):
+            self.members.remove(user)
 
-    def user_in_group(self, user: UserBase):
+    def user_in_group(self, user: UserBase) -> bool:
         if self.user_is_owner(user):
             return True
         if self.user_is_co_owner(user):
@@ -51,17 +55,36 @@ class GroupDB(DBModel, GroupBase):
 
         return False
 
-    def user_is_owner(self, user: UserBase):
+    def user_is_owner(self, user: UserBase) -> bool:
         if self.owner == user:
             return True
 
         return False
 
-    def user_is_co_owner(self, user: UserBase):
+    def user_is_co_owner(self, user: UserBase) -> Union[UserBase, bool]:
+        if [co_owner for co_owner in self.co_owners if co_owner.email == user.email]:
+            return True
         return False
 
-    def user_is_member(self, user: UserBase):
+    def user_is_member(self, user: UserBase) -> Union[UserBase, bool]:
+        member: Union[UserBase, bool] = self.member_object(user)
+        if member:
+            return member
         return False
+
+    def member_object(self, user: UserBase) -> Union[UserBase, bool]:
+        members: List[UserBase] = [member for member in self.members if member.email == user.email]
+        if len(members) == 1:
+            return members[0]
+        if not members:
+            return False
+
+    def co_owners_object(self, user: UserBase) -> Union[UserBase, bool]:
+        co_owners: List[UserBase] = [co_owner for co_owner in self.co_owners if co_owner.email == user.email]
+        if len(co_owners) == 1:
+            return co_owners[0]
+        if not co_owners:
+            return False
 
 
 class GroupIdWrapper(GroupBase):
@@ -85,7 +108,7 @@ class GroupUpdate(RWModel):
     name: Optional[str]
     details: Optional[str]
     co_owner: Optional[UserBase]
-    member: UserBase
+    member: Optional[UserBase]
 
 
 class GroupCheckIn(RWModel):

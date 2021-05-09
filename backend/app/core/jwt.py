@@ -22,6 +22,7 @@ class TokenUtils:
         cls,
         user_db: UserDB,
         subject: TokenSubject,
+        group_id: str = None,
         token_expires_delta: timedelta = timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         ),
@@ -30,6 +31,7 @@ class TokenUtils:
             data={
                 "email": user_db.email,
                 "username": user_db.username,
+                "group_id": group_id,
             },
             expires_delta=token_expires_delta,
             subject=subject,
@@ -106,6 +108,45 @@ async def get_current_user(
     except PyJWTError:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+        )
+
+    user_db: UserDB = await get_user_by_email(conn, token_data.email)
+    if not user_db:
+        raise StarletteHTTPException(
+            status_code=HTTP_404_NOT_FOUND, detail="This user doesn't exist"
+        )
+
+    return UserTokenWrapper(**user_db.dict(), token=token)
+
+
+async def get_invitation_token(invitation: str = Header(None)) -> str:
+    prefix, token = invitation.split(" ")
+    if settings.JWT_TOKEN_PREFIX != prefix:
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Invalid invitation"
+        )
+    return token
+
+
+async def get_user_from_invitation(
+    conn: AsyncIOMotorClient = Depends(get_database),
+    token: str = Depends(get_invitation_token),
+) -> UserTokenWrapper:
+    try:
+        payload: dict = decode(
+            token, str(settings.SECRET_KEY), algorithms=[settings.ALGORITHM]
+        )
+        if not payload.get("subject") in (
+            TokenSubject.GROUP_INVITE_CO_OWNER,
+            TokenSubject.GROUP_INVITE_MEMBER,
+        ):
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="This is not an invitation token"
+            )
+        token_data: TokenPayload = TokenPayload(**payload)
+    except PyJWTError:
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Could not validate invitation"
         )
 
     user_db: UserDB = await get_user_by_email(conn, token_data.email)

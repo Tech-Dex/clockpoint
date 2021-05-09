@@ -11,6 +11,7 @@ from app.models.rwmodel import RWModel
 class TokenPayload(RWModel):
     email: EmailStr
     username: str
+    group_id: Optional[str]
 
 
 class TokenDB(DBModel, TokenPayload):

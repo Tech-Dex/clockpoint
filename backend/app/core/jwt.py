@@ -4,7 +4,6 @@ from typing import Optional
 from fastapi import Depends, Header
 from jwt import PyJWTError, decode, encode
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 

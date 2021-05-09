@@ -1,11 +1,13 @@
 from typing import Any, List, Optional
 
+from pydantic.networks import EmailStr
+
 from app.models.dbmodel import DBModel
+from app.models.enums.group_role import GroupRole
 from app.models.rwmodel import RWModel
 from app.models.user import UserBase
 
 
-# TODO: Create Check In entity
 class GroupBase(RWModel):
     name: str
     details: str
@@ -22,13 +24,17 @@ class GroupDB(DBModel, GroupBase):
             if self.user_is_member(user):
                 self.remove_member(user)
             self.co_owners.append(user)
-            
+
     def remove_co_owner(self, user: UserBase):
         if self.user_is_co_owner(user):
             self.co_owners.remove(user)
 
     def add_member(self, user: UserBase):
-        if not self.user_is_member(self) and not self.user_is_co_owner(user) and not self.user_is_owner(user):
+        if (
+            not self.user_is_member(self)
+            and not self.user_is_co_owner(user)
+            and not self.user_is_owner(user)
+        ):
             self.members.append(user)
 
     def remove_member(self, user: UserBase):
@@ -80,3 +86,9 @@ class GroupUpdate(RWModel):
 
 class GroupCheckIn(RWModel):
     check_in: Any
+
+
+class GroupInvite(RWModel):
+    group_id: str
+    email: EmailStr
+    role: GroupRole

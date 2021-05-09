@@ -17,11 +17,22 @@ class Settings(BaseSettings):
     JWT_TOKEN_PREFIX: str
     SECRET_KEY: Optional[bytes]
     ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 8  # 60 minutes * 24 hours * 8 days = 8 days
-    ACTIVATE_TOKEN_EXPIRE_MINUTES = (
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = (
+        60 * 24 * 8
+    )  # 60 minutes * 24 hours * 8 days = 8 days
+    ACTIVATE_TOKEN_EXPIRE_MINUTES: int = (
         60 * 24 * 7
     )  # 60 minutes * 24 hours * 7 days = 7 days
-    SCHEDULER_INACTIVE_USERS = 60 * 1  # 60 seconds * 1 minute = 1 minute
+    RECOVER_TOKEN_EXPIRE_MINUTES: int = (
+        60 * 24 * 1
+    )  # 60 minutes * 24 hours * 1 day = 1 day
+    GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES: int = (
+        60 * 24 * 1
+    )  # 60 minutes * 24 hours * 1 day = 1 day
+    GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES: int = (
+        60 * 24 * 1
+    )  # 60 minutes * 24 hours * 1 day = 1 day
+    SCHEDULER_INACTIVE_USERS: int = 60 * 1  # 60 seconds * 1 minute = 1 minute
     MONGO_HOST: str
     MONGO_PORT: int
     MONGO_USER: str
@@ -42,6 +53,7 @@ class Settings(BaseSettings):
     FRONTEND_DNS: str
     FRONTEND_ACTIVATION_PATH: str
     FRONTEND_RECOVERY_PATH: str
+    FRONTEND_GROUP_INVITE: str
 
     def __init__(self, **values: Any):
         super().__init__(**values)

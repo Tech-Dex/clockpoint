@@ -73,6 +73,15 @@ class GroupDB(DBModel, GroupBase):
         return False
 
     def member_object(self, user: UserBase) -> Union[UserBase, bool]:
+        """
+        We want to be able to delete a user from the List ( self.members ) with the .remove() method
+        In order to be able to do that we want to store the reference (object id) of the queried object that
+        was created on List __init__
+        Even if the objects user and members[0] have the same values inside, they are different object
+        and we will not be able to delete from self.members and object with an different reference (id)
+        :param user: user entity that was created to query based on email
+        :return: Object inside self.members or False
+        """
         members: List[UserBase] = [member for member in self.members if member.email == user.email]
         if len(members) == 1:
             return members[0]
@@ -80,6 +89,15 @@ class GroupDB(DBModel, GroupBase):
             return False
 
     def co_owners_object(self, user: UserBase) -> Union[UserBase, bool]:
+        """
+        We want to be able to delete a user from the List ( self.co_owners ) with the .remove() method
+        In order to be able to do that we want to store the reference (object id) of the queried object that
+        was created on List __init__
+        Even if the objects user and co_owners[0] have the same values inside, they are different object
+        and we will not be able to delete from self.co_owners and object with an different reference (id)
+        :param user: user entity that was created to query based on email
+        :return: Object inside self.members or False
+        """
         co_owners: List[UserBase] = [co_owner for co_owner in self.co_owners if co_owner.email == user.email]
         if len(co_owners) == 1:
             return co_owners[0]

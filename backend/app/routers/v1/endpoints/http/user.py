@@ -194,28 +194,38 @@ async def invite_user(
     background_tasks: BackgroundTasks,
     email_invited: EmailStr = Body(..., embed=True),
     user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
     smtp_conn: FastMail = Depends(get_smtp),
 ) -> GenericResponse:
-    token_user_invite_expires_delta = timedelta(
-        minutes=settings.USER_INVITE_TOKEN_EXPIRE_MINUTES
-    )
-    token_user_invite: str = await TokenUtils.wrap_user_db_data_into_token(
-        user_current,
-        user_email_invited=email_invited,
-        subject=TokenSubject.USER_INVITE,
-        token_expires_delta=token_user_invite_expires_delta,
-    )
-    action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_GROUP_INVITE}?token={token_user_invite}"
-    await background_send_user_invite_email(
-        smtp_conn,
-        background_tasks,
-        email_invited,
-        action_link,
-    )
-    return GenericResponse(
-        status=GenericStatus.RUNNING,
-        message="Group invite email has been processed",
-    )
+    try:
+        await get_user_by_email(conn, email_invited)
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="This user already exist"
+        )
+    except StarletteHTTPException as exc:
+        if exc.status_code == 403 and exc.detail == "This user already exist":
+            raise exc
+
+        token_user_invite_expires_delta = timedelta(
+            minutes=settings.USER_INVITE_TOKEN_EXPIRE_MINUTES
+        )
+        token_user_invite: str = await TokenUtils.wrap_user_db_data_into_token(
+            user_current,
+            user_email_invited=email_invited,
+            subject=TokenSubject.USER_INVITE,
+            token_expires_delta=token_user_invite_expires_delta,
+        )
+        action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_GROUP_INVITE}?token={token_user_invite}"
+        await background_send_user_invite_email(
+            smtp_conn,
+            background_tasks,
+            email_invited,
+            action_link,
+        )
+        return GenericResponse(
+            status=GenericStatus.RUNNING,
+            message="Group invite email has been processed",
+        )
 
 
 @router.post(
@@ -230,6 +240,7 @@ async def join_via_invitation(
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> UserResponse:
     # TODO: Create a user_friends entity in database and link them.
+    # TODO: Create gamification to encourage users to become part of the community
     token_db: TokenDB = await get_token(conn, user_invitation.token)
     if not token_db.used_at:
         if user_current.email == token_db.user_email_invited:

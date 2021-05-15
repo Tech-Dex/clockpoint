@@ -137,6 +137,8 @@ async def invite(
             if not (exc.status_code == 404 and exc.detail == "This user doesn't exist"):
                 raise exc
             
+        # There will be no problem with mocked user_invited, because you can't be part
+        # of any group if you are not registered.
         if group_db.user_in_group(user_invited):
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="User already in group"

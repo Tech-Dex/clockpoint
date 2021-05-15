@@ -6,6 +6,7 @@ class TokenSubject(str, Enum):
     ACCESS: str = "ACCESS"
     ACTIVATE: str = "ACTIVATE"
     RECOVER: str = "RECOVER"
+    USER_INVITE: str = "USER_INVITE"
     GROUP_INVITE_CO_OWNER: str = "GROUP-INVITE-CO-OWNER"
     GROUP_INVITE_MEMBER: str = "GROUP-INVITE-MEMBER"
 

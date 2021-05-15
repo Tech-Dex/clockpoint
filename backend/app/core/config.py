@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     RECOVER_TOKEN_EXPIRE_MINUTES: int = (
         60 * 24 * 1
     )  # 60 minutes * 24 hours * 1 day = 1 day
+    USER_INVITE_TOKEN_EXPIRE_MINUTES: int = (
+        60 * 24 * 1
+    )  # 60 minutes * 24 hours * 1 day = 1 day
     GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES: int = (
         60 * 24 * 1
     )  # 60 minutes * 24 hours * 1 day = 1 day

@@ -12,6 +12,7 @@ class TokenPayload(RWModel):
     email: EmailStr
     username: str
     group_id: Optional[str]
+    user_email_invited: Optional[str]
 
 
 class TokenDB(DBModel, TokenPayload):

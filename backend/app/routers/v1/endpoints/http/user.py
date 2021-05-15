@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, Header
 from fastapi_mail import FastMail
 from httpagentparser import simple_detect
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
@@ -29,7 +30,10 @@ from app.repositories.user import (
     get_user_by_email,
     update_user,
 )
-from services.email import background_send_recovery_email
+from app.services.email import (
+    background_send_recovery_email,
+    background_send_user_invite_email,
+)
 
 router = APIRouter()
 
@@ -178,3 +182,37 @@ async def delete_current(
         return GenericResponse(
             status=GenericStatus.COMPLETED, message="Account deleted"
         )
+
+
+@router.post(
+    "/invite",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def invite_user(
+    background_tasks: BackgroundTasks,
+    email_invited: EmailStr = Body(..., embed=True),
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    smtp_conn: FastMail = Depends(get_smtp),
+) -> GenericResponse:
+    token_user_invite_expires_delta = timedelta(
+        minutes=settings.USER_INVITE_TOKEN_EXPIRE_MINUTES
+    )
+    token_user_invite: str = await TokenUtils.wrap_user_db_data_into_token(
+        user_current,
+        user_email_invited=email_invited,
+        subject=TokenSubject.USER_INVITE,
+        token_expires_delta=token_user_invite_expires_delta,
+    )
+    action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_GROUP_INVITE}?token={token_user_invite}"
+    await background_send_user_invite_email(
+        smtp_conn,
+        background_tasks,
+        email_invited,
+        action_link,
+    )
+    return GenericResponse(
+        status=GenericStatus.RUNNING,
+        message="Group invite email has been processed",
+    )

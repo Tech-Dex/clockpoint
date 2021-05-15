@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import Depends, Header
 from jwt import PyJWTError, decode, encode
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
@@ -23,6 +24,7 @@ class TokenUtils:
         user_db: UserDB,
         subject: TokenSubject,
         group_id: str = None,
+        user_email_invited: EmailStr = None,
         token_expires_delta: timedelta = timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         ),
@@ -32,6 +34,7 @@ class TokenUtils:
                 "email": user_db.email,
                 "username": user_db.username,
                 "group_id": group_id,
+                "user_email_invited": user_email_invited,
             },
             expires_delta=token_expires_delta,
             subject=subject,

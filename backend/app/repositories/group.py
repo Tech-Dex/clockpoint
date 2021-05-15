@@ -102,3 +102,17 @@ async def update_group(
     )
 
     return group_db, group_current.id
+
+
+async def leave_group(
+    conn: AsyncIOMotorClient,
+    group_current: GroupIdWrapper,
+    user_base: UserBase,
+) -> Tuple[GroupDB, ObjectId]:
+    group_db: GroupDB = GroupDB(**group_current.dict())
+    group_db.remove_user(user_base)
+    await conn[settings.DATABASE_NAME][COLLECTION_NAME].update_one(
+        {"_id": ObjectId(group_current.id)}, {"$set": group_db.dict()}
+    )
+
+    return group_db, group_current.id

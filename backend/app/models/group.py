@@ -51,6 +51,10 @@ class GroupDB(DBModel, GroupBase):
 
         return False
 
+    def remove_user(self, user: UserBase):
+        self.remove_co_owner(user)
+        self.remove_member(user)
+
     def user_is_owner(self, user: UserBase) -> bool:
         if self.owner == user:
             return True

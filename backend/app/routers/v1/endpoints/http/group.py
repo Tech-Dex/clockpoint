@@ -30,6 +30,7 @@ from app.repositories.group import (
     create_group,
     get_group_by_id,
     get_groups_by_user,
+    leave_group,
     update_group,
 )
 from app.repositories.token import get_token, update_token
@@ -136,7 +137,7 @@ async def invite(
         except StarletteHTTPException as exc:
             if not (exc.status_code == 404 and exc.detail == "This user doesn't exist"):
                 raise exc
-            
+
         # There will be no problem with mocked user_invited, because you can't be part
         # of any group if you are not registered.
         if group_db.user_in_group(user_invited):
@@ -230,4 +231,32 @@ async def join(
 
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="This user was not invited"
+    )
+
+
+@router.put(
+    "/leave/{group_id}",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def leave(
+    group_id: str,
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GenericResponse:
+    group_db: GroupDB = await get_group_by_id(conn, group_id)
+    user_base: UserBase = UserBase(**user_current.dict())
+    if group_db.user_in_group(user_base):
+        group_id_wrapper: GroupIdWrapper = GroupIdWrapper(
+            **group_db.dict(), id=str(group_id)
+        )
+        await leave_group(conn, group_id_wrapper, user_base)
+        return GenericResponse(
+            status=GenericStatus.COMPLETED,
+            message="User left the group",
+        )
+
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="User is not in the group"
     )

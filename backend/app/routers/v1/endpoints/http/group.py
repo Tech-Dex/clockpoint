@@ -1,4 +1,3 @@
-from datetime import timedelta
 from typing import List, Tuple
 
 from bson.objectid import ObjectId
@@ -10,7 +9,7 @@ from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.core.database.mongodb import get_database
-from app.core.jwt import TokenUtils, get_current_user, get_user_from_invitation
+from app.core.jwt import get_current_user, get_user_from_invitation
 from app.core.smtp.smtp import get_smtp
 from app.models.enums.group_role import GroupRole
 from app.models.enums.token_subject import TokenSubject
@@ -34,7 +33,7 @@ from app.repositories.group import (
 )
 from app.repositories.token import get_token
 from app.repositories.user import get_user_by_email
-from app.services.email import background_send_group_invite_email
+from app.utils.group import process_invitation
 
 router = APIRouter()
 
@@ -118,9 +117,11 @@ async def invite(
     # TODO: Treat case when user doesn't created and account and this is a create account request too
     #       with automate group joining
     group_db: GroupDB = await get_group_by_id(conn, group_invite.group_id)
-    user_base: UserBase = UserBase(**user_current.dict())
+    user_inviting: UserBase = UserBase(**user_current.dict())
 
-    if group_db.user_is_owner(user_base) or group_db.user_is_co_owner(user_base):
+    if group_db.user_is_owner(user_inviting) or group_db.user_is_co_owner(
+        user_inviting
+    ):
         if group_invite.role == GroupRole.OWNER:
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="Owner role is unique"
@@ -128,46 +129,30 @@ async def invite(
 
         user_invited: UserDB = await get_user_by_email(conn, group_invite.email)
         if group_invite.role == GroupRole.CO_OWNER:
-            if group_db.user_is_co_owner(user_base):
+            if group_db.user_is_co_owner(user_inviting):
                 raise StarletteHTTPException(
                     status_code=HTTP_403_FORBIDDEN,
                     detail="User is not allowed to invite another co-owner",
                 )
-            token_invite_co_owner_expires_delta = timedelta(
-                minutes=settings.GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES
-            )
-            token_invite_co_owner: str = await TokenUtils.wrap_user_db_data_into_token(
-                user_invited,
-                group_id=group_invite.group_id,
-                subject=TokenSubject.GROUP_INVITE_CO_OWNER,
-                token_expires_delta=token_invite_co_owner_expires_delta,
-            )
-            action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_GROUP_INVITE}?token={token_invite_co_owner}"
-            await background_send_group_invite_email(
-                smtp_conn,
+            await process_invitation(
                 background_tasks,
-                user_invited.email,
-                action_link,
-                group_db.name,
+                smtp_conn,
+                group_db,
+                group_invite,
+                user_invited,
+                TokenSubject.GROUP_INVITE_CO_OWNER,
+                settings.GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES,
             )
 
         if group_invite.role == GroupRole.MEMBER:
-            token_invite_member_expires_delta = timedelta(
-                minutes=settings.GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES
-            )
-            token_invite_member: str = await TokenUtils.wrap_user_db_data_into_token(
-                user_invited,
-                group_id=group_invite.group_id,
-                subject=TokenSubject.GROUP_INVITE_MEMBER,
-                token_expires_delta=token_invite_member_expires_delta,
-            )
-            action_link: str = f"{settings.FRONTEND_DNS}{settings.FRONTEND_GROUP_INVITE}?token={token_invite_member}"
-            await background_send_group_invite_email(
-                smtp_conn,
+            await process_invitation(
                 background_tasks,
-                user_invited.email,
-                action_link,
-                group_db.name,
+                smtp_conn,
+                group_db,
+                group_invite,
+                user_invited,
+                TokenSubject.GROUP_INVITE_MEMBER,
+                settings.GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES,
             )
 
         return GenericResponse(

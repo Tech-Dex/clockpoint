@@ -115,8 +115,6 @@ async def invite(
     conn: AsyncIOMotorClient = Depends(get_database),
     smtp_conn: FastMail = Depends(get_smtp),
 ) -> GenericResponse:
-    # TODO: Treat case when user doesn't created and account and this is a create account request too
-    #       with automate group joining
     group_db: GroupDB = await get_group_by_id(conn, group_invite.group_id)
     user_inviting: UserBase = UserBase(**user_current.dict())
 
@@ -128,7 +126,17 @@ async def invite(
                 status_code=HTTP_403_FORBIDDEN, detail="Owner role is unique"
             )
 
-        user_invited: UserDB = await get_user_by_email(conn, group_invite.email)
+        # This is a mock that will be replace if there is a user with the desired email
+        # TODO: FRONTEND will take care to register/login a user before joining a group
+        user_invited: UserDB = UserDB(
+            email=group_invite.email, first_name="", last_name="", username=""
+        )
+        try:
+            user_invited: UserDB = await get_user_by_email(conn, group_invite.email)
+        except StarletteHTTPException as exc:
+            if exc.status_code == 404 and exc.detail == "This user doesn't exist":
+                ...
+
         if group_db.user_in_group(user_invited):
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="User already in group"
@@ -188,7 +196,7 @@ async def join(
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="Invitation token already used"
             )
-        
+
         group_db: GroupDB
         group_db_id: str
         group_db, group_db_id = await get_group_by_id(

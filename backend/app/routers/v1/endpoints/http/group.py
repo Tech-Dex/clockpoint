@@ -134,9 +134,9 @@ async def invite(
         try:
             user_invited: UserDB = await get_user_by_email(conn, group_invite.email)
         except StarletteHTTPException as exc:
-            if exc.status_code == 404 and exc.detail == "This user doesn't exist":
-                ...
-
+            if not (exc.status_code == 404 and exc.detail == "This user doesn't exist"):
+                raise exc
+            
         if group_db.user_in_group(user_invited):
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="User already in group"

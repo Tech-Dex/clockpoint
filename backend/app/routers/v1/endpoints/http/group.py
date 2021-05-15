@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Tuple
 
 from bson.objectid import ObjectId
@@ -23,7 +24,7 @@ from app.models.group import (
     GroupsResponse,
     GroupUpdate,
 )
-from app.models.token import TokenDB
+from app.models.token import TokenDB, TokenUpdate
 from app.models.user import UserBase, UserDB, UserTokenWrapper
 from app.repositories.group import (
     create_group,
@@ -31,7 +32,7 @@ from app.repositories.group import (
     get_groups_by_user,
     update_group,
 )
-from app.repositories.token import get_token
+from app.repositories.token import get_token, update_token
 from app.repositories.user import get_user_by_email
 from app.utils.group import process_invitation
 
@@ -183,6 +184,11 @@ async def join(
 ) -> GroupResponse:
     if user_current.email == user_invitation.email:
         token_db: TokenDB = await get_token(conn, user_invitation.token)
+        if token_db.used_at:
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Invitation token already used"
+            )
+        
         group_db: GroupDB
         group_db_id: str
         group_db, group_db_id = await get_group_by_id(
@@ -202,6 +208,10 @@ async def join(
         group_db_id_updated: ObjectId
         group_db_updated, group_db_id_updated = await update_group(
             conn, group_id_wrapper, group_update
+        )
+
+        await update_token(
+            conn, TokenUpdate(token=token_db.token, used_at=datetime.utcnow())
         )
 
         return GroupResponse(

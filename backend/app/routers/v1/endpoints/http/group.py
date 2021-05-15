@@ -128,6 +128,11 @@ async def invite(
             )
 
         user_invited: UserDB = await get_user_by_email(conn, group_invite.email)
+        if group_db.user_in_group(user_invited):
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="User already in group"
+            )
+
         if group_invite.role == GroupRole.CO_OWNER:
             if group_db.user_is_co_owner(user_inviting):
                 raise StarletteHTTPException(

@@ -142,6 +142,7 @@ async def get_user_from_invitation(
         if not payload.get("subject") in (
             TokenSubject.GROUP_INVITE_CO_OWNER,
             TokenSubject.GROUP_INVITE_MEMBER,
+            TokenSubject.USER_INVITE,
         ):
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="This is not an invitation token"

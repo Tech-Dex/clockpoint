@@ -11,7 +11,7 @@ from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from app.core.config import settings
 from app.core.database.mongodb import get_database
-from app.core.jwt import TokenUtils, get_current_user
+from app.core.jwt import TokenUtils, get_current_user, get_user_from_invitation
 from app.core.smtp.smtp import get_smtp
 from app.models.enums.token_subject import TokenSubject
 from app.models.generic_response import GenericResponse, GenericStatus
@@ -215,4 +215,31 @@ async def invite_user(
     return GenericResponse(
         status=GenericStatus.RUNNING,
         message="Group invite email has been processed",
+    )
+
+
+@router.post(
+    "/join",
+    response_model=UserResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def join_via_invitation(
+    user_invitation: UserTokenWrapper = Depends(get_user_from_invitation),
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> UserResponse:
+    # TODO: Create a user_friends entity in database and link them.
+    token_db: TokenDB = await get_token(conn, user_invitation.token)
+    if not token_db.used_at:
+        if user_current.email == token_db.user_email_invited:
+            await update_token(
+                conn, TokenUpdate(token=token_db.token, used_at=datetime.utcnow())
+            )
+            return UserResponse(user=UserTokenWrapper(**user_current.dict()))
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="This user was not invited"
+        )
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="Invitation token already used"
     )

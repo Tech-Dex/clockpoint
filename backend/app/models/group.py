@@ -143,3 +143,8 @@ class GroupInvite(RWModel):
     group_id: str
     email: EmailStr
     role: GroupRole
+
+
+class GroupKick(RWModel):
+    id: str
+    email: EmailStr

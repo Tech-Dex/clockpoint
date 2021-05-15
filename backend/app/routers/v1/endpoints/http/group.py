@@ -20,6 +20,7 @@ from app.models.group import (
     GroupDB,
     GroupIdWrapper,
     GroupInvite,
+    GroupKick,
     GroupResponse,
     GroupsResponse,
     GroupUpdate,
@@ -259,4 +260,54 @@ async def leave(
 
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="User is not in the group"
+    )
+
+
+@router.put(
+    "/kick",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def kick(
+    group_kick: GroupKick = Body(..., embed=True),
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GenericResponse:
+    group_db: GroupDB = await get_group_by_id(conn, group_kick.id)
+    user_base: UserBase = UserBase(**user_current.dict())
+    if group_db.user_in_group(user_base):
+        user_base_is_owner: bool = group_db.user_is_owner(user_base)
+        user_base_is_co_owner: bool = group_db.user_is_co_owner(user_base)
+        if user_base_is_owner or user_base_is_co_owner:
+            user_kick_db: UserDB = await get_user_by_email(conn, group_kick.email)
+            user_kick: UserBase = UserBase(**user_kick_db.dict())
+            if group_db.user_in_group(user_kick):
+                if group_db.user_is_owner(user_kick):
+                    raise StarletteHTTPException(
+                        status_code=HTTP_403_FORBIDDEN,
+                        detail="Owner of the group can't be kicked",
+                    )
+                if group_db.user_is_co_owner(user_kick) and user_base_is_co_owner:
+                    raise StarletteHTTPException(
+                        status_code=HTTP_403_FORBIDDEN,
+                        detail="Co-owner is not allowed to kick other co-owner",
+                    )
+                group_id_wrapper: GroupIdWrapper = GroupIdWrapper(
+                    **group_db.dict(), id=str(group_kick.id)
+                )
+                await leave_group(conn, group_id_wrapper, user_kick)
+                return GenericResponse(
+                    status=GenericStatus.COMPLETED,
+                    message="User kick out of the group",
+                )
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="User is not in the group"
+            )
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN,
+            detail="User is not allowed to kick other members",
+        )
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="Current user is not part of the group"
     )

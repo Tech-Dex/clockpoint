@@ -152,8 +152,7 @@ async def get_user_from_invitation(
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Could not validate invitation"
         )
-
-    user_db: UserDB = await get_user_by_email(conn, token_data.email)
+    user_db: UserDB = await get_user_by_email(conn, token_data.user_email_invited)
     if not user_db:
         raise StarletteHTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="This user doesn't exist"

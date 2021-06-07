@@ -157,6 +157,7 @@ async def invite(
                 smtp_conn,
                 group_db,
                 group_invite,
+                user_current,
                 user_invited,
                 TokenSubject.GROUP_INVITE_CO_OWNER,
                 settings.GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES,
@@ -168,6 +169,7 @@ async def invite(
                 smtp_conn,
                 group_db,
                 group_invite,
+                user_current,
                 user_invited,
                 TokenSubject.GROUP_INVITE_MEMBER,
                 settings.GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES,
@@ -182,6 +184,14 @@ async def invite(
         status_code=HTTP_403_FORBIDDEN, detail="User is not allowed to invite"
     )
 
+@router.post(
+    "/share",
+    response_model=GenericResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def share():
+    ...
 
 @router.post(
     "/join",

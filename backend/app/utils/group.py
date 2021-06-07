@@ -16,13 +16,15 @@ async def process_invitation(
     smtp_conn: FastMail,
     group_db: GroupDB,
     group_invite: GroupInvite,
+    user_host: UserDB,
     user_invited: UserDB,
     token_subject_role: TokenSubject,
     token_expires_delta_role: int,
 ):
     token_invite_expires_delta = timedelta(minutes=token_expires_delta_role)
     token_invite: str = await TokenUtils.wrap_user_db_data_into_token(
-        user_invited,
+        user_db=user_host,
+        user_email_invited=user_invited.email,
         group_id=group_invite.group_id,
         subject=token_subject_role,
         token_expires_delta=token_invite_expires_delta,

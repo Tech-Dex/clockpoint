@@ -141,10 +141,14 @@ class GroupCheckIn(RWModel):
 
 class GroupInvite(RWModel):
     group_id: str
-    email: EmailStr
+    email: Optional[EmailStr]
     role: GroupRole
 
 
 class GroupKick(RWModel):
     id: str
     email: EmailStr
+
+
+class GroupInviteQRCodeResponse(RWModel):
+    invite_link: str

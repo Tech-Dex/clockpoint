@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import List, Tuple
 
 from bson.objectid import ObjectId
@@ -10,7 +9,11 @@ from starlette.status import HTTP_200_OK, HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.core.database.mongodb import get_database
-from app.core.jwt import get_current_user, get_user_from_invitation
+from app.core.jwt import (
+    get_current_user,
+    get_group_invitation,
+    get_user_from_invitation,
+)
 from app.core.smtp.smtp import get_smtp
 from app.models.enums.group_role import GroupRole
 from app.models.enums.token_subject import TokenSubject
@@ -20,23 +23,20 @@ from app.models.group import (
     GroupDB,
     GroupIdWrapper,
     GroupInvite,
+    GroupInviteQRCodeResponse,
     GroupKick,
     GroupResponse,
     GroupsResponse,
-    GroupUpdate,
 )
-from app.models.token import TokenDB, TokenUpdate
 from app.models.user import UserBase, UserDB, UserTokenWrapper
 from app.repositories.group import (
     create_group,
     get_group_by_id,
     get_groups_by_user,
     leave_group,
-    update_group,
 )
-from app.repositories.token import get_token, update_token
 from app.repositories.user import get_user_by_email
-from app.utils.group import process_invitation
+from app.utils.group import process_invitation, process_invitation_qrcode, process_join
 
 router = APIRouter()
 
@@ -118,11 +118,9 @@ async def invite(
     smtp_conn: FastMail = Depends(get_smtp),
 ) -> GenericResponse:
     group_db: GroupDB = await get_group_by_id(conn, group_invite.group_id)
-    user_inviting: UserBase = UserBase(**user_current.dict())
+    user_host: UserBase = UserBase(**user_current.dict())
 
-    if group_db.user_is_owner(user_inviting) or group_db.user_is_co_owner(
-        user_inviting
-    ):
+    if group_db.user_is_owner(user_host) or group_db.user_is_co_owner(user_host):
         if group_invite.role == GroupRole.OWNER:
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="Owner role is unique"
@@ -147,7 +145,7 @@ async def invite(
             )
 
         if group_invite.role == GroupRole.CO_OWNER:
-            if group_db.user_is_co_owner(user_inviting):
+            if group_db.user_is_co_owner(user_host):
                 raise StarletteHTTPException(
                     status_code=HTTP_403_FORBIDDEN,
                     detail="User is not allowed to invite another co-owner",
@@ -157,7 +155,7 @@ async def invite(
                 smtp_conn,
                 group_db,
                 group_invite,
-                user_current,
+                user_host,
                 user_invited,
                 TokenSubject.GROUP_INVITE_CO_OWNER,
                 settings.GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES,
@@ -169,7 +167,7 @@ async def invite(
                 smtp_conn,
                 group_db,
                 group_invite,
-                user_current,
+                user_host,
                 user_invited,
                 TokenSubject.GROUP_INVITE_MEMBER,
                 settings.GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES,
@@ -184,14 +182,6 @@ async def invite(
         status_code=HTTP_403_FORBIDDEN, detail="User is not allowed to invite"
     )
 
-@router.post(
-    "/share",
-    response_model=GenericResponse,
-    status_code=HTTP_200_OK,
-    response_model_exclude_unset=True,
-)
-async def share():
-    ...
 
 @router.post(
     "/join",
@@ -205,44 +195,75 @@ async def join(
     conn: AsyncIOMotorClient = Depends(get_database),
 ) -> GroupResponse:
     if user_current.email == user_invitation.email:
-        token_db: TokenDB = await get_token(conn, user_invitation.token)
-        if token_db.used_at:
-            raise StarletteHTTPException(
-                status_code=HTTP_403_FORBIDDEN, detail="Invitation token already used"
-            )
-
-        group_db: GroupDB
-        group_db_id: str
-        group_db, group_db_id = await get_group_by_id(
-            conn, token_db.group_id, get_id=True
-        )
-
-        group_update: GroupUpdate = GroupUpdate(member=UserBase(**user_current.dict()))
-        if token_db.subject == TokenSubject.GROUP_INVITE_CO_OWNER:
-            group_update: GroupUpdate = GroupUpdate(
-                co_owner=UserBase(**user_current.dict())
-            )
-
-        group_id_wrapper: GroupIdWrapper = GroupIdWrapper(
-            **group_db.dict(), id=str(group_db_id)
-        )
-        group_db_updated: GroupDB
-        group_db_id_updated: ObjectId
-        group_db_updated, group_db_id_updated = await update_group(
-            conn, group_id_wrapper, group_update
-        )
-
-        await update_token(
-            conn, TokenUpdate(token=token_db.token, used_at=datetime.utcnow())
-        )
-
-        return GroupResponse(
-            group=GroupIdWrapper(**group_db_updated.dict(), id=str(group_db_id_updated))
-        )
+        return await process_join(conn, user_invitation.token, user_current)
 
     raise StarletteHTTPException(
         status_code=HTTP_403_FORBIDDEN, detail="This user was not invited"
     )
+
+
+@router.post(
+    "/invite/qrcode",
+    response_model=GroupInviteQRCodeResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def invite_qrcode(
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    group_invite: GroupInvite = Body(..., embed=True),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GroupInviteQRCodeResponse:
+    group_db: GroupDB = await get_group_by_id(conn, group_invite.group_id)
+    user_host: UserBase = UserBase(**user_current.dict())
+
+    if group_db.user_is_owner(user_host) or group_db.user_is_co_owner(user_host):
+        if group_invite.role == GroupRole.OWNER:
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Owner role is unique"
+            )
+
+        if group_invite.role == GroupRole.CO_OWNER:
+            if group_db.user_is_co_owner(user_host):
+                raise StarletteHTTPException(
+                    status_code=HTTP_403_FORBIDDEN,
+                    detail="User is not allowed to invite another co-owner",
+                )
+            return GroupInviteQRCodeResponse(
+                invite_link=await process_invitation_qrcode(
+                    group_invite,
+                    user_host,
+                    TokenSubject.GROUP_INVITE_CO_OWNER,
+                    settings.GROUP_INVITE_CO_OWNER_TOKEN_EXPIRE_MINUTES,
+                )
+            )
+
+        if group_invite.role == GroupRole.MEMBER:
+            return GroupInviteQRCodeResponse(
+                invite_link=await process_invitation_qrcode(
+                    group_invite,
+                    user_host,
+                    TokenSubject.GROUP_INVITE_MEMBER,
+                    settings.GROUP_INVITE_MEMBER_TOKEN_EXPIRE_MINUTES,
+                )
+            )
+
+    raise StarletteHTTPException(
+        status_code=HTTP_403_FORBIDDEN, detail="User is not allowed to invite"
+    )
+
+
+@router.post(
+    "/join/qrcode",
+    response_model=GroupResponse,
+    status_code=HTTP_200_OK,
+    response_model_exclude_unset=True,
+)
+async def join_qrcode(
+    token_invitation: str = Depends(get_group_invitation),
+    user_current: UserTokenWrapper = Depends(get_current_user),
+    conn: AsyncIOMotorClient = Depends(get_database),
+) -> GroupResponse:
+    return await process_join(conn, token_invitation, user_current)
 
 
 @router.put(

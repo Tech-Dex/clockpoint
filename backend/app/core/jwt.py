@@ -159,3 +159,25 @@ async def get_user_from_invitation(
         )
 
     return UserTokenWrapper(**user_db.dict(), token=token)
+
+
+async def get_group_invitation(
+    token: str = Depends(get_invitation_token),
+) -> str:
+    try:
+        payload: dict = decode(
+            token, str(settings.SECRET_KEY), algorithms=[settings.ALGORITHM]
+        )
+        if not payload.get("subject") in (
+            TokenSubject.GROUP_INVITE_CO_OWNER,
+            TokenSubject.GROUP_INVITE_MEMBER,
+            TokenSubject.USER_INVITE,
+        ):
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="This is not an invitation token"
+            )
+        return token
+    except PyJWTError:
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Could not validate invitation"
+        )

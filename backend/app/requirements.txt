@@ -23,7 +23,7 @@ dnspython==2.1.0
 email-validator==1.1.2
 enum-switch==0.1.0
 fakeredis==1.5.0
-fastapi==0.63.0
+fastapi==0.65.2
 fastapi-mail==0.3.5.0
 graphene==2.1.8
 graphql-core==2.3.2

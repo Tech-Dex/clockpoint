@@ -39,7 +39,7 @@ isort==5.8.0
 itsdangerous==1.1.0
 Jinja2==2.11.3
 lazy-object-proxy==1.6.0
-lxml==4.6.3
+lxml==4.6.5
 MarkupSafe==1.1.1
 mccabe==0.6.1
 motor==2.4.0

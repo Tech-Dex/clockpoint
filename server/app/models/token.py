@@ -65,11 +65,11 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
                     raise StarletteHTTPException(
-                        status_code=400,
+                        status_code=409,
                         detail="Token already exists",
                     )
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(
-                    status_code=400,
+                    status_code=500,
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )

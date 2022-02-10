@@ -126,7 +126,7 @@ class DBUser(DBCoreModel, BaseUser):
                     )
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(
-                    status_code=400,
+                    status_code=500,
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 

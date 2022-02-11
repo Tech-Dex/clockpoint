@@ -40,7 +40,7 @@ class DBUser(DBCoreModel, BaseUser):
             MySQLQuery.from_(users)
             .select("*")
             .where(users.id == Parameter(":id"))
-            .where(users.is_deleted.isnull())
+            .where(users.deleted_at.isnull())
         )
         values = {"id": user_id}
 
@@ -59,7 +59,7 @@ class DBUser(DBCoreModel, BaseUser):
             MySQLQuery.from_(users)
             .select("*")
             .where(users.email == Parameter(":email"))
-            .where(users.is_deleted.isnull())
+            .where(users.deleted_at.isnull())
         )
         values = {"email": email}
 

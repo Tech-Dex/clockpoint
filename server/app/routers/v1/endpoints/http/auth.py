@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from databases import Database
@@ -41,10 +42,10 @@ async def register(
 
     user: DBUser = DBUser(**user_register.dict())
     user.change_password(user_register.password)
-    user_id: int = await user.save(mysql_driver)
+    await user.save(mysql_driver)
     token: str = await wrap_user_data_in_token(
         token_payload=BaseTokenPayload(
-            **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
+            **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
         ),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
@@ -69,9 +70,7 @@ async def login(
     Login a user.
     """
 
-    db_user: DBUser
-    user_id: int
-    user_id, db_user = await DBUser.get_by_email(mysql_driver, user_login.email)
+    db_user: DBUser = await DBUser.get_by_email(mysql_driver, user_login.email)
 
     if not db_user.verify_password(user_login.password):
         raise StarletteHTTPException(status_code=401, detail="Invalid credentials")
@@ -79,7 +78,7 @@ async def login(
     user: BaseUser = BaseUser(**db_user.dict())
     token: str = await wrap_user_data_in_token(
         token_payload=BaseTokenPayload(
-            **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
+            **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
         ),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )

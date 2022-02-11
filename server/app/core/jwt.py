@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -73,6 +74,7 @@ async def get_token_from_authorization_header(
             )
         return token
     elif required:
+        print(authorization)
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
         )
@@ -92,16 +94,14 @@ async def get_current_user(
         )
 
     if token_payload.subject == TokenSubject.ACCESS:
-        db_user: DBUser
-        user_id: int
-        user_id, db_user = await DBUser.get_by_id(mysql_driver, token_payload.user_id)
+        db_user: DBUser = await DBUser.get_by_id(mysql_driver, token_payload.user_id)
         user: BaseUser = BaseUser(**db_user.dict())
 
         if user is None:
             raise StarletteHTTPException(
                 status_code=HTTP_404_NOT_FOUND, detail="User not found"
             )
-        return user_id, BaseUserTokenWrapper(**user.dict(), token=token)
+        return db_user.id, BaseUserTokenWrapper(**user.dict(), token=token)
     else:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"

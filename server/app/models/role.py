@@ -57,3 +57,11 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_role_user(cls, mysql_driver: Database) -> Optional["DBRole"]:
         return await cls.get_role_by_name(mysql_driver, Roles.USER)
+
+
+class BaseRoleResponse(BaseRole):
+    pass
+
+
+class BaseRoleRequest(ConfigModel):
+    role: str

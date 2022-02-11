@@ -36,7 +36,12 @@ class DBUser(DBCoreModel, BaseUser):
     @classmethod
     async def get_by_id(cls, mysql_driver: Database, user_id: int) -> "DBUser":
         users: Table = Table("users")
-        query = MySQLQuery.from_(users).select("*").where(users.id == Parameter(":id")).where(users.is_deleted.isnull())
+        query = (
+            MySQLQuery.from_(users)
+            .select("*")
+            .where(users.id == Parameter(":id"))
+            .where(users.is_deleted.isnull())
+        )
         values = {"id": user_id}
 
         user: Mapping = await mysql_driver.fetch_one(
@@ -53,7 +58,8 @@ class DBUser(DBCoreModel, BaseUser):
         query = (
             MySQLQuery.from_(users)
             .select("*")
-            .where(users.email == Parameter(":email")).where(users.is_deleted.isnull())
+            .where(users.email == Parameter(":email"))
+            .where(users.is_deleted.isnull())
         )
         values = {"email": email}
 

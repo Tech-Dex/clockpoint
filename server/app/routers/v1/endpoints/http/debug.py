@@ -3,9 +3,6 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.models.enums.roles import Roles
-from app.models.group import DBGroup
-from app.models.user import BaseUser
 
 router: APIRouter = APIRouter()
 

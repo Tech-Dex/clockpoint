@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -344,7 +343,9 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return self
 
-    async def get_users_by_role(self, mysql_driver: Database, role: str) -> list[Mapping]:
+    async def get_users_by_role(
+        self, mysql_driver: Database, role: str
+    ) -> list[Mapping]:
         """
         usage: await db_group.get_users_by_role(mysql_driver, role=Roles.ADMIN)
         format response: {"payload":
@@ -385,3 +386,11 @@ class DBGroup(DBCoreModel, BaseGroup):
                 )
 
             return users_by_role
+
+
+class BaseGroupResponse(BaseGroup):
+    pass
+
+
+class BaseGroupRequest(ConfigModel):
+    name: str

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -30,6 +31,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             MySQLQuery.from_(groups)
             .select("*")
             .where(groups.id == Parameter(":group_id"))
+            .where(groups.deleted_at.isnull())
         )
         values = {"group_id": group_id}
 
@@ -49,6 +51,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             MySQLQuery.from_(groups)
             .select("*")
             .where(groups.name == Parameter(":group_name"))
+            .where(groups.deleted_at.isnull())
         )
         values = {"group_name": group_name}
 
@@ -184,6 +187,20 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return row_id_groups_users
 
+    async def make_user_admin(self, mysql_driver: Database, user_id: int) -> int:
+        """
+        usage: await db_group.make_user_admin(mysql_driver, 1)
+        """
+        async with mysql_driver.transaction():
+            role_admin: DBRole = await DBRole.get_role_admin(mysql_driver)
+            row_id_groups_users: int = await self.__create_groups_users(
+                mysql_driver,
+                user_id,
+                role_admin.id,
+            )
+
+            return row_id_groups_users
+
     async def remove_user(self, mysql_driver: Database, user_id: int) -> int:
         """
         usage: await db_group.remove_user(mysql_driver, 1)
@@ -259,6 +276,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             .join(roles)
             .on(groups_users.roles_id == roles.id)
             .where(groups_users.groups_id == Parameter(":groups_id"))
+            .where(groups_users.deleted_at.isnull())
         )
         values = {"groups_id": self.id}
 
@@ -273,3 +291,97 @@ class DBGroup(DBCoreModel, BaseGroup):
             )
 
         return users_and_roles
+
+    async def update(self, mysql_driver: Database, **kwargs) -> "DBGroup":
+        """
+        usage: await db_group.update(mysql_driver, name="new_name", description="new_description")
+        """
+        async with mysql_driver.transaction():
+            self.name = kwargs.get("name", self.name)
+            self.description = kwargs.get("description", self.description)
+
+            groups: Table = Table("groups")
+            query = (
+                MySQLQuery.update(groups)
+                .set(groups.name, Parameter(":name"))
+                .set(groups.description, Parameter(":description"))
+                .where(groups.id == Parameter(":id"))
+                .where(groups.deleted_at.isnull())
+            )
+            values = {"id": self.id, "name": self.name, "description": self.description}
+
+            try:
+                await mysql_driver.execute(query.get_sql(), values)
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+            return self
+
+    async def delete(self, mysql_driver: Database) -> "DBGroup":
+        """
+        usage: await db_group.delete(mysql_driver)
+        """
+        async with mysql_driver.transaction():
+            groups: Table = Table("groups")
+            query = (
+                MySQLQuery.update(groups)
+                .from_(groups)
+                .set(groups.deleted_at, Parameter(":deleted_at"))
+                .where(groups.id == Parameter(":id"))
+            )
+            values = {"id": self.id, "deleted_at": datetime.now()}
+
+            try:
+                await mysql_driver.execute(query.get_sql(), values)
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+            return self
+
+    async def get_users_by_role(self, mysql_driver: Database, role: str) -> list[Mapping]:
+        """
+        usage: await db_group.get_users_by_role(mysql_driver, role=Roles.ADMIN)
+        format response: {"payload":
+        [BaseUser(**user) for user in await db_group.get_users_by_role(mysql_driver, Roles.ADMIN)]
+        }
+        """
+        async with mysql_driver.transaction():
+            groups_users: Table = Table("groups_users")
+            users: Table = Table("users")
+            roles: Table = Table("roles")
+            query = (
+                MySQLQuery.select(
+                    users.id,
+                    users.email,
+                    users.username,
+                    users.first_name,
+                    users.last_name,
+                )
+                .from_(groups_users)
+                .join(users)
+                .on(groups_users.users_id == users.id)
+                .join(roles)
+                .on(groups_users.roles_id == roles.id)
+                .where(groups_users.groups_id == Parameter(":groups_id"))
+                .where(roles.role == Parameter(":role"))
+                .where(groups_users.deleted_at.isnull())
+            )
+            values = {"groups_id": self.id, "role": role}
+
+            try:
+                users_by_role: list[Mapping] = await mysql_driver.fetch_all(
+                    query.get_sql(), values
+                )
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+            return users_by_role

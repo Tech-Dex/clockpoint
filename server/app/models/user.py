@@ -34,9 +34,7 @@ class DBUser(DBCoreModel, BaseUser):
         self.hashed_password = hash_password(self.salt, password)
 
     @classmethod
-    async def get_by_id(
-        cls, mysql_driver: Database, user_id: int
-    ) -> tuple[int, "DBUser"]:
+    async def get_by_id(cls, mysql_driver: Database, user_id: int) -> "DBUser":
         users: Table = Table("users")
         query = MySQLQuery.from_(users).select("*").where(users.id == Parameter(":id"))
         values = {"id": user_id}
@@ -45,12 +43,12 @@ class DBUser(DBCoreModel, BaseUser):
             query=query.get_sql(), values=values
         )
         if user:
-            return user["id"], cls(**user)
+            return cls(**user)
 
         raise StarletteHTTPException(status_code=404, detail="User not found")
 
     @classmethod
-    async def get_by_email(cls, mysql_driver, email) -> tuple[int, "DBUser"]:
+    async def get_by_email(cls, mysql_driver, email) -> "DBUser":
         users: Table = Table("users")
         query = (
             MySQLQuery.from_(users)
@@ -62,11 +60,11 @@ class DBUser(DBCoreModel, BaseUser):
         user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
 
         if user:
-            return user["id"], cls(**user)
+            return cls(**user)
 
         raise StarletteHTTPException(status_code=404, detail="User not found")
 
-    async def save(self, mysql_driver: Database) -> int:
+    async def save(self, mysql_driver: Database) -> "DBUser":
         async with mysql_driver.transaction():
             users: Table = Table("users")
             query = (
@@ -115,8 +113,8 @@ class DBUser(DBCoreModel, BaseUser):
 
             try:
                 row_id: int = await mysql_driver.execute(query.get_sql(), values)
-
-                return row_id
+                self.id = row_id
+                return self
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:

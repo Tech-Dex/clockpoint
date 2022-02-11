@@ -23,7 +23,7 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
     token: str
     expire: datetime
 
-    async def save(self, mysql_driver: Database) -> int:
+    async def save(self, mysql_driver: Database) -> "DBTokenPayload":
         async with mysql_driver.transaction():
             tokens = Table("tokens")
             query = (
@@ -59,8 +59,8 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
 
             try:
                 row_id: int = await mysql_driver.execute(query.get_sql(), values)
-
-                return row_id
+                self.id = row_id
+                return self
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:

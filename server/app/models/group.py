@@ -58,9 +58,12 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         raise StarletteHTTPException(status_code=404, detail="Group not found")
 
-    async def save(self, mysql_driver: Database, user_id: int) -> tuple[int, int]:
+    async def save(self, mysql_driver: Database, user_id: int) -> tuple["DBGroup", int]:
         """
-        usage: await DBGroup(name="test", description="test").save(mysql_driver, 1)
+        usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test").save(mysql_driver, 1)
+        format response: {"payload":
+         {"group": BaseGroup(**db_group.dict()), "groups_and_roles_id": db_groups_and_roles_id}
+        }
         """
         async with mysql_driver.transaction():
             groups: Table = Table("groups")
@@ -113,7 +116,7 @@ class DBGroup(DBCoreModel, BaseGroup):
                     status_code=500,
                     detail=f"Something weird happened in transaction, contact the administrator",
                 )
-            return row_id_group, row_id_groups_users
+            return self, row_id_groups_users
 
     async def __create_groups_users(
         self, mysql_driver: Database, user_id: int, role_id: int
@@ -214,9 +217,10 @@ class DBGroup(DBCoreModel, BaseGroup):
     async def get_users_and_roles(self, mysql_driver: Database) -> list[Mapping]:
         """
         usage: await DBGroup.get_users_and_roles(mysql_driver)
-        format response:
-        {"payload": [({"user": BaseUser(**json.loads(i)['user']), "role": BaseRole(**json.loads(i)['role'])})
-         for rep in response for i in rep]}
+        format response:{"payload":
+         [({"user": BaseUser(**json.loads(i)['user']), "role": BaseRole(**json.loads(i)['role'])})
+         for rep in response for i in rep]
+        }
         """
         groups_users: Table = Table("groups_users")
         users: Table = Table("users")

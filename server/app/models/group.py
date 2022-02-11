@@ -1,17 +1,17 @@
 from datetime import datetime
-from typing import Mapping, Optional, List, Dict
+from typing import Mapping, Optional
 
 from databases import Database
 from pymysql import Error as MySQLError
 from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
+from pypika.terms import AggregateFunction
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from app.models.role import BaseRole, DBRole
-from app.models.user import BaseUser
+from app.models.role import DBRole
 
 
 class BaseGroup(ConfigModel):
@@ -21,9 +21,10 @@ class BaseGroup(ConfigModel):
 
 class DBGroup(DBCoreModel, BaseGroup):
     @classmethod
-    async def get_by_id(
-        cls, mysql_driver: Database, group_id: int
-    ) -> tuple[int, "DBGroup"]:
+    async def get_by_id(cls, mysql_driver: Database, group_id: int) -> "DBGroup":
+        """
+        usage: BaseGroup(**(await DBGroup.get_by_id(mysql_driver, 1)).dict())
+        """
         groups: Table = Table("groups")
         query = (
             MySQLQuery.from_(groups)
@@ -34,14 +35,15 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         group: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         if group:
-            return group["id"], cls(**group)
+            return cls(**group)
 
         raise StarletteHTTPException(status_code=404, detail="Group not found")
 
     @classmethod
-    async def get_by_name(
-        cls, mysql_driver: Database, group_name: str
-    ) -> tuple[int, "DBGroup"]:
+    async def get_by_name(cls, mysql_driver: Database, group_name: str) -> "DBGroup":
+        """
+        usage: BaseGroup(**(await DBGroup.get_by_id(mysql_driver, "test")).dict())
+        """
         groups: Table = Table("groups")
         query = (
             MySQLQuery.from_(groups)
@@ -52,11 +54,14 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         group: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         if group:
-            return group["id"], cls(**group)
+            return cls(**group)
 
         raise StarletteHTTPException(status_code=404, detail="Group not found")
 
     async def save(self, mysql_driver: Database, user_id: int) -> tuple[int, int]:
+        """
+        usage: await DBGroup(name="test", description="test").save(mysql_driver, 1)
+        """
         async with mysql_driver.transaction():
             groups: Table = Table("groups")
             query = (
@@ -85,6 +90,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             }
             try:
                 row_id_group: int = await mysql_driver.execute(query.get_sql(), values)
+                self.id = row_id_group
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
@@ -99,7 +105,6 @@ class DBGroup(DBCoreModel, BaseGroup):
                 )
             row_id_groups_users: int = await self.__create_groups_users(
                 mysql_driver,
-                row_id_group,
                 user_id,
                 (await DBRole.get_role_owner(mysql_driver)).id,
             )
@@ -111,7 +116,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             return row_id_group, row_id_groups_users
 
     async def __create_groups_users(
-        self, mysql_driver: Database, group_id: int, user_id: int, role_id: int
+        self, mysql_driver: Database, user_id: int, role_id: int
     ) -> int:
         groups_users: Table = Table("groups_users")
         query = (
@@ -134,7 +139,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             )
         )
         values = {
-            "groups_id": group_id,
+            "groups_id": self.id,
             "users_id": user_id,
             "roles_id": role_id,
             "created_at": self.created_at,
@@ -162,22 +167,24 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         return row_id_groups_users
 
-    async def add_user(
-        self, mysql_driver: Database, group_id: int, user_id: int
-    ) -> int:
+    async def add_user(self, mysql_driver: Database, user_id: int) -> int:
+        """
+        usage: await db_group.add_user(mysql_driver, group_id, 1)
+        """
         async with mysql_driver.transaction():
             role_user: DBRole = await DBRole.get_role_user(mysql_driver)
             row_id_groups_users: int = await self.__create_groups_users(
                 mysql_driver,
-                group_id,
                 user_id,
                 role_user.id,
             )
 
             return row_id_groups_users
 
-    @staticmethod
-    async def remove_user(mysql_driver: Database, group_id: int, user_id: int) -> int:
+    async def remove_user(self, mysql_driver: Database, user_id: int) -> int:
+        """
+        usage: await db_group.remove_user(mysql_driver, 1)
+        """
         async with mysql_driver.transaction():
             groups_users: Table = Table("groups_users")
             query = (
@@ -187,7 +194,7 @@ class DBGroup(DBCoreModel, BaseGroup):
                 .where(groups_users.users_id == Parameter(":users_id"))
             )
             values = {
-                "groups_id": group_id,
+                "groups_id": self.id,
                 "users_id": user_id,
                 "deleted_at": datetime.utcnow(),
             }
@@ -204,22 +211,43 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return row_id_groups_users
 
-    @staticmethod
-    async def get_users_and_roles(
-        mysql_driver: Database, group_id: int
-    ) -> list[dict[str, BaseUser | BaseRole]]:
+    async def get_users_and_roles(self, mysql_driver: Database) -> list[Mapping]:
+        """
+        usage: await DBGroup.get_users_and_roles(mysql_driver)
+        format response:
+        {"payload": [({"user": BaseUser(**json.loads(i)['user']), "role": BaseRole(**json.loads(i)['role'])})
+         for rep in response for i in rep]}
+        """
         groups_users: Table = Table("groups_users")
         users: Table = Table("users")
         roles: Table = Table("roles")
         query = (
             MySQLQuery.select(
-                users.id.as_("user_id"),
-                users.email,
-                users.username,
-                users.first_name,
-                users.last_name,
-                roles.id,
-                roles.role,
+                AggregateFunction(
+                    "json_object",
+                    "user",
+                    AggregateFunction(
+                        "json_object",
+                        "id",
+                        users.id,
+                        "email",
+                        users.email,
+                        "username",
+                        users.username,
+                        "first_name",
+                        users.first_name,
+                        "last_name",
+                        users.last_name,
+                    ),
+                    "role",
+                    AggregateFunction(
+                        "json_object",
+                        "id",
+                        roles.id,
+                        "role",
+                        roles.role,
+                    ),
+                )
             )
             .from_(groups_users)
             .join(users)
@@ -228,7 +256,7 @@ class DBGroup(DBCoreModel, BaseGroup):
             .on(groups_users.roles_id == roles.id)
             .where(groups_users.groups_id == Parameter(":groups_id"))
         )
-        values = {"groups_id": group_id}
+        values = {"groups_id": self.id}
 
         try:
             users_and_roles: list[Mapping] = await mysql_driver.fetch_all(
@@ -240,7 +268,4 @@ class DBGroup(DBCoreModel, BaseGroup):
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        return [
-            {"user": BaseUser(**user_and_role), "role": BaseRole(**user_and_role)}
-            for user_and_role in users_and_roles
-        ]
+        return users_and_roles

@@ -9,7 +9,6 @@ from app.models.enums.roles import Roles
 
 
 class BaseRole(ConfigModel):
-    id: int
     role: str
 
 

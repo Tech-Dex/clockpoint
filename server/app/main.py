@@ -48,9 +48,6 @@ if settings.BACKEND_CORS_ORIGINS:
 async def app_startup():
     await connect_to_mysql_driver()
 
-    # TODO: Add row mapper for models
-    # TODO: Use pypika to create SQL queries
-
 
 async def app_shutdown():
     await disconnect_from_mysql_driver()

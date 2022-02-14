@@ -15,6 +15,7 @@ down_revision = "bcd49b2b8794"
 branch_labels = None
 depends_on = None
 
+
 # "ix": "ix_%(column_0_label)s"
 # "uq": "uq_%(table_name)s_%(column_0_name)s"
 # "ck": "ck_%(table_name)s_%(constraint_name)s"
@@ -28,16 +29,15 @@ def upgrade():
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("roles_id", sa.Integer, nullable=False),
         sa.Column("permissions_id", sa.Integer, nullable=False),
+        sa.Column("groups_id", sa.Integer, nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime,
-            server_default=sa.func.current_timestamp(),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime,
-            server_default=sa.func.current_timestamp(),
             nullable=False,
         ),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
@@ -61,32 +61,20 @@ def upgrade():
         ondelete="CASCADE",
     )
 
+    op.create_foreign_key(
+        "fk_roles_permissions_groups_id_groups",
+        "roles_permissions",
+        "groups",
+        ["groups_id"],
+        ["id"],
+        ondelete="CASCADE",
+    )
+
     op.create_index(
         "ix_groups_users_roles_id_permissions_id",
         "roles_permissions",
         ["roles_id", "permissions_id"],
         unique=True,
-    )
-
-    op.bulk_insert(
-        roles_permissions_table,
-        [
-            {"roles_id": 1, "permissions_id": 1},
-            {"roles_id": 1, "permissions_id": 2},
-            {"roles_id": 1, "permissions_id": 3},
-            {"roles_id": 1, "permissions_id": 4},
-            {"roles_id": 1, "permissions_id": 5},
-            {"roles_id": 1, "permissions_id": 6},
-            {"roles_id": 1, "permissions_id": 7},
-            {"roles_id": 1, "permissions_id": 8},
-            {"roles_id": 1, "permissions_id": 9},
-            {"roles_id": 2, "permissions_id": 1},
-            {"roles_id": 2, "permissions_id": 2},
-            {"roles_id": 2, "permissions_id": 3},
-            {"roles_id": 2, "permissions_id": 4},
-            {"roles_id": 2, "permissions_id": 5},
-            {"roles_id": 3, "permissions_id": 1},
-        ],
     )
 
 

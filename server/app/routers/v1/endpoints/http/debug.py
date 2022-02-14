@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
+from app.models.group import BaseGroup, DBGroup
+from app.models.role import DBRole
 
 router: APIRouter = APIRouter()
 
@@ -41,4 +43,17 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     # return {"payload": [BaseUser(**user) for user in await db_group.get_users_by_role(mysql_driver, Roles.ADMIN)]}
     # return BaseGroup(**(await db_group.update(mysql_driver, name="tesst", description="dessc")).dict())
     # return {"payload": [({"user": BaseUser(**json.loads(i)['user']), "role": BaseRole(**json.loads(i)['role'])}) for rep in response for i in rep]}
+
+    custom_roles = ["custom role"]
+    permissions = [{"role": "custom role", "permission": "invite_user"}]
+    db_group: DBGroup = await DBGroup(
+        name="test name", description="test description"
+    ).save(mysql_driver, 1, DBRole.create_roles(custom_roles))
+
+    await db_group.create_roles_permissions_for_group(
+        mysql_driver,
+        await DBRole.create_roles_permissions(mysql_driver, db_group.id, permissions),
+    )
+
+    return BaseGroup(**db_group.dict())
     return 1

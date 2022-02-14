@@ -28,16 +28,15 @@ def upgrade():
         "roles",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("role", sa.String(255), nullable=False),
+        sa.Column("groups_id", sa.Integer, nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime,
-            server_default=sa.func.current_timestamp(),
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             sa.DateTime,
-            server_default=sa.func.current_timestamp(),
             nullable=False,
         ),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
@@ -45,14 +44,14 @@ def upgrade():
 
     op.create_index("ix_role", "roles", ["role"], unique=True)
 
-    op.bulk_insert(
-        roles_table,
-        [
-            {"role": "owner"},
-            {"role": "admin"},
-            {"role": "user"},
-        ],
-    )
+    # op.bulk_insert(
+    #     roles_table,
+    #     [
+    #         {"role": "owner"},
+    #         {"role": "admin"},
+    #         {"role": "user"},
+    #     ],
+    # )
 
 
 def downgrade():

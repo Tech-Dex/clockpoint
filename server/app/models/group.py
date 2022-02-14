@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -60,7 +61,27 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         raise StarletteHTTPException(status_code=404, detail="Group not found")
 
-    async def save(self, mysql_driver: Database, user_id: int) -> tuple["DBGroup", int]:
+    """
+            {"roles_id": 1, "permissions_id": 1},
+            {"roles_id": 1, "permissions_id": 2},
+            {"roles_id": 1, "permissions_id": 3},
+            {"roles_id": 1, "permissions_id": 4},
+            {"roles_id": 1, "permissions_id": 5},
+            {"roles_id": 1, "permissions_id": 6},
+            {"roles_id": 1, "permissions_id": 7},
+            {"roles_id": 1, "permissions_id": 8},
+            {"roles_id": 1, "permissions_id": 9},
+            {"roles_id": 2, "permissions_id": 1},
+            {"roles_id": 2, "permissions_id": 2},
+            {"roles_id": 2, "permissions_id": 3},
+            {"roles_id": 2, "permissions_id": 4},
+            {"roles_id": 2, "permissions_id": 5},
+            {"roles_id": 3, "permissions_id": 1},
+    """
+
+    async def save(
+        self, mysql_driver: Database, user_id: int, roles: list
+    ) -> "DBGroup":
         """
         usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test").save(mysql_driver, 1)
         format response: {"payload":
@@ -108,21 +129,17 @@ class DBGroup(DBCoreModel, BaseGroup):
                     status_code=500,
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
-            row_id_groups_users: int = await self.__create_groups_users(
-                mysql_driver,
-                user_id,
-                (await DBRole.get_role_owner(mysql_driver)).id,
-            )
-            if row_id_groups_users == -1:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"Something weird happened in transaction, contact the administrator",
-                )
-            return self, row_id_groups_users
+            if await self.__create_roles(mysql_driver, roles):
+                if await self.__create_groups_users(
+                    mysql_driver,
+                    user_id,
+                    (await DBRole.get_role_owner(mysql_driver)).id,
+                ):
+                    return self
 
     async def __create_groups_users(
         self, mysql_driver: Database, user_id: int, role_id: int
-    ) -> int:
+    ) -> bool:
         groups_users: Table = Table("groups_users")
         query = (
             MySQLQuery.into(groups_users)
@@ -152,11 +169,8 @@ class DBGroup(DBCoreModel, BaseGroup):
             "deleted_at": self.deleted_at,
         }
 
-        row_id_groups_users = -1
         try:
-            row_id_groups_users: int = await mysql_driver.execute(
-                query.get_sql(), values
-            )
+            await mysql_driver.execute(query.get_sql(), values)
         except IntegrityError as ignoredException:
             code, msg = ignoredException.args
             if code == DUP_ENTRY:
@@ -170,7 +184,79 @@ class DBGroup(DBCoreModel, BaseGroup):
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        return row_id_groups_users
+        return True
+
+    async def __create_roles(self, mysql_driver: Database, group_roles: list) -> bool:
+        roles: Table = Table("roles")
+        query = (
+            MySQLQuery.into(roles)
+            .columns(roles.role, roles.groups_id, roles.created_at, roles.updated_at)
+            .insert(
+                Parameter(":role"),
+                self.id,
+                datetime.now(),
+                datetime.now(),
+            )
+        )
+        try:
+            # TODO: Take care of bulk insert
+            await mysql_driver.execute_many(query.get_sql(), values=group_roles)
+
+        except IntegrityError as ignoredException:
+            code, msg = ignoredException.args
+            if code == DUP_ENTRY:
+                raise StarletteHTTPException(
+                    status_code=409,
+                    detail="Role already exists",
+                )
+        except MySQLError as mySQLError:
+            raise StarletteHTTPException(
+                status_code=500,
+                detail=f"MySQL error: {mySQLError.args[1]}",
+            )
+
+        return True
+
+    async def create_roles_permissions_for_group(
+        self, mysql_driver: Database, permissions: list[dict]
+    ) -> bool:
+        async with mysql_driver.transaction():
+            roles_permissions: Table = Table("roles_permissions")
+            query = (
+                MySQLQuery.into(roles_permissions)
+                .columns(
+                    roles_permissions.roles_id,
+                    roles_permissions.permissions_id,
+                    roles_permissions.groups_id,
+                    roles_permissions.created_at,
+                    roles_permissions.updated_at,
+                )
+                .insert(
+                    Parameter(":role_id"),
+                    Parameter(":permission_id"),
+                    self.id,
+                    datetime.now(),
+                    datetime.now(),
+                )
+            )
+
+            try:
+                logging.warning(permissions)
+                await mysql_driver.execute_many(query.get_sql(), values=permissions)
+            except IntegrityError as ignoredException:
+                code, msg = ignoredException.args
+                if code == DUP_ENTRY:
+                    raise StarletteHTTPException(
+                        status_code=409,
+                        detail="Permission already exists in group",
+                    )
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+            return True
 
     async def add_user(self, mysql_driver: Database, user_id: int) -> int:
         """

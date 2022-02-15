@@ -24,34 +24,26 @@ depends_on = None
 
 
 def upgrade():
-    roles_table = op.create_table(
+    op.create_table(
         "roles",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("role", sa.String(255), nullable=False),
         sa.Column("groups_id", sa.Integer, nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime,
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime,
-            nullable=False,
-        ),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+        sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
-    op.create_index("ix_role", "roles", ["role"], unique=True)
+    op.create_foreign_key(
+        "fk_roles_groups_id_groups",
+        "roles",
+        "groups",
+        ["groups_id"],
+        ["id"],
+        ondelete="CASCADE",
+    )
 
-    # op.bulk_insert(
-    #     roles_table,
-    #     [
-    #         {"role": "owner"},
-    #         {"role": "admin"},
-    #         {"role": "user"},
-    #     ],
-    # )
+    op.create_index("ix_role", "roles", ["role"], unique=True)
 
 
 def downgrade():

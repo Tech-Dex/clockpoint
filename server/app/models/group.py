@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -10,6 +9,7 @@ from pypika import MySQLQuery, Parameter, Table
 from pypika.terms import AggregateFunction
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.database.mysql_driver import create_batch_insert_query
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.role import DBRole
@@ -187,20 +187,18 @@ class DBGroup(DBCoreModel, BaseGroup):
         return True
 
     async def __create_roles(self, mysql_driver: Database, group_roles: list) -> bool:
-        roles: Table = Table("roles")
-        query = (
-            MySQLQuery.into(roles)
-            .columns(roles.role, roles.groups_id, roles.created_at, roles.updated_at)
-            .insert(
-                Parameter(":role"),
-                self.id,
-                datetime.now(),
-                datetime.now(),
-            )
-        )
+        roles: str = "roles"
+        columns: list = ["role", "groups_id", "created_at", "updated_at"]
+        now = datetime.now()
+        values: list = [
+            f"'{role['role']}', {self.id}, "
+            f"'{now.strftime('%Y-%m-%d %H:%M:%S')}', '{now.strftime('%Y-%m-%d %H:%M:%S')}'"
+            for role in group_roles
+        ]
+        query = create_batch_insert_query(roles, columns, values)
+
         try:
-            # TODO: Take care of bulk insert
-            await mysql_driver.execute_many(query.get_sql(), values=group_roles)
+            await mysql_driver.execute(query)
 
         except IntegrityError as ignoredException:
             code, msg = ignoredException.args
@@ -221,28 +219,27 @@ class DBGroup(DBCoreModel, BaseGroup):
         self, mysql_driver: Database, permissions: list[dict]
     ) -> bool:
         async with mysql_driver.transaction():
-            roles_permissions: Table = Table("roles_permissions")
-            query = (
-                MySQLQuery.into(roles_permissions)
-                .columns(
-                    roles_permissions.roles_id,
-                    roles_permissions.permissions_id,
-                    roles_permissions.groups_id,
-                    roles_permissions.created_at,
-                    roles_permissions.updated_at,
+            roles_permissions: str = "roles_permissions"
+            columns = [
+                "roles_id",
+                "permissions_id",
+                "groups_id",
+                "created_at",
+                "updated_at",
+            ]
+
+            now = datetime.now()
+            values = [
+                (
+                    f"{permission['role_id']}, {permission['permission_id']}, {self.id},"
+                    f"'{now.strftime('%Y-%m-%d %H:%M:%S')}', '{now.strftime('%Y-%m-%d %H:%M:%S')}'"
                 )
-                .insert(
-                    Parameter(":role_id"),
-                    Parameter(":permission_id"),
-                    self.id,
-                    datetime.now(),
-                    datetime.now(),
-                )
-            )
+                for permission in permissions
+            ]
+            query = create_batch_insert_query(roles_permissions, columns, values)
 
             try:
-                logging.warning(permissions)
-                await mysql_driver.execute_many(query.get_sql(), values=permissions)
+                await mysql_driver.execute(query)
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:

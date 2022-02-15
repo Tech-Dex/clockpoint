@@ -191,11 +191,11 @@ class DBGroup(DBCoreModel, BaseGroup):
         columns: list = ["role", "groups_id", "created_at", "updated_at"]
         now = datetime.now()
         values: list = [
-            f"'{role['role']}', {self.id}, "
-            f"'{now.strftime('%Y-%m-%d %H:%M:%S')}', '{now.strftime('%Y-%m-%d %H:%M:%S')}'"
+            f"{role['role']!r}, {self.id}, "
+            f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
             for role in group_roles
         ]
-        query = create_batch_insert_query(roles, columns, values)
+        query: str = create_batch_insert_query(roles, columns, values)
 
         try:
             await mysql_driver.execute(query)
@@ -227,16 +227,13 @@ class DBGroup(DBCoreModel, BaseGroup):
                 "created_at",
                 "updated_at",
             ]
-
             now = datetime.now()
             values = [
-                (
-                    f"{permission['role_id']}, {permission['permission_id']}, {self.id},"
-                    f"'{now.strftime('%Y-%m-%d %H:%M:%S')}', '{now.strftime('%Y-%m-%d %H:%M:%S')}'"
-                )
+                f"{permission['role_id']!r}, {permission['permission_id']}, {self.id},"
+                f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for permission in permissions
             ]
-            query = create_batch_insert_query(roles_permissions, columns, values)
+            query: str = create_batch_insert_query(roles_permissions, columns, values)
 
             try:
                 await mysql_driver.execute(query)

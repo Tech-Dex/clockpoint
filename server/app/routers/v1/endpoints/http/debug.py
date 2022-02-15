@@ -44,8 +44,11 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     # return BaseGroup(**(await db_group.update(mysql_driver, name="tesst", description="dessc")).dict())
     # return {"payload": [({"user": BaseUser(**json.loads(i)['user']), "role": BaseRole(**json.loads(i)['role'])}) for rep in response for i in rep]}
 
-    custom_roles = ["custom role"]
-    permissions = [{"role": "custom role", "permission": "invite_user"}]
+    custom_roles = ["custom_role_1", "custom_role_2"]
+    permissions = [
+        {"role": custom_roles[0], "permission": "invite_user"},
+        {"role": custom_roles[1], "permission": "generate_report"},
+    ]
     db_group: DBGroup = await DBGroup(
         name="test name", description="test description"
     ).save(mysql_driver, 1, DBRole.create_roles(custom_roles))

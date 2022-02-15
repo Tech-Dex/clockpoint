@@ -97,14 +97,12 @@ class DBGroup(DBCoreModel, BaseGroup):
                     groups.description,
                     groups.created_at,
                     groups.updated_at,
-                    groups.deleted_at,
                 )
                 .insert(
                     Parameter(":group_name"),
                     Parameter(":group_description"),
                     Parameter(":created_at"),
                     Parameter(":updated_at"),
-                    Parameter(":deleted_at"),
                 )
             )
             values = {
@@ -112,7 +110,6 @@ class DBGroup(DBCoreModel, BaseGroup):
                 "group_description": self.description,
                 "created_at": self.created_at,
                 "updated_at": self.updated_at,
-                "deleted_at": self.deleted_at,
             }
             try:
                 row_id_group: int = await mysql_driver.execute(query.get_sql(), values)
@@ -132,45 +129,37 @@ class DBGroup(DBCoreModel, BaseGroup):
             if await self.__create_roles(mysql_driver, roles):
                 if await self.__create_groups_users(
                     mysql_driver,
-                    user_id,
-                    (await DBRole.get_role_owner(mysql_driver)).id,
+                    [
+                        {
+                            "user_id": user_id,
+                            "role_id": (await DBRole.get_role_owner(mysql_driver)).id,
+                        }
+                    ],
                 ):
                     return self
 
     async def __create_groups_users(
-        self, mysql_driver: Database, user_id: int, role_id: int
+        self, mysql_driver: Database, users_roles: list[dict]
     ) -> bool:
-        groups_users: Table = Table("groups_users")
-        query = (
-            MySQLQuery.into(groups_users)
-            .columns(
-                groups_users.groups_id,
-                groups_users.users_id,
-                groups_users.roles_id,
-                groups_users.created_at,
-                groups_users.updated_at,
-                groups_users.deleted_at,
-            )
-            .insert(
-                Parameter(":groups_id"),
-                Parameter(":users_id"),
-                Parameter(":roles_id"),
-                Parameter(":created_at"),
-                Parameter(":updated_at"),
-                Parameter(":deleted_at"),
-            )
-        )
-        values = {
-            "groups_id": self.id,
-            "users_id": user_id,
-            "roles_id": role_id,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "deleted_at": self.deleted_at,
-        }
+        # TODO : Move this in other class GroupsUsers, use it in controller, refactor where necessary
+        groups_users: str = "groups_users"
+        columns: list = [
+            "groups_id",
+            "users_id",
+            "roles_id",
+            "created_at",
+            "updated_at",
+        ]
+        now = datetime.now()
+        values = [
+            f"{self.id}, {user_role['user_id']}, {user_role['role_id']}, "
+            f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
+            for user_role in users_roles
+        ]
+        query: str = create_batch_insert_query(groups_users, columns, values)
 
         try:
-            await mysql_driver.execute(query.get_sql(), values)
+            await mysql_driver.execute(query)
         except IntegrityError as ignoredException:
             code, msg = ignoredException.args
             if code == DUP_ENTRY:
@@ -187,6 +176,7 @@ class DBGroup(DBCoreModel, BaseGroup):
         return True
 
     async def __create_roles(self, mysql_driver: Database, group_roles: list) -> bool:
+        # TODO: Move this in other class Roles, use it in controller, refactor where necessary
         roles: str = "roles"
         columns: list = ["role", "groups_id", "created_at", "updated_at"]
         now = datetime.now()
@@ -218,18 +208,18 @@ class DBGroup(DBCoreModel, BaseGroup):
     async def create_roles_permissions_for_group(
         self, mysql_driver: Database, permissions: list[dict]
     ) -> bool:
+        # TODO: Move this in other class RolesPermissions, use it in controller, refactor where necessary
         async with mysql_driver.transaction():
             roles_permissions: str = "roles_permissions"
             columns = [
                 "roles_id",
                 "permissions_id",
-                "groups_id",
                 "created_at",
                 "updated_at",
             ]
             now = datetime.now()
             values = [
-                f"{permission['role_id']!r}, {permission['permission_id']}, {self.id},"
+                f"{permission['role_id']!r}, {permission['permission_id']},"
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for permission in permissions
             ]
@@ -252,35 +242,39 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return True
 
-    async def add_user(self, mysql_driver: Database, user_id: int) -> int:
+    async def add_users(self, mysql_driver: Database, users_id: list[int]) -> int:
         """
-        usage: await db_group.add_user(mysql_driver, group_id, 1)
+        usage: await db_group.add_user(mysql_driver, group_id, [{'user_id': 1, 'role_id': 1}, {'user_id': 2, 'role_id': 2}])
         """
+        # TODO: Refactor this method to avoid circular imports
         async with mysql_driver.transaction():
             role_user: DBRole = await DBRole.get_role_user(mysql_driver)
+            users_roles: list = [
+                {"user_id": user_id, "role_id": role_user.id} for user_id in users_id
+            ]
+
             row_id_groups_users: int = await self.__create_groups_users(
-                mysql_driver,
-                user_id,
-                role_user.id,
+                mysql_driver, users_roles
             )
 
             return row_id_groups_users
 
-    async def make_user_admin(self, mysql_driver: Database, user_id: int) -> int:
-        """
-        usage: await db_group.make_user_admin(mysql_driver, 1)
-        """
-        async with mysql_driver.transaction():
-            role_admin: DBRole = await DBRole.get_role_admin(mysql_driver)
-            row_id_groups_users: int = await self.__create_groups_users(
-                mysql_driver,
-                user_id,
-                role_admin.id,
-            )
+    # TODO: Refactor this method to update a user to admin in a group
+    # async def make_user_admin(self, mysql_driver: Database, user_id: int) -> int:
+    #     """
+    #     usage: await db_group.make_user_admin(mysql_driver, 1)
+    #     """
+    #     async with mysql_driver.transaction():
+    #         role_admin: DBRole = await DBRole.get_role_admin(mysql_driver)
+    #         row_id_groups_users: int = await self.__create_groups_users(
+    #             mysql_driver,
+    #             user_id,
+    #             role_admin.id,
+    #         )
+    #
+    #         return row_id_groups_users
 
-            return row_id_groups_users
-
-    async def remove_user(self, mysql_driver: Database, user_id: int) -> int:
+    async def soft_remove_user(self, mysql_driver: Database, user_id: int) -> int:
         """
         usage: await db_group.remove_user(mysql_driver, 1)
         """
@@ -318,6 +312,7 @@ class DBGroup(DBCoreModel, BaseGroup):
          for rep in response for i in rep]
         }
         """
+        # TODO: Move this to other class GroupsUsers, use in in controller, refactor where necessary
         groups_users: Table = Table("groups_users")
         users: Table = Table("users")
         roles: Table = Table("roles")
@@ -399,7 +394,7 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return self
 
-    async def delete(self, mysql_driver: Database) -> "DBGroup":
+    async def soft_delete(self, mysql_driver: Database) -> "DBGroup":
         """
         usage: await db_group.delete(mysql_driver)
         """
@@ -432,6 +427,7 @@ class DBGroup(DBCoreModel, BaseGroup):
         [BaseUser(**user) for user in await db_group.get_users_by_role(mysql_driver, Roles.ADMIN)]
         }
         """
+        # TODO: Move this to other class GroupsUsers, use in in controller, refactor where necessary
         async with mysql_driver.transaction():
             groups_users: Table = Table("groups_users")
             users: Table = Table("users")

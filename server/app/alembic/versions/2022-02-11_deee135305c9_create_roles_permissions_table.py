@@ -24,12 +24,11 @@ depends_on = None
 
 
 def upgrade():
-    roles_permissions_table = op.create_table(
+    op.create_table(
         "roles_permissions",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("roles_id", sa.Integer, nullable=False),
         sa.Column("permissions_id", sa.Integer, nullable=False),
-        sa.Column("groups_id", sa.Integer, nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
@@ -49,15 +48,6 @@ def upgrade():
         "roles_permissions",
         "permissions",
         ["permissions_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
-
-    op.create_foreign_key(
-        "fk_roles_permissions_groups_id_groups",
-        "roles_permissions",
-        "groups",
-        ["groups_id"],
         ["id"],
         ondelete="CASCADE",
     )

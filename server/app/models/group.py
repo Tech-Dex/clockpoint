@@ -61,29 +61,12 @@ class DBGroup(DBCoreModel, BaseGroup):
 
         raise StarletteHTTPException(status_code=404, detail="Group not found")
 
-    """
-            {"roles_id": 1, "permissions_id": 1},
-            {"roles_id": 1, "permissions_id": 2},
-            {"roles_id": 1, "permissions_id": 3},
-            {"roles_id": 1, "permissions_id": 4},
-            {"roles_id": 1, "permissions_id": 5},
-            {"roles_id": 1, "permissions_id": 6},
-            {"roles_id": 1, "permissions_id": 7},
-            {"roles_id": 1, "permissions_id": 8},
-            {"roles_id": 1, "permissions_id": 9},
-            {"roles_id": 2, "permissions_id": 1},
-            {"roles_id": 2, "permissions_id": 2},
-            {"roles_id": 2, "permissions_id": 3},
-            {"roles_id": 2, "permissions_id": 4},
-            {"roles_id": 2, "permissions_id": 5},
-            {"roles_id": 3, "permissions_id": 1},
-    """
-
     async def save(
-        self, mysql_driver: Database, user_id: int, roles: list
+        self, mysql_driver: Database, roles: list
     ) -> "DBGroup":
         """
-        usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test").save(mysql_driver, 1)
+        usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test")
+                                                        .save(mysql_driver, ["custom_role_1", "custom_role_2"]
         format response: {"payload":
          {"group": BaseGroup(**db_group.dict()), "groups_and_roles_id": db_groups_and_roles_id}
         }
@@ -126,54 +109,10 @@ class DBGroup(DBCoreModel, BaseGroup):
                     status_code=500,
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
-            if await self.__create_roles(mysql_driver, roles):
-                if await self.__create_groups_users(
-                    mysql_driver,
-                    [
-                        {
-                            "user_id": user_id,
-                            "role_id": (await DBRole.get_role_owner(mysql_driver)).id,
-                        }
-                    ],
-                ):
-                    return self
 
-    async def __create_groups_users(
-        self, mysql_driver: Database, users_roles: list[dict]
-    ) -> bool:
-        # TODO : Move this in other class GroupsUsers, use it in controller, refactor where necessary
-        groups_users: str = "groups_users"
-        columns: list = [
-            "groups_id",
-            "users_id",
-            "roles_id",
-            "created_at",
-            "updated_at",
-        ]
-        now = datetime.now()
-        values = [
-            f"{self.id}, {user_role['user_id']}, {user_role['role_id']}, "
-            f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
-            for user_role in users_roles
-        ]
-        query: str = create_batch_insert_query(groups_users, columns, values)
+            await self.__create_roles(mysql_driver, roles)
 
-        try:
-            await mysql_driver.execute(query)
-        except IntegrityError as ignoredException:
-            code, msg = ignoredException.args
-            if code == DUP_ENTRY:
-                raise StarletteHTTPException(
-                    status_code=409,
-                    detail="User already exists in group",
-                )
-        except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
-
-        return True
+            return self
 
     async def __create_roles(self, mysql_driver: Database, group_roles: list) -> bool:
         # TODO: Move this in other class Roles, use it in controller, refactor where necessary
@@ -242,22 +181,6 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return True
 
-    async def add_users(self, mysql_driver: Database, users_id: list[int]) -> int:
-        """
-        usage: await db_group.add_user(mysql_driver, group_id, [{'user_id': 1, 'role_id': 1}, {'user_id': 2, 'role_id': 2}])
-        """
-        # TODO: Refactor this method to avoid circular imports
-        async with mysql_driver.transaction():
-            role_user: DBRole = await DBRole.get_role_user(mysql_driver)
-            users_roles: list = [
-                {"user_id": user_id, "role_id": role_user.id} for user_id in users_id
-            ]
-
-            row_id_groups_users: int = await self.__create_groups_users(
-                mysql_driver, users_roles
-            )
-
-            return row_id_groups_users
 
     # TODO: Refactor this method to update a user to admin in a group
     # async def make_user_admin(self, mysql_driver: Database, user_id: int) -> int:
@@ -464,8 +387,12 @@ class DBGroup(DBCoreModel, BaseGroup):
             return users_by_role
 
 
-class BaseGroupResponse(BaseGroup):
+class BaseGroupWrapper(BaseGroup):
     pass
+
+
+class BaseGroupResponse(ConfigModel):
+    group: BaseGroup
 
 
 class BaseGroupRequest(ConfigModel):

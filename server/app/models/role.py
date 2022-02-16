@@ -165,8 +165,12 @@ class DBRole(DBCoreModel, BaseRole):
         )
 
 
-class BaseRoleResponse(BaseRole):
+class BaseRoleWrapper(BaseRole):
     pass
+
+
+class BaseRoleResponse(ConfigModel):
+    role: BaseRoleWrapper
 
 
 class BaseRoleRequest(ConfigModel):

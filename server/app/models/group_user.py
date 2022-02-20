@@ -26,35 +26,46 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         async with mysql_driver.transaction():
             groups_users: Table = Table("groups_users")
             query = (
-                MySQLQuery.from_(groups_users)
-                .select(
-                    groups_users.groups_id.as_("group_id"),
-                    groups_users.users_id.as_("user_id"),
-                    groups_users.roles_id.as_("role_id"),
+                MySQLQuery.into(groups_users)
+                .columns(
+                    groups_users.groups_id,
+                    groups_users.users_id,
+                    groups_users.roles_id,
+                    groups_users.created_at,
+                    groups_users.updated_at,
                 )
-                .where(groups_users.groups_id == Parameter(":group_id"))
-                .where(groups_users.users_id == Parameter(":user_id"))
-                .where(groups_users.roles_id == Parameter(":role_id"))
-                .where(groups_users.deleted_at.isnull())
+                .insert(
+                    Parameter(":group_id"),
+                    Parameter(":user_id"),
+                    Parameter(":role_id"),
+                    Parameter(":created_at"),
+                    Parameter(":updated_at"),
+                )
             )
-
             values = {
                 "group_id": self.group_id,
                 "user_id": self.user_id,
                 "role_id": self.role_id,
+                "created_at": self.created_at,
+                "updated_at": self.updated_at,
             }
+
             try:
-                group_user: Mapping = await mysql_driver.fetch_one(
-                    query.get_sql(), values
-                )
+                row_id: int = await mysql_driver.execute(query, values)
+                self.id = row_id
+                return self
+            except IntegrityError as ignoredException:
+                code, msg = ignoredException.args
+                if code == DUP_ENTRY:
+                    raise StarletteHTTPException(
+                        status_code=409,
+                        detail="Group user already exists",
+                    )
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(
                     status_code=500,
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
-
-            if group_user:
-                return self
 
     @staticmethod
     async def save_batch(
@@ -94,9 +105,9 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
             return True
 
-    @classmethod
-    async def get_groups_user_by_reflection_with_id(
-        cls, mysql_driver: Database, column_reflection_name: str, reflection_id: int
+    @staticmethod
+    async def get_group_user_by_reflection_with_id(
+        mysql_driver: Database, column_reflection_name: str, reflection_id: int
     ) -> list[Mapping]:
         """
         column_reflection_name: name of the column in the groups_users table
@@ -159,7 +170,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             .join(groups)
             .on(groups_users.groups_id == groups.id)
             .where(
-                getattr(groups_users, f"{column_reflection_name}")
+                getattr(groups_users, column_reflection_name)
                 == Parameter(f":{column_reflection_name}")
             )
             .where(groups_users.deleted_at.isnull())
@@ -181,6 +192,43 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             for group_user_role in groups_user_role
             for group_user_role_mapper in group_user_role
         ]
+
+    @staticmethod
+    async def get_group_users_by_role(mysql_driver: Database, group_id: int, role: str) -> list[Mapping]:
+        async with mysql_driver.transaction():
+            groups_users: Table = Table("groups_users")
+            users: Table = Table("users")
+            roles: Table = Table("roles")
+            query = (
+                MySQLQuery.select(
+                    users.id,
+                    users.email,
+                    users.username,
+                    users.first_name,
+                    users.last_name,
+                )
+                .from_(groups_users)
+                .join(users)
+                .on(groups_users.users_id == users.id)
+                .join(roles)
+                .on(groups_users.roles_id == roles.id)
+                .where(groups_users.groups_id == Parameter(":groups_id"))
+                .where(roles.role == Parameter(":role"))
+                .where(groups_users.deleted_at.isnull())
+            )
+            values = {"groups_id": group_id, "role": role}
+
+            try:
+                users_by_role: list[Mapping] = await mysql_driver.fetch_all(
+                    query.get_sql(), values
+                )
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+            return users_by_role
 
 
 class BaseGroupUserResponse(ConfigModel):

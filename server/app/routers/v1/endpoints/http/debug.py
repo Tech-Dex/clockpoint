@@ -3,8 +3,11 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
+from app.models.enums.roles import Roles
+from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.payload import PayloadGroupUserRoleResponse
+from app.models.user import BaseUser
 
 router: APIRouter = APIRouter()
 
@@ -55,6 +58,8 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     #         name="test name", description="test description"
     #     ).save(mysql_driver, DBRole.create_roles(custom_roles))
     #
+    #     await DBRole.save_batch(mysql_driver, db_group.id, custom_roles)
+    #
     #     await DBGroupUser.save_batch(
     #         mysql_driver,
     #         db_group.id,
@@ -65,19 +70,41 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     #             }
     #         ],
     #     )
-    #     await db_group.create_roles_permissions_for_group(
+    #
+    #     await DBRolePermission.save_batch(
     #         mysql_driver,
-    #         await DBRole.create_roles_permissions(
+    #         await DBRole.create_role_permission_pairs(
     #             mysql_driver, db_group.id, permissions
     #         ),
     #     )
     #
     #     return BaseGroup(**db_group.dict())
 
-    return PayloadGroupUserRoleResponse(
-        payload=await DBGroupUser.get_groups_user_by_reflection_with_id(
-            mysql_driver, "users_id", 1
-        )
-    )
+    # return PayloadGroupUserRoleResponse(
+    #     payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+    #         mysql_driver, "groups_id", 18
+    #     )
+    # )
 
+    # custom_roles = ["custom_role_1", "custom_role_2"]
+    # permissions = [
+    #     {"role": custom_roles[0], "permission": "invite_user"},
+    #     {"role": custom_roles[1], "permission": "generate_report"},
+    # ]
+    # await DBRolePermission.save_batch(
+    #     mysql_driver,
+    #     await DBRole.create_role_permission_pairs(mysql_driver, 15, permissions),
+    # )
+
+    # return PayloadRolePermissionsResponse(
+    #     payload=await DBRolePermission.get_role_permissions(mysql_driver, 67)
+    # )
+    #
+
+    # return PayloadRolesPermissionResponse(
+    #     payload=await DBRolePermission.get_roles_permission(mysql_driver, 4)
+    # )
+
+    db_group = await DBGroup.get_by_id(mysql_driver, 18)
+    return [BaseUser(**user) for user in await DBGroupUser.get_group_users_by_role(mysql_driver, db_group.id, Roles.OWNER)]
     return 1

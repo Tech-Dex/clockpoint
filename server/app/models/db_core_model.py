@@ -1,6 +1,5 @@
-import logging
 from datetime import datetime
-from typing import Optional, Mapping
+from typing import Mapping, Optional
 
 from databases import Database
 from pydantic import BaseModel

@@ -1,4 +1,4 @@
-from typing import Mapping, Optional
+from typing import Optional
 
 from databases import Database
 from pydantic.networks import EmailStr

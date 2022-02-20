@@ -200,40 +200,39 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
     async def get_group_users_by_role(
         mysql_driver: Database, group_id: int, role: str
     ) -> list[Mapping]:
-        async with mysql_driver.transaction():
-            groups_users: Table = Table("groups_users")
-            users: Table = Table("users")
-            roles: Table = Table("roles")
-            query = (
-                MySQLQuery.select(
-                    users.id,
-                    users.email,
-                    users.username,
-                    users.first_name,
-                    users.last_name,
-                )
-                .from_(groups_users)
-                .join(users)
-                .on(groups_users.users_id == users.id)
-                .join(roles)
-                .on(groups_users.roles_id == roles.id)
-                .where(groups_users.groups_id == Parameter(":groups_id"))
-                .where(roles.role == Parameter(":role"))
-                .where(groups_users.deleted_at.isnull())
+        groups_users: Table = Table("groups_users")
+        users: Table = Table("users")
+        roles: Table = Table("roles")
+        query = (
+            MySQLQuery.select(
+                users.id,
+                users.email,
+                users.username,
+                users.first_name,
+                users.last_name,
             )
-            values = {"groups_id": group_id, "role": role}
+            .from_(groups_users)
+            .join(users)
+            .on(groups_users.users_id == users.id)
+            .join(roles)
+            .on(groups_users.roles_id == roles.id)
+            .where(groups_users.groups_id == Parameter(":groups_id"))
+            .where(roles.role == Parameter(":role"))
+            .where(groups_users.deleted_at.isnull())
+        )
+        values = {"groups_id": group_id, "role": role}
 
-            try:
-                users_by_role: list[Mapping] = await mysql_driver.fetch_all(
-                    query.get_sql(), values
-                )
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
+        try:
+            users_by_role: list[Mapping] = await mysql_driver.fetch_all(
+                query.get_sql(), values
+            )
+        except MySQLError as mySQLError:
+            raise StarletteHTTPException(
+                status_code=500,
+                detail=f"MySQL error: {mySQLError.args[1]}",
+            )
 
-            return users_by_role
+        return users_by_role
 
 
 class BaseGroupUserResponse(ConfigModel):

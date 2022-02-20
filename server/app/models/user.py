@@ -26,49 +26,15 @@ class DBUser(DBCoreModel, BaseUser):
     salt: str = ""
     hashed_password: str = ""
 
+    class Meta:
+        table_name: str = "users"
+
     def verify_password(self, password: str) -> bool:
         return verify_password(self.salt, password, self.hashed_password)
 
     def change_password(self, password: str) -> None:
         self.salt = generate_salt()
         self.hashed_password = hash_password(self.salt, password)
-
-    @classmethod
-    async def get_by_id(cls, mysql_driver: Database, user_id: int) -> "DBUser":
-        users: Table = Table("users")
-        query = (
-            MySQLQuery.from_(users)
-            .select("*")
-            .where(users.id == Parameter(":id"))
-            .where(users.deleted_at.isnull())
-        )
-        values = {"id": user_id}
-
-        user: Mapping = await mysql_driver.fetch_one(
-            query=query.get_sql(), values=values
-        )
-        if user:
-            return cls(**user)
-
-        raise StarletteHTTPException(status_code=404, detail="User not found")
-
-    @classmethod
-    async def get_by_email(cls, mysql_driver, email) -> "DBUser":
-        users: Table = Table("users")
-        query = (
-            MySQLQuery.from_(users)
-            .select("*")
-            .where(users.email == Parameter(":email"))
-            .where(users.deleted_at.isnull())
-        )
-        values = {"email": email}
-
-        user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-
-        if user:
-            return cls(**user)
-
-        raise StarletteHTTPException(status_code=404, detail="User not found")
 
     async def save(self, mysql_driver: Database) -> "DBUser":
         async with mysql_driver.transaction():

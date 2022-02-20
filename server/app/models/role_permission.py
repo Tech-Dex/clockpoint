@@ -22,6 +22,9 @@ class BaseRolePermission(ConfigModel):
 
 
 class DBRolePermission(DBCoreModel, BaseRolePermission):
+    class Meta:
+        table_name: str = "roles_permissions"
+
     async def save(self, mysql_driver: Database) -> "DBRolePermission":
         async with mysql_driver.transaction():
             roles_permissions: Table = Table("roles_permissions")

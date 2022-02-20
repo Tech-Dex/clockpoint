@@ -3,11 +3,9 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.models.enums.roles import Roles
 from app.models.group import DBGroup
-from app.models.group_user import DBGroupUser
-from app.models.payload import PayloadGroupUserRoleResponse
-from app.models.user import BaseUser
+from app.models.role import DBRole
+from app.models.user import DBUser, BaseUser
 
 router: APIRouter = APIRouter()
 
@@ -105,6 +103,16 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     #     payload=await DBRolePermission.get_roles_permission(mysql_driver, 4)
     # )
 
-    db_group = await DBGroup.get_by_id(mysql_driver, 18)
-    return [BaseUser(**user) for user in await DBGroupUser.get_group_users_by_role(mysql_driver, db_group.id, Roles.OWNER)]
+    # return await DBGroup.get_by_reflection(mysql_driver, "id", 18)
+
+    # return await DBRole.get_role_owner(mysql_driver)
+    return  BaseUser(**(await DBUser.get_by_reflection(mysql_driver, "id", 1)).dict())
+    # return [
+    #     BaseUser(**user)
+    #     for user in await DBGroupUser.get_group_users_by_role(
+    #         mysql_driver, db_group.id, Roles.OWNER
+    #     )
+    # ]
+
+    # return await DBUser.get_by_reflection(mysql_driver, "email", "aaa@test.com")
     return 1

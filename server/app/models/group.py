@@ -18,50 +18,13 @@ class BaseGroup(ConfigModel):
 
 
 class DBGroup(DBCoreModel, BaseGroup):
-    @classmethod
-    async def get_by_id(cls, mysql_driver: Database, group_id: int) -> "DBGroup":
-        """
-        usage: BaseGroup(**(await DBGroup.get_by_id(mysql_driver, 1)).dict())
-        """
-        groups: Table = Table("groups")
-        query = (
-            MySQLQuery.from_(groups)
-            .select("*")
-            .where(groups.id == Parameter(":group_id"))
-            .where(groups.deleted_at.isnull())
-        )
-        values = {"group_id": group_id}
+    class Meta:
+        table_name: str = "groups"
 
-        group: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-        if group:
-            return cls(**group)
-
-        raise StarletteHTTPException(status_code=404, detail="Group not found")
-
-    @classmethod
-    async def get_by_name(cls, mysql_driver: Database, group_name: str) -> "DBGroup":
-        """
-        usage: BaseGroup(**(await DBGroup.get_by_id(mysql_driver, "test")).dict())
-        """
-        groups: Table = Table("groups")
-        query = (
-            MySQLQuery.from_(groups)
-            .select("*")
-            .where(groups.name == Parameter(":group_name"))
-            .where(groups.deleted_at.isnull())
-        )
-        values = {"group_name": group_name}
-
-        group: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-        if group:
-            return cls(**group)
-
-        raise StarletteHTTPException(status_code=404, detail="Group not found")
-
-    async def save(self, mysql_driver: Database, roles: list) -> "DBGroup":
+    async def save(self, mysql_driver: Database) -> "DBGroup":
         """
         usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test")
-                                                        .save(mysql_driver, ["custom_role_1", "custom_role_2"]
+                                                        .save(mysql_driver)
         format response: {"payload":
          {"group": BaseGroup(**db_group.dict()), "groups_and_roles_id": db_groups_and_roles_id}
         }

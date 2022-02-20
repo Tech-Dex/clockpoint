@@ -22,6 +22,9 @@ class BaseGroupUser(ConfigModel):
 
 
 class DBGroupUser(DBCoreModel, BaseGroupUser):
+    class Meta:
+        table_name: str = "groups_users"
+
     async def save(self, mysql_driver: Database) -> "DBGroupUser":
         async with mysql_driver.transaction():
             groups_users: Table = Table("groups_users")
@@ -194,7 +197,9 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         ]
 
     @staticmethod
-    async def get_group_users_by_role(mysql_driver: Database, group_id: int, role: str) -> list[Mapping]:
+    async def get_group_users_by_role(
+        mysql_driver: Database, group_id: int, role: str
+    ) -> list[Mapping]:
         async with mysql_driver.transaction():
             groups_users: Table = Table("groups_users")
             users: Table = Table("users")

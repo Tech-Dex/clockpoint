@@ -19,6 +19,9 @@ class BaseRole(ConfigModel):
 
 
 class DBRole(DBCoreModel, BaseRole):
+    class Meta:
+        table_name: str = "roles"
+
     @staticmethod
     async def save_batch(mysql_driver: Database, group_id: int, group_roles: list):
         async with mysql_driver.transaction():
@@ -65,36 +68,16 @@ class DBRole(DBCoreModel, BaseRole):
             return [cls(**role) for role in roles]
 
     @classmethod
-    async def get_role_by_name(
-        cls, mysql_driver: Database, role_name: str
-    ) -> Optional["DBRole"]:
-        """
-        usage: BaseRole(**(await DBRole.get_role_owner(mysql_driver)).dict())
-        """
-        roles: Table = Table("roles")
-        query = (
-            MySQLQuery.from_(roles)
-            .select(roles.id, roles.role)
-            .where(roles.role == Parameter(":role_name"))
-        )
-        values = {"role_name": role_name}
-
-        role: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-
-        if role:
-            return cls(**role)
-
-    @classmethod
     async def get_role_owner(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_role_by_name(mysql_driver, Roles.OWNER)
+        return await cls.get_by_reflection(mysql_driver, "role", Roles.OWNER)
 
     @classmethod
     async def get_role_admin(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_role_by_name(mysql_driver, Roles.ADMIN)
+        return await cls.get_by_reflection(mysql_driver, "role", Roles.ADMIN)
 
     @classmethod
     async def get_role_user(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_role_by_name(mysql_driver, Roles.USER)
+        return await cls.get_by_reflection(mysql_driver, "role", Roles.USER)
 
     @staticmethod
     def get_default_roles() -> list:

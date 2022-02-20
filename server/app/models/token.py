@@ -23,6 +23,9 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
     token: str
     expire: datetime
 
+    class Meta:
+        table_name: str = "tokens"
+
     async def save(self, mysql_driver: Database) -> "DBTokenPayload":
         async with mysql_driver.transaction():
             tokens = Table("tokens")

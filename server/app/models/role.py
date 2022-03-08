@@ -55,17 +55,24 @@ class DBRole(DBCoreModel, BaseRole):
             return True
 
     @classmethod
-    async def get_all(cls, mysql_driver: Database) -> list["DBRole"]:
+    async def get_all_by_group_id(
+        cls, mysql_driver: Database, group_id: int
+    ) -> list["DBRole"]:
         """
-        usage: [BaseRole(**db_role.dict()) for db_role in await DBRole.get_all(mysql_driver)]
+        usage: [BaseRole(**db_role.dict()) for db_role in await DBRole.get_all(mysql_driver, 1)]
         """
         roles: Table = Table("roles")
-        query = MySQLQuery.from_(roles).select(roles.id, roles.role)
+        query = (
+            MySQLQuery.from_(roles)
+            .select(roles.id, roles.role)
+            .where(roles.deleted_at.isnotnull())
+            .where(roles.groups_id == Parameter(":group_id"))
+        )
 
-        roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
+        values = {"group_id": group_id}
+        roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
 
-        if roles:
-            return [cls(**role) for role in roles]
+        return [cls(**role) for role in roles]
 
     @classmethod
     async def get_role_owner(cls, mysql_driver: Database) -> Optional["DBRole"]:

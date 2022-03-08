@@ -4,6 +4,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
 from app.models.group import BaseGroup, DBGroup
+from app.models.role import BaseRole, DBRole
 
 router: APIRouter = APIRouter()
 
@@ -119,6 +120,10 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     # print(type(result))
     # return {"payload": result}
 
+    return [
+        BaseRole(**db_role.dict())
+        for db_role in await DBRole.get_all_by_group_id(mysql_driver, 18)
+    ]
     db_group = await DBGroup.get_by(mysql_driver, "id", 22)
     return BaseGroup(**db_group.dict())
     # await db_group.update(mysql_driver, name="aaaa", description="aaaa")

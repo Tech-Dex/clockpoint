@@ -1,5 +1,4 @@
 import json
-import logging
 from datetime import datetime
 from typing import Mapping
 
@@ -180,7 +179,6 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        logging.warning(full_roles_permission)
         return [
             {
                 "roles": [

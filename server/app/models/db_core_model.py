@@ -17,6 +17,20 @@ class DBCoreModel(BaseModel):
     deleted_at: Optional[datetime] = None
 
     @classmethod
+    async def get_all(
+        cls, mysql_driver: Database, exception_detail: Optional[str] = None
+    ) -> list["DBCoreModel"]:
+        table: Table = Table(cls.Meta.table_name)
+        query = MySQLQuery.from_(table).select("*").where(table.deleted_at.isnull())
+
+        results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
+
+        if results:
+            return [cls(**result) for result in results]
+
+        raise StarletteHTTPException(status_code=404, detail=exception_detail)
+
+    @classmethod
     async def get_by(
         cls,
         mysql_driver: Database,
@@ -42,7 +56,9 @@ class DBCoreModel(BaseModel):
 
         raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
-    async def save(self, mysql_driver: Database) -> ["DBCoreModel", None]:
+    async def save(
+        self, mysql_driver: Database, exception_detail: Optional[str] = None
+    ) -> ["DBCoreModel", None]:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             filled_keys: list[str] = [
@@ -71,7 +87,7 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     raise StarletteHTTPException(
                         status_code=409,
-                        detail="Group already exists",
+                        detail=exception_detail,
                     )
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(
@@ -79,7 +95,9 @@ class DBCoreModel(BaseModel):
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 
-    async def update(self, mysql_driver: Database, **kwargs) -> ["DBCoreModel", None]:
+    async def update(
+        self, mysql_driver: Database, exception_detail: Optional[str] = None, **kwargs
+    ) -> ["DBCoreModel", None]:
         async with mysql_driver.transaction():
             for key, value in kwargs.items():
                 setattr(self, key, value)
@@ -110,7 +128,7 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     raise StarletteHTTPException(
                         status_code=409,
-                        detail="Group name already exists",
+                        detail=exception_detail,
                     )
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(

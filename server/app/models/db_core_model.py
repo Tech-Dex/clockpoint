@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -46,7 +45,6 @@ class DBCoreModel(BaseModel):
     async def save(self, mysql_driver: Database) -> ["DBCoreModel", None]:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
-            logging.warning(vars(self))
             filled_keys: list[str] = [
                 key for key, value in self.dict().items() if value is not None
             ]
@@ -75,6 +73,68 @@ class DBCoreModel(BaseModel):
                         status_code=409,
                         detail="Group already exists",
                     )
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+    async def update(self, mysql_driver: Database, **kwargs) -> ["DBCoreModel", None]:
+        async with mysql_driver.transaction():
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+            self.updated_at = datetime.utcnow()
+
+            table: Table = Table(self.Meta.table_name)
+            filled_keys: list[str] = [
+                key
+                for key, value in self.dict().items()
+                if value is not None or key == "id"
+            ]
+            values: dict = {key: getattr(self, key) for key in filled_keys}
+
+            query = (
+                MySQLQuery.update(table)
+                .where(table.id == Parameter(f":id"))
+                .where(table.deleted_at.isnull())
+            )
+
+            for key in filled_keys:
+                query = query.set(getattr(table, key), Parameter(f":{key}"))
+
+            try:
+                await mysql_driver.execute(query.get_sql(), values)
+                return self
+            except IntegrityError as ignoredException:
+                code, msg = ignoredException.args
+                if code == DUP_ENTRY:
+                    raise StarletteHTTPException(
+                        status_code=409,
+                        detail="Group name already exists",
+                    )
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+    async def soft_delete(self, mysql_driver: Database) -> ["DBCoreModel", None]:
+        async with mysql_driver.transaction():
+            table: Table = Table(self.Meta.table_name)
+            query = (
+                MySQLQuery.update(table)
+                .where(table.id == Parameter(f":id"))
+                .where(table.deleted_at.isnull())
+                .set(table.deleted_at, Parameter(f":deleted_at"))
+            )
+            values = {
+                "id": self.id,
+                "deleted_at": datetime.utcnow(),
+            }
+
+            try:
+                await mysql_driver.execute(query.get_sql(), values)
+                return self
             except MySQLError as mySQLError:
                 raise StarletteHTTPException(
                     status_code=500,

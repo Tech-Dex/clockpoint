@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.models.group import DBGroup
+from app.models.group import BaseGroup, DBGroup
 
 router: APIRouter = APIRouter()
 
@@ -114,8 +114,17 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
 
     # return await DBUser.get_by_reflection(mysql_driver, "email", "aaa@test.com")
 
-    db_group = DBGroup(name="test name save 5", description="test description")
-    result = await db_group.save(mysql_driver)
-    print(type(result))
-    return {"payload": result}
+    # db_group = DBGroup(name="test name save 5", description="test description")
+    # result = await db_group.save(mysql_driver)
+    # print(type(result))
+    # return {"payload": result}
+
+    db_group = await DBGroup.get_by(mysql_driver, "id", 22)
+    return BaseGroup(**db_group.dict())
+    # await db_group.update(mysql_driver, name="aaaa", description="aaaa")
+    return BaseGroup(
+        **(
+            await db_group.update(mysql_driver, name="tesst", description="dessc")
+        ).dict()
+    )
     return 1

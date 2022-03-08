@@ -49,58 +49,6 @@ class DBGroup(DBCoreModel, BaseGroup):
 
             return row_id_groups_users
 
-    async def update(self, mysql_driver: Database, **kwargs) -> "DBGroup":
-        """
-        usage: await db_group.update(mysql_driver, name="new_name", description="new_description")
-        """
-        async with mysql_driver.transaction():
-            self.name = kwargs.get("name", self.name)
-            self.description = kwargs.get("description", self.description)
-
-            groups: Table = Table("groups")
-            query = (
-                MySQLQuery.update(groups)
-                .set(groups.name, Parameter(":name"))
-                .set(groups.description, Parameter(":description"))
-                .where(groups.id == Parameter(":id"))
-                .where(groups.deleted_at.isnull())
-            )
-            values = {"id": self.id, "name": self.name, "description": self.description}
-
-            try:
-                await mysql_driver.execute(query.get_sql(), values)
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
-
-            return self
-
-    async def soft_delete(self, mysql_driver: Database) -> "DBGroup":
-        """
-        usage: await db_group.delete(mysql_driver)
-        """
-        async with mysql_driver.transaction():
-            groups: Table = Table("groups")
-            query = (
-                MySQLQuery.update(groups)
-                .from_(groups)
-                .set(groups.deleted_at, Parameter(":deleted_at"))
-                .where(groups.id == Parameter(":id"))
-            )
-            values = {"id": self.id, "deleted_at": datetime.now()}
-
-            try:
-                await mysql_driver.execute(query.get_sql(), values)
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
-
-            return self
-
 
 class BaseGroupWrapper(BaseGroup):
     pass

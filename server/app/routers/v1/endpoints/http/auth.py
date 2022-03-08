@@ -69,9 +69,7 @@ async def login(
     Login a user.
     """
 
-    db_user: DBUser = await DBUser.get_by_reflection(
-        mysql_driver, "email", user_login.email
-    )
+    db_user: DBUser = await DBUser.get_by(mysql_driver, "email", user_login.email)
 
     if not db_user.verify_password(user_login.password):
         raise StarletteHTTPException(status_code=401, detail="Invalid credentials")

@@ -69,15 +69,15 @@ class DBRole(DBCoreModel, BaseRole):
 
     @classmethod
     async def get_role_owner(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by_reflection(mysql_driver, "role", Roles.OWNER)
+        return await cls.get_by(mysql_driver, "role", Roles.OWNER)
 
     @classmethod
     async def get_role_admin(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by_reflection(mysql_driver, "role", Roles.ADMIN)
+        return await cls.get_by(mysql_driver, "role", Roles.ADMIN)
 
     @classmethod
     async def get_role_user(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by_reflection(mysql_driver, "role", Roles.USER)
+        return await cls.get_by(mysql_driver, "role", Roles.USER)
 
     @staticmethod
     def get_default_roles() -> list:

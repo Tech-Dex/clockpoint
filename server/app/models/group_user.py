@@ -25,51 +25,6 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
     class Meta:
         table_name: str = "groups_users"
 
-    async def save(self, mysql_driver: Database) -> "DBGroupUser":
-        async with mysql_driver.transaction():
-            groups_users: Table = Table("groups_users")
-            query = (
-                MySQLQuery.into(groups_users)
-                .columns(
-                    groups_users.groups_id,
-                    groups_users.users_id,
-                    groups_users.roles_id,
-                    groups_users.created_at,
-                    groups_users.updated_at,
-                )
-                .insert(
-                    Parameter(":group_id"),
-                    Parameter(":user_id"),
-                    Parameter(":role_id"),
-                    Parameter(":created_at"),
-                    Parameter(":updated_at"),
-                )
-            )
-            values = {
-                "group_id": self.group_id,
-                "user_id": self.user_id,
-                "role_id": self.role_id,
-                "created_at": self.created_at,
-                "updated_at": self.updated_at,
-            }
-
-            try:
-                row_id: int = await mysql_driver.execute(query, values)
-                self.id = row_id
-                return self
-            except IntegrityError as ignoredException:
-                code, msg = ignoredException.args
-                if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="Group user already exists",
-                    )
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
-
     @staticmethod
     async def save_batch(
         mysql_driver: Database, group_id: int, users_roles: list[dict]

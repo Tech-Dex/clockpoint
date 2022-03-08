@@ -3,8 +3,6 @@ from typing import Optional
 
 from databases import Database
 from pymysql import Error as MySQLError
-from pymysql.constants.ER import DUP_ENTRY
-from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -20,55 +18,6 @@ class BaseGroup(ConfigModel):
 class DBGroup(DBCoreModel, BaseGroup):
     class Meta:
         table_name: str = "groups"
-
-    async def save(self, mysql_driver: Database) -> "DBGroup":
-        """
-        usage: db_group, db_groups_and_roles_id = await DBGroup(name="test", description="test")
-                                                        .save(mysql_driver)
-        format response: {"payload":
-         {"group": BaseGroup(**db_group.dict()), "groups_and_roles_id": db_groups_and_roles_id}
-        }
-        """
-        async with mysql_driver.transaction():
-            groups: Table = Table("groups")
-            query = (
-                MySQLQuery.into(groups)
-                .columns(
-                    groups.name,
-                    groups.description,
-                    groups.created_at,
-                    groups.updated_at,
-                )
-                .insert(
-                    Parameter(":group_name"),
-                    Parameter(":group_description"),
-                    Parameter(":created_at"),
-                    Parameter(":updated_at"),
-                )
-            )
-            values = {
-                "group_name": self.name,
-                "group_description": self.description,
-                "created_at": self.created_at,
-                "updated_at": self.updated_at,
-            }
-            try:
-                row_id_group: int = await mysql_driver.execute(query.get_sql(), values)
-                self.id = row_id_group
-            except IntegrityError as ignoredException:
-                code, msg = ignoredException.args
-                if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="Group already exists",
-                    )
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
-
-            return self
 
     async def soft_remove_user(self, mysql_driver: Database, user_id: int) -> int:
         """

@@ -93,7 +93,7 @@ async def get_current_user(
         )
 
     if token_payload.subject == TokenSubject.ACCESS:
-        db_user: DBUser = await DBUser.get_by_id(mysql_driver, token_payload.user_id)
+        db_user: DBUser = await DBUser.get_by(mysql_driver, "id", token_payload.user_id)
         user: BaseUser = BaseUser(**db_user.dict())
 
         if user is None:

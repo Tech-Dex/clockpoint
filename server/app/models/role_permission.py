@@ -25,49 +25,6 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     class Meta:
         table_name: str = "roles_permissions"
 
-    async def save(self, mysql_driver: Database) -> "DBRolePermission":
-        async with mysql_driver.transaction():
-            roles_permissions: Table = Table("roles_permissions")
-            query = (
-                MySQLQuery.into(roles_permissions)
-                .columns(
-                    roles_permissions.roles_id,
-                    roles_permissions.permissions_id,
-                    roles_permissions.created_at,
-                    roles_permissions.updated_at,
-                )
-                .insert(
-                    Parameter(":role_id"),
-                    Parameter(":permission_id"),
-                    Parameter(":created_at"),
-                    Parameter(":updated_at"),
-                )
-            )
-
-            values = {
-                "role_id": self.role_id,
-                "permission_id": self.permission_id,
-                "created_at": self.created_at,
-                "updated_at": self.updated_at,
-            }
-
-            try:
-                row_id: int = await mysql_driver.execute(query, values)
-                self.id = row_id
-                return self
-            except IntegrityError as ignoredException:
-                code, msg = ignoredException.args
-                if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="Role already has permission",
-                    )
-            except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
-
     @staticmethod
     async def save_batch(mysql_driver: Database, permissions: list[dict]) -> bool:
         async with mysql_driver.transaction():

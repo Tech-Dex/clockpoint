@@ -39,7 +39,7 @@ starlette==0.16.0
 toml==0.10.2
 tomli==1.2.3
 typing_extensions==4.0.1
-ujson==5.1.0
+ujson==5.2.0
 uvicorn==0.16.0
 uvloop==0.16.0
 vulture==2.3

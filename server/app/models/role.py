@@ -185,17 +185,19 @@ class DBRole(DBCoreModel, BaseRole):
                         )
                 case _:
                     for custom_role_permission in custom_roles_permissions:
-                        if custom_role_permission.role == db_role.role:
-                            for permissions in custom_role_permission.permission:
-                                for owner_permission in owner_permissions:
-                                    if owner_permission.permission == permissions:
-                                        final_role_permissions.append(
-                                            {
-                                                "role_id": db_role.id,
-                                                "permission_id": owner_permission.id,
-                                            }
-                                        )
-                                        break
+                        if not custom_role_permission.role == db_role.role:
+                            continue
+                        for permissions in custom_role_permission.permission:
+                            for owner_permission in owner_permissions:
+                                if not owner_permission.permission == permissions:
+                                    continue
+                                final_role_permissions.append(
+                                    {
+                                        "role_id": db_role.id,
+                                        "permission_id": owner_permission.id,
+                                    }
+                                )
+                                break
 
         return final_role_permissions
 

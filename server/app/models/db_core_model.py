@@ -25,10 +25,11 @@ class DBCoreModel(BaseModel):
 
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
 
-        if results:
-            return [cls(**result) for result in results]
+        if not results:
+            raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
-        raise StarletteHTTPException(status_code=404, detail=exception_detail)
+        return [cls(**result) for result in results]
+
 
     @classmethod
     async def get_by(
@@ -51,10 +52,12 @@ class DBCoreModel(BaseModel):
         values = {column_reflection_name: reflection_value}
 
         result: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-        if result:
-            return cls(**result)
+        if not result:
+            raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
-        raise StarletteHTTPException(status_code=404, detail=exception_detail)
+        return cls(**result)
+
+
 
     async def save(
         self, mysql_driver: Database, exception_detail: Optional[str] = None

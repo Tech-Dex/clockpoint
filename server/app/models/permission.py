@@ -5,6 +5,8 @@ from pypika import MySQLQuery, Parameter, Table
 
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
 
 
 class BasePermission(ConfigModel):
@@ -64,9 +66,13 @@ class DBPermission(DBCoreModel, BasePermission):
         permissions: list[Mapping] = await mysql_driver.fetch_all(
             query.get_sql(), values
         )
-        if permissions:
-            if isinstance(permissions, list):
-                return [DBPermission(**permission) for permission in permissions]
+        if not permissions:
+            raise StarletteHTTPException(status_code=404, detail="Permission not available")
+
+        if not isinstance(permissions, list):
+            raise StarletteHTTPException(status_code=505, detail="Unknown exception in permission")
+
+        return [DBPermission(**permission) for permission in permissions]
 
 
 class BaseRoleWrapper(BasePermission):

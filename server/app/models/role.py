@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Mapping, Optional
 
@@ -12,6 +13,8 @@ from app.core.database.mysql_driver import create_batch_insert_query
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.enums.roles import Roles
+from app.models.group import BaseGroupCustomRolePermissionCreate
+from app.models.permission import DBPermission
 
 
 class BaseRole(ConfigModel):
@@ -65,8 +68,8 @@ class DBRole(DBCoreModel, BaseRole):
         query = (
             MySQLQuery.from_(roles)
             .select(roles.id, roles.role)
-            .where(roles.deleted_at.isnotnull())
-            .where(roles.groups_id == Parameter(":group_id"))
+            .where(roles.deleted_at.isnull())
+            .where(roles.groups_id == Parameter(f":group_id"))
         )
 
         values = {"group_id": group_id}
@@ -75,16 +78,46 @@ class DBRole(DBCoreModel, BaseRole):
         return [cls(**role) for role in roles]
 
     @classmethod
-    async def get_role_owner(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by(mysql_driver, "role", Roles.OWNER)
+    async def get_role_owner_by_group(
+        cls, mysql_driver: Database, group_id: int
+    ) -> Optional["DBRole"]:
+        return await cls.get_role_type_by_group(
+            mysql_driver, group_id, Roles.OWNER.value
+        )
 
     @classmethod
-    async def get_role_admin(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by(mysql_driver, "role", Roles.ADMIN)
+    async def get_role_admin_by_group(
+        cls, mysql_driver: Database, group_id: int
+    ) -> Optional["DBRole"]:
+        return await cls.get_role_type_by_group(
+            mysql_driver, group_id, Roles.ADMIN.value
+        )
 
     @classmethod
-    async def get_role_user(cls, mysql_driver: Database) -> Optional["DBRole"]:
-        return await cls.get_by(mysql_driver, "role", Roles.USER)
+    async def get_role_user_by_group(
+        cls, mysql_driver: Database, group_id: int
+    ) -> Optional["DBRole"]:
+        return await cls.get_role_type_by_group(
+            mysql_driver, group_id, Roles.USER.value
+        )
+
+    @classmethod
+    async def get_role_type_by_group(
+        cls, mysql_driver: Database, group_id: int, role: str
+    ) -> Optional["DBRole"]:
+        roles: Table = Table("roles")
+        query = (
+            MySQLQuery.from_(roles)
+            .select("*")
+            .where(roles.deleted_at.isnull())
+            .where(roles.groups_id == Parameter(f":group_id"))
+            .where(roles.role == Parameter(f":role"))
+        )
+
+        values = {"group_id": group_id, "role": role}
+        role: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
+
+        return cls(**role)
 
     @staticmethod
     def get_default_roles() -> list:
@@ -103,7 +136,7 @@ class DBRole(DBCoreModel, BaseRole):
         return default_roles
 
     @staticmethod
-    async def get_default_full_permissions(mysql_driver: Database) -> list:
+    async def get_owner_permissions(mysql_driver: Database) -> list:
         permissions: Table = Table("permissions")
         query = MySQLQuery.from_(permissions).select(
             permissions.id, permissions.permission
@@ -111,15 +144,53 @@ class DBRole(DBCoreModel, BaseRole):
 
         permissions: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
         if permissions:
-            return [
-                (permission["id"], permission["permission"])
-                for permission in permissions
-            ]
+            return [DBPermission(**permission) for permission in permissions]
 
-    @staticmethod
+    @classmethod
+    async def get_admin_permissions(cls, mysql_driver: Database) -> list:
+        admin_permissions = [
+            "view_own_report",
+            "invite_user",
+            "kick_user",
+            "generate_report",
+            "view_report",
+        ]
+        return await cls.get_permission_by_name(mysql_driver, admin_permissions)
+
+    @classmethod
+    async def get_user_permissions(cls, mysql_driver: Database) -> list:
+        user_permissions = ["view_own_report"]
+        return await cls.get_permission_by_name(mysql_driver, user_permissions)
+
+    @classmethod
+    async def get_permission_by_name(
+        cls, mysql_driver: Database, permission_name: list[str]
+    ) -> list[DBPermission]:
+        permissions: Table = Table("permissions")
+        query = (
+            MySQLQuery.from_(permissions)
+            .select(permissions.id, permissions.permission)
+            .where(permissions.permission.isin(Parameter(f":permissions")))
+        )
+
+        values = {
+            "permissions": permission_name,
+        }
+
+        permissions: list[Mapping] = await mysql_driver.fetch_all(
+            query.get_sql(), values
+        )
+        if permissions:
+            if isinstance(permissions, list):
+                return [DBPermission(**permission) for permission in permissions]
+
+    @classmethod
     async def create_role_permission_pairs(
-        mysql_driver: Database, group_id: int, custom_roles_permissions: list[dict]
-    ):
+        cls,
+        mysql_driver: Database,
+        group_id: int,
+        custom_roles_permissions: list[BaseGroupCustomRolePermissionCreate],
+    ) -> list[dict]:
         roles: Table = Table("roles")
         query = (
             MySQLQuery.from_(roles)
@@ -129,73 +200,58 @@ class DBRole(DBCoreModel, BaseRole):
         values = {"group_id": group_id}
 
         roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
-        if roles and set(
-            [
-                custom_role_permission["role"]
-                for custom_role_permission in custom_roles_permissions
-            ]
-        ).issubset(set([role["role"] for role in roles])):
-            full_permissions: list[tuple] = await DBRole.get_default_full_permissions(
-                mysql_driver
-            )
-            if set(
-                [
-                    custom_role_permission["permission"]
-                    for custom_role_permission in custom_roles_permissions
-                ]
-            ).issubset(
-                set(
-                    [
-                        permission_name
-                        for permission_id, permission_name in full_permissions
-                    ]
-                )
-            ):
-                final_custom_permissions: list = []
 
-                for role in roles:
-                    if role["role"] == Roles.OWNER.value:
-                        for (
-                            owner_permission_id,
-                            owner_permission_name,
-                        ) in full_permissions:
-                            final_custom_permissions.append(
-                                {
-                                    "role_id": role["id"],
-                                    "permission_id": owner_permission_id,
-                                }
-                            )
-                    break
+        futures = [
+            DBRole.get_owner_permissions(mysql_driver),
+            DBRole.get_admin_permissions(mysql_driver),
+            DBRole.get_user_permissions(mysql_driver),
+        ]
+        result_futures: tuple = await asyncio.gather(*futures)
+        owner_permissions, admin_permissions, user_permissions = result_futures
 
-                for custom_role_permission in custom_roles_permissions:
-                    for role in roles:
-                        if role["role"] == custom_role_permission["role"]:
-                            for permission_id, permission_name in full_permissions:
-                                if (
-                                    permission_name
-                                    == custom_role_permission["permission"]
-                                ):
-                                    final_custom_permissions.append(
-                                        {
-                                            "role_id": role["id"],
-                                            "permission_id": permission_id,
-                                        }
-                                    )
-                                    break
-                            break
+        final_role_permissions = []
+        for role in roles:
+            db_role: DBRole = cls(**role)
+            match db_role.role:
+                case Roles.OWNER.value:
+                    for owner_permission in owner_permissions:
+                        final_role_permissions.append(
+                            {
+                                "role_id": role["id"],
+                                "permission_id": owner_permission.id,
+                            }
+                        )
+                case Roles.ADMIN.value:
+                    for admin_permission in admin_permissions:
+                        final_role_permissions.append(
+                            {
+                                "role_id": role["id"],
+                                "permission_id": admin_permission.id,
+                            }
+                        )
+                case Roles.USER.value:
+                    for user_permission in user_permissions:
+                        final_role_permissions.append(
+                            {
+                                "role_id": role["id"],
+                                "permission_id": user_permission.id,
+                            }
+                        )
+                case _:
+                    for custom_role_permission in custom_roles_permissions:
+                        if custom_role_permission.role == db_role.role:
+                            for permissions in custom_role_permission.permission:
+                                for owner_permission in owner_permissions:
+                                    if owner_permission.permission == permissions:
+                                        final_role_permissions.append(
+                                            {
+                                                "role_id": db_role.id,
+                                                "permission_id": owner_permission.id,
+                                            }
+                                        )
+                                        break
 
-                if final_custom_permissions:
-                    return final_custom_permissions
-
-            raise StarletteHTTPException(
-                status_code=422,
-                detail="Permissions not found",
-            )
-
-        raise StarletteHTTPException(
-            status_code=422,
-            detail="Roles not found",
-        )
+        return final_role_permissions
 
 
 class BaseRoleWrapper(BaseRole):

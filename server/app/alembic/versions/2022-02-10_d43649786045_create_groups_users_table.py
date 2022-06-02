@@ -62,7 +62,7 @@ def upgrade():
     )
 
     op.create_index(
-        "ix_groups_users_groups_id_users_id",
+        "ix_groups_id_users_id",
         "groups_users",
         ["groups_id", "users_id"],
         unique=True,

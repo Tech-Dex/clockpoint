@@ -43,7 +43,7 @@ def upgrade():
         ondelete="CASCADE",
     )
 
-    op.create_index("ix_role", "roles", ["role"], unique=True)
+    op.create_index("ix_role_groups_id", "roles", ["role", "groups_id"], unique=True)
 
 
 def downgrade():

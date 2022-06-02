@@ -53,7 +53,7 @@ def upgrade():
     )
 
     op.create_index(
-        "ix_groups_users_roles_id_permissions_id",
+        "ix_roles_id_permissions_id",
         "roles_permissions",
         ["roles_id", "permissions_id"],
         unique=True,

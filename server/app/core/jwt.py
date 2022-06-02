@@ -73,7 +73,6 @@ async def get_token_from_authorization_header(
             )
         return token
     elif required:
-        print(authorization)
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
         )

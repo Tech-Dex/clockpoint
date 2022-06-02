@@ -22,7 +22,7 @@ rootLogger = logging.getLogger()
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(CustomFormatter())
 rootLogger.addHandler(consoleHandler)
-rootLogger.setLevel(logging.DEBUG)
+rootLogger.setLevel(logging.WARNING)
 
 # FastAPI app
 app: FastAPI = FastAPI(title=settings.APP_NAME, openapi_url="/api/v1/openapi.json")

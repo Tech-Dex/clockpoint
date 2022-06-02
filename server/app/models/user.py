@@ -32,7 +32,7 @@ class DBUser(DBCoreModel, BaseUser):
 
 
 class BaseUserTokenWrapper(BaseUser):
-    token: Optional[str] = None
+    token: str = None
 
 
 class BaseUserResponse(ConfigModel):

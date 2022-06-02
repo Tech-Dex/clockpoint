@@ -25,6 +25,7 @@ router: APIRouter = APIRouter()
 @router.post(
     "/register",
     response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="register",
     responses={
@@ -54,6 +55,7 @@ async def register(
 @router.post(
     "/login",
     response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="login",
     responses={
@@ -87,6 +89,7 @@ async def login(
 @router.get(
     "/refresh",
     response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="refresh",
     responses={

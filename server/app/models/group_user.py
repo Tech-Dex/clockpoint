@@ -218,6 +218,35 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
             return row_id_groups_users
 
+    @classmethod
+    async def is_user_in_group(cls, mysql_driver: Database, user_id: int, group_id: int) -> bool:
+        groups_users: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(groups_users)
+            .select("*")
+            .where(groups_users.groups_id == Parameter(":groups_id"))
+            .where(groups_users.users_id == Parameter(":users_id"))
+        )
+        values = {
+            "groups_id": group_id,
+            "users_id": user_id,
+        }
+
+        try:
+            groups_users: Mapping = await mysql_driver.fetch_one(
+                query.get_sql(), values
+            )
+        except MySQLError as mySQLError:
+            raise StarletteHTTPException(
+                status_code=500,
+                detail=f"MySQL error: {mySQLError.args[1]}",
+            )
+
+        if not groups_users:
+            return False
+
+        return True
+
 
 class BaseGroupUserResponse(ConfigModel):
     groups_users: list[BaseGroupUser]

@@ -1,13 +1,16 @@
 import asyncio
+import logging
 
 from databases import Database
 from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import get_current_user
 from app.models.group import BaseGroup, BaseGroupCreate, BaseGroupResponse, DBGroup
 from app.models.group_user import DBGroupUser
+from app.models.payload import PayloadGroupUserRoleResponse
 from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
@@ -19,6 +22,7 @@ router: APIRouter = APIRouter()
 @router.post(
     "/create",
     response_model=BaseGroupResponse,
+    response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="create",
     responses={
@@ -27,9 +31,9 @@ router: APIRouter = APIRouter()
     },
 )
 async def create(
-    group_create: BaseGroupCreate,
-    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
-    mysql_driver: Database = Depends(get_mysql_driver),
+        group_create: BaseGroupCreate,
+        id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+        mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseGroupResponse:
     """
     Create a new group.
@@ -81,3 +85,32 @@ async def create(
         await DBRolePermission.save_batch(mysql_driver, roles_permissions)
 
         return BaseGroupResponse(group=BaseGroup(**db_group.dict()))
+
+
+@router.get(
+    "/{group_id}",
+    response_model=PayloadGroupUserRoleResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTP_200_OK,
+    name="create",
+    responses={
+        400: {"description": "Invalid input"},
+    },
+)
+async def get_by_id(
+        group_id: int,
+        id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+        mysql_driver: Database = Depends(get_mysql_driver),
+) -> PayloadGroupUserRoleResponse:
+    user_id: int
+    user_token: BaseUserTokenWrapper
+    user_id, user_token = id_user_token
+
+    if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, group_id):
+        raise StarletteHTTPException(status_code=401, detail="You are not part of the group")
+
+    return PayloadGroupUserRoleResponse(
+        payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+            mysql_driver, "groups_id", group_id
+        )
+    )

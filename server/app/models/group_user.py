@@ -25,12 +25,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
     class Meta:
         table_name: str = "groups_users"
 
-    @staticmethod
+    @classmethod
     async def save_batch(
-        mysql_driver: Database, group_id: int, users_roles: list[dict]
+        cls, mysql_driver: Database, group_id: int, users_roles: list[dict]
     ) -> bool:
         async with mysql_driver.transaction():
-            groups_users: str = "groups_users"
+            groups_users: str = cls.Meta.table_name
             columns: list = [
                 "groups_id",
                 "users_id",
@@ -63,9 +63,9 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
             return True
 
-    @staticmethod
+    @classmethod
     async def get_group_user_by_reflection_with_id(
-        mysql_driver: Database, column_reflection_name: str, reflection_id: int
+        cls, mysql_driver: Database, column_reflection_name: str, reflection_id: int
     ) -> list[Mapping]:
         """
         column_reflection_name: name of the column in the groups_users table
@@ -78,7 +78,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         usage: await DBGroupUser.get_groups_user_by_reflection_with_id(mysql_driver, "groups_id", 9)
                await DBGroupUser.get_groups_user_by_reflection_with_id(mysql_driver, "users_id", 1)
         """
-        groups_users: Table = Table("groups_users")
+        groups_users: Table = Table(cls.Meta.table_name)
         groups: Table = Table("groups")
         users: Table = Table("users")
         roles: Table = Table("roles")
@@ -151,11 +151,11 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             for group_user_role_mapper in group_user_role
         ]
 
-    @staticmethod
+    @classmethod
     async def get_group_users_by_role(
-        mysql_driver: Database, group_id: int, role: str
+        cls, mysql_driver: Database, group_id: int, role: str
     ) -> list[Mapping]:
-        groups_users: Table = Table("groups_users")
+        groups_users: Table = Table(cls.Meta.table_name)
         users: Table = Table("users")
         roles: Table = Table("roles")
         query = (
@@ -194,7 +194,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         usage: await db_group.remove_user(mysql_driver, 1)
         """
         async with mysql_driver.transaction():
-            groups_users: Table = Table("groups_users")
+            groups_users: Table = Table(self.Meta.table_name)
             query = (
                 MySQLQuery.from_(groups_users)
                 .delete()

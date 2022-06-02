@@ -24,10 +24,10 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     class Meta:
         table_name: str = "roles_permissions"
 
-    @staticmethod
-    async def save_batch(mysql_driver: Database, permissions: list[dict]) -> bool:
+    @classmethod
+    async def save_batch(cls, mysql_driver: Database, permissions: list[dict]) -> bool:
         async with mysql_driver.transaction():
-            roles_permissions: str = "roles_permissions"
+            roles_permissions: str = cls.Meta.table_name
             columns = [
                 "roles_id",
                 "permissions_id",
@@ -59,11 +59,11 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
 
             return True
 
-    @staticmethod
+    @classmethod
     async def get_role_permissions(
-        mysql_driver: Database, role_id: int
+        cls, mysql_driver: Database, role_id: int
     ) -> list[Mapping]:
-        roles_permissions: Table = Table("roles_permissions")
+        roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
         query = (
@@ -125,11 +125,11 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             for role_permission_mapper in role_permission
         ]
 
-    @staticmethod
+    @classmethod
     async def get_roles_permission(
-        mysql_driver: Database, permission_id: int
+        cls, mysql_driver: Database, permission_id: int
     ) -> list[Mapping]:
-        roles_permissions: Table = Table("roles_permissions")
+        roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
         query = (

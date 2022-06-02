@@ -1,8 +1,8 @@
-import asyncio
 from datetime import datetime
 from typing import Mapping, Optional
 
 from databases import Database
+from databases.interfaces import Record
 from pymysql import Error as MySQLError
 from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
@@ -25,11 +25,10 @@ class DBRole(DBCoreModel, BaseRole):
     class Meta:
         table_name: str = "roles"
 
-    @staticmethod
-    async def save_batch(mysql_driver: Database, group_id: int, group_roles: list):
+    @classmethod
+    async def save_batch(cls, mysql_driver: Database, group_id: int, group_roles: list):
         async with mysql_driver.transaction():
             group_roles: list[dict] = DBRole.create_roles(group_roles)
-            roles: str = "roles"
             columns: list = ["role", "groups_id", "created_at", "updated_at"]
             now = datetime.now()
             values: list = [
@@ -37,7 +36,7 @@ class DBRole(DBCoreModel, BaseRole):
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for role in group_roles
             ]
-            query: str = create_batch_insert_query(roles, columns, values)
+            query: str = create_batch_insert_query(cls.Meta.table_name, columns, values)
 
             try:
                 await mysql_driver.execute(query)
@@ -64,7 +63,7 @@ class DBRole(DBCoreModel, BaseRole):
         """
         usage: [BaseRole(**db_role.dict()) for db_role in await DBRole.get_all(mysql_driver, 1)]
         """
-        roles: Table = Table("roles")
+        roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)
             .select(roles.id, roles.role)
@@ -105,7 +104,7 @@ class DBRole(DBCoreModel, BaseRole):
     async def get_role_type_by_group(
         cls, mysql_driver: Database, group_id: int, role: str
     ) -> Optional["DBRole"]:
-        roles: Table = Table("roles")
+        roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)
             .select("*")
@@ -135,63 +134,17 @@ class DBRole(DBCoreModel, BaseRole):
 
         return default_roles
 
-    @staticmethod
-    async def get_owner_permissions(mysql_driver: Database) -> list:
-        permissions: Table = Table("permissions")
-        query = MySQLQuery.from_(permissions).select(
-            permissions.id, permissions.permission
-        )
-
-        permissions: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
-        if permissions:
-            return [DBPermission(**permission) for permission in permissions]
-
-    @classmethod
-    async def get_admin_permissions(cls, mysql_driver: Database) -> list:
-        admin_permissions = [
-            "view_own_report",
-            "invite_user",
-            "kick_user",
-            "generate_report",
-            "view_report",
-        ]
-        return await cls.get_permission_by_name(mysql_driver, admin_permissions)
-
-    @classmethod
-    async def get_user_permissions(cls, mysql_driver: Database) -> list:
-        user_permissions = ["view_own_report"]
-        return await cls.get_permission_by_name(mysql_driver, user_permissions)
-
-    @classmethod
-    async def get_permission_by_name(
-        cls, mysql_driver: Database, permission_name: list[str]
-    ) -> list[DBPermission]:
-        permissions: Table = Table("permissions")
-        query = (
-            MySQLQuery.from_(permissions)
-            .select(permissions.id, permissions.permission)
-            .where(permissions.permission.isin(Parameter(f":permissions")))
-        )
-
-        values = {
-            "permissions": permission_name,
-        }
-
-        permissions: list[Mapping] = await mysql_driver.fetch_all(
-            query.get_sql(), values
-        )
-        if permissions:
-            if isinstance(permissions, list):
-                return [DBPermission(**permission) for permission in permissions]
-
     @classmethod
     async def create_role_permission_pairs(
         cls,
         mysql_driver: Database,
+        owner_permissions: list[DBPermission],
+        admin_permissions: list[DBPermission],
+        user_permissions: list[DBPermission],
         group_id: int,
         custom_roles_permissions: list[BaseGroupCustomRolePermissionCreate],
     ) -> list[dict]:
-        roles: Table = Table("roles")
+        roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)
             .select(roles.id, roles.role)
@@ -199,15 +152,8 @@ class DBRole(DBCoreModel, BaseRole):
         )
         values = {"group_id": group_id}
 
+        test: Record
         roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
-
-        futures = [
-            DBRole.get_owner_permissions(mysql_driver),
-            DBRole.get_admin_permissions(mysql_driver),
-            DBRole.get_user_permissions(mysql_driver),
-        ]
-        result_futures: tuple = await asyncio.gather(*futures)
-        owner_permissions, admin_permissions, user_permissions = result_futures
 
         final_role_permissions = []
         for role in roles:

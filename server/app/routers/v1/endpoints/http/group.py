@@ -1,3 +1,5 @@
+import asyncio
+
 from databases import Database
 from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
@@ -6,6 +8,7 @@ from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import get_current_user
 from app.models.group import BaseGroup, BaseGroupCreate, BaseGroupResponse, DBGroup
 from app.models.group_user import DBGroupUser
+from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.user import BaseUserTokenWrapper
@@ -58,8 +61,21 @@ async def create(
             ],
         )
 
+        futures = [
+            DBPermission.get_owner_permissions(mysql_driver),
+            DBPermission.get_admin_permissions(mysql_driver),
+            DBPermission.get_user_permissions(mysql_driver),
+        ]
+        result_futures: tuple = await asyncio.gather(*futures)
+        owner_permissions, admin_permissions, user_permissions = result_futures
+
         roles_permissions: list[dict] = await DBRole.create_role_permission_pairs(
-            mysql_driver, db_group.id, group_create.custom_roles
+            mysql_driver,
+            owner_permissions,
+            admin_permissions,
+            user_permissions,
+            db_group.id,
+            group_create.custom_roles,
         )
 
         await DBRolePermission.save_batch(mysql_driver, roles_permissions)

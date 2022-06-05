@@ -1,7 +1,6 @@
 import os
 from binascii import hexlify
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter
-from typing import Any, Optional
 
 from databases import DatabaseURL
 from pydantic import BaseSettings
@@ -15,7 +14,7 @@ class Settings(BaseSettings):
         '"https://localhost:3000", "https://localhost:8080"] '
     )
     JWT_TOKEN_PREFIX: str
-    SECRET_KEY: Optional[bytes]
+    SECRET_KEY: bytes | None = None
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     ACTIVATE_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 3  # 3 days
@@ -27,11 +26,11 @@ class Settings(BaseSettings):
     MYSQL_USER: str
     MYSQL_PASSWORD: str
     MYSQL_DATABASE: str
-    MYSQL_URL: Optional[DatabaseURL]
+    MYSQL_URL: DatabaseURL | None = None
     MYSQL_MIN_SIZE: int
     MYSQL_MAX_SIZE: int
 
-    def __init__(self, **values: Any):
+    def __init__(self, **values: any):
         super().__init__(**values)
         if not self.SECRET_KEY:
             self.SECRET_KEY = hexlify(os.urandom(32))

@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from pydantic.networks import EmailStr
 
@@ -10,7 +10,7 @@ from app.models.db_core_model import DBCoreModel
 class BaseUser(ConfigModel):
     email: EmailStr
     first_name: str
-    second_name: Optional[str] = None
+    second_name: str | None = None
     last_name: str
     username: str
     is_active: bool = True
@@ -32,7 +32,7 @@ class DBUser(DBCoreModel, BaseUser):
 
 
 class BaseUserTokenWrapper(BaseUser):
-    token: str = None
+    token: str | None = None
 
 
 class BaseUserResponse(ConfigModel):
@@ -46,6 +46,6 @@ class UserLogin(ConfigModel):
 
 class UserRegister(UserLogin):
     first_name: str
-    second_name: Optional[str] = None
+    second_name: str | None = None
     last_name: str
     username: str

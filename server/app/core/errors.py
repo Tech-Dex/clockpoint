@@ -1,17 +1,15 @@
-from typing import Any, List, Optional
-
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import UJSONResponse
 from pydantic import EnumError, EnumMemberError, StrRegexError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
-def parse_error(err: Any, field_names: List, raw: bool = True) -> Optional[dict]:
+def parse_error(err: any, field_names: list, raw: bool = True) -> dict | None:
     """
     Parse single error object (such as pydantic-based or fastapi-based) to dict
 
     :param err: Error object
-    :param field_names: List of names of the field that are already processed
+    :param field_names: list of names of the field that are already processed
     :param raw: Whether this is a raw error or wrapped pydantic error
     :return: dict with name of the field (or "__all__") and actual message
     """
@@ -85,12 +83,12 @@ def parse_error(err: Any, field_names: List, raw: bool = True) -> Optional[dict]
     return {"name": name, "message": message, "error_code": error_code}
 
 
-def raw_errors_to_fields(raw_errors: List) -> List[dict]:
+def raw_errors_to_fields(raw_errors: list) -> list[dict]:
     """
     Translates list of raw errors (instances) into list of dicts with name/msg
 
-    :param raw_errors: List with instances of raw error
-    :return: List of dicts (1 dict for every raw error)
+    :param raw_errors: list with instances of raw error
+    :return: list of dicts (1 dict for every raw error)
     """
     fields = []
     for top_err in raw_errors:

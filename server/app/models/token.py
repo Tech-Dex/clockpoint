@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from app.models.config_model import ConfigModel

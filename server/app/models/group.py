@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic.networks import EmailStr
 
 from app.models.config_model import ConfigModel

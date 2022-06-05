@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Mapping
 
 from databases import Database
@@ -19,7 +21,7 @@ class DBPermission(DBCoreModel, BasePermission):
     @classmethod
     async def get_owner_permissions(
         cls, mysql_driver: Database
-    ) -> list["DBPermission"]:
+    ) -> list[DBPermission]:
         permissions: Table = Table(cls.Meta.table_name)
         query = MySQLQuery.from_(permissions).select(
             permissions.id, permissions.permission
@@ -32,7 +34,7 @@ class DBPermission(DBCoreModel, BasePermission):
     @classmethod
     async def get_admin_permissions(
         cls, mysql_driver: Database
-    ) -> list["DBPermission"]:
+    ) -> list[DBPermission]:
         admin_permissions = [
             "view_own_report",
             "invite_user",
@@ -43,14 +45,14 @@ class DBPermission(DBCoreModel, BasePermission):
         return await cls.get_permission_by_name(mysql_driver, admin_permissions)
 
     @classmethod
-    async def get_user_permissions(cls, mysql_driver: Database) -> list["DBPermission"]:
+    async def get_user_permissions(cls, mysql_driver: Database) -> list[DBPermission]:
         user_permissions = ["view_own_report"]
         return await cls.get_permission_by_name(mysql_driver, user_permissions)
 
     @classmethod
     async def get_permission_by_name(
         cls, mysql_driver: Database, permission_name: list[str]
-    ) -> list["DBPermission"]:
+    ) -> list[DBPermission]:
         permissions: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(permissions)

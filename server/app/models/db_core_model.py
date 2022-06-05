@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Mapping, Optional
+from typing import Mapping
 
 from databases import Database
 from pydantic import BaseModel
@@ -11,21 +13,26 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 class DBCoreModel(BaseModel):
-    id: Optional[int] = None
-    created_at: Optional[datetime] = datetime.utcnow()
-    updated_at: Optional[datetime] = datetime.utcnow()
-    deleted_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = datetime.utcnow()
+    updated_at: datetime | None = datetime.utcnow()
+    deleted_at: datetime | None = None
 
     @classmethod
     async def get_all(
-        cls, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False
-    ) -> list[any]:
+        cls,
+        mysql_driver: Database,
+        exception_detail: str | None = None,
+        bypass_exception: bool = False,
+    ) -> list[DBCoreModel] | None:
         table: Table = Table(cls.Meta.table_name)
         query = MySQLQuery.from_(table).select("*").where(table.deleted_at.isnull())
 
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
 
-        if not results and not bypass_exception:
+        if not results:
+            if bypass_exception:
+                return None
             raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
         return [cls(**result) for result in results]
@@ -36,9 +43,9 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_value: str | int,
-        exception_detail: Optional[str] = None,
+        exception_detail: str | None = None,
         bypass_exception: bool = False,
-    ) -> any:
+    ) -> DBCoreModel | None:
         table: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(table)
@@ -65,9 +72,9 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_values: list[str] | list[int],
-        exception_detail: Optional[str] = None,
+        exception_detail: str | None = None,
         bypass_exception: bool = False,
-    ) -> list[any] | None:
+    ) -> list[DBCoreModel] | None:
         table: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(table)
@@ -91,8 +98,11 @@ class DBCoreModel(BaseModel):
         return [cls(**result) for result in results]
 
     async def save(
-        self, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False,
-    ) -> any:
+        self,
+        mysql_driver: Database,
+        exception_detail: str | None = None,
+        bypass_exception: bool = False,
+    ) -> DBCoreModel | None:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             filled_keys: list[str] = [
@@ -132,8 +142,12 @@ class DBCoreModel(BaseModel):
                 )
 
     async def update(
-        self, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False, **kwargs,
-    ) -> any:
+        self,
+        mysql_driver: Database,
+        exception_detail: str | None = None,
+        bypass_exception: bool = False,
+        **kwargs,
+    ) -> DBCoreModel | None:
         async with mysql_driver.transaction():
             for key, value in kwargs.items():
                 setattr(self, key, value)
@@ -174,7 +188,7 @@ class DBCoreModel(BaseModel):
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 
-    async def soft_delete(self, mysql_driver: Database) -> any:
+    async def soft_delete(self, mysql_driver: Database) -> DBCoreModel | None:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             query = (
@@ -197,7 +211,7 @@ class DBCoreModel(BaseModel):
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 
-    async def delete(self, mysql_driver: Database) -> any:
+    async def delete(self, mysql_driver: Database) -> DBCoreModel | None:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             query = (

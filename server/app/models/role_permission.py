@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Mapping
 
 from databases import Database
 from pymysql import Error as MySQLError
@@ -62,7 +64,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     @classmethod
     async def get_role_permissions(
         cls, mysql_driver: Database, role_id: int
-    ) -> dict[str, list[dict[str, Any]] | Any]:
+    ) -> dict[str, list[dict[str, any]] | any]:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
@@ -124,7 +126,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     @classmethod
     async def get_roles_permission(
         cls, mysql_driver: Database, permission_id: int
-    ) -> dict[str, list[dict[str, Any]] | Any]:
+    ) -> dict[str, list[dict[str, any]] | any]:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")

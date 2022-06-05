@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Mapping, Optional
+from typing import Mapping
 
 from databases import Database
 from databases.interfaces import Record
@@ -26,7 +28,7 @@ class DBRole(DBCoreModel, BaseRole):
         table_name: str = "roles"
 
     @classmethod
-    async def save_batch(cls, mysql_driver: Database, group_id: int, group_roles: list):
+    async def save_batch(cls, mysql_driver: Database, group_id: int, group_roles: list) -> bool:
         async with mysql_driver.transaction():
             group_roles: list[dict] = DBRole.create_roles(group_roles)
             columns: list = ["role", "groups_id", "created_at", "updated_at"]
@@ -59,7 +61,7 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_all_by_group_id(
         cls, mysql_driver: Database, group_id: int
-    ) -> list["DBRole"]:
+    ) -> list[DBRole]:
         """
         usage: [BaseRole(**db_role.dict()) for db_role in await DBRole.get_all(mysql_driver, 1)]
         """
@@ -79,7 +81,7 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_role_owner_by_group(
         cls, mysql_driver: Database, group_id: int
-    ) -> Optional["DBRole"]:
+    ) -> DBRole | None:
         return await cls.get_role_type_by_group(
             mysql_driver, group_id, Roles.OWNER.value
         )
@@ -87,7 +89,7 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_role_admin_by_group(
         cls, mysql_driver: Database, group_id: int
-    ) -> Optional["DBRole"]:
+    ) -> DBRole | None:
         return await cls.get_role_type_by_group(
             mysql_driver, group_id, Roles.ADMIN.value
         )
@@ -95,7 +97,7 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_role_user_by_group(
         cls, mysql_driver: Database, group_id: int
-    ) -> Optional["DBRole"]:
+    ) -> DBRole | None:
         return await cls.get_role_type_by_group(
             mysql_driver, group_id, Roles.USER.value
         )
@@ -103,7 +105,7 @@ class DBRole(DBCoreModel, BaseRole):
     @classmethod
     async def get_role_type_by_group(
         cls, mysql_driver: Database, group_id: int, role: str
-    ) -> Optional["DBRole"]:
+    ) -> DBRole | None:
         roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)

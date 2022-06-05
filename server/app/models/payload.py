@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.models.config_model import ConfigModel
 from app.models.group import BaseGroupResponse
 from app.models.permission import BasePermissionResponse

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from datetime import timedelta
 
 from databases import Database
@@ -10,7 +9,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import create_token, get_current_user, decode_token
+from app.core.jwt import create_token, get_current_user
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import (
     BaseGroup,
@@ -24,7 +23,7 @@ from app.models.payload import PayloadGroupUserRoleResponse
 from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
-from app.models.token import BaseTokenPayload, InviteGroupTokenPayload
+from app.models.token import InviteGroupTokenPayload
 from app.models.user import BaseUserTokenWrapper, DBUser
 
 router: APIRouter = APIRouter()
@@ -173,15 +172,22 @@ async def invite(
             status_code=401, detail="You are not allowed to invite users"
         )
 
-    if user_invite := await DBUser.get_by(mysql_driver, "email", group_invite.email, bypass_exception=True):
+    if user_invite := await DBUser.get_by(
+        mysql_driver, "email", group_invite.email, bypass_exception=True
+    ):
         if await DBGroupUser.is_user_in_group(
             mysql_driver, user_invite.id, db_group.id
         ):
-            raise StarletteHTTPException(status_code=409, detail="User already in group")
+            raise StarletteHTTPException(
+                status_code=409, detail="User already in group"
+            )
 
     token: str = await create_token(
         data=InviteGroupTokenPayload(
-            user_id=user_id, user_email=group_invite.email, group_id=db_group.id, subject=TokenSubject.INVITE
+            user_id=user_id,
+            user_email=group_invite.email,
+            group_id=db_group.id,
+            subject=TokenSubject.INVITE,
         ).dict(),
         expires_delta=timedelta(minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES),
     )

@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import List
 
 
 class TokenSubject(str, Enum):
@@ -13,5 +14,5 @@ class TokenSubject(str, Enum):
         return value.upper() in cls._value2member_map_
 
     @classmethod
-    def list(cls) -> List[str]:
+    def list(cls) -> list[str]:
         return list(map(lambda c: c.value, TokenSubject))

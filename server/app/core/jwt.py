@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from datetime import datetime, timedelta
-from typing import Optional
 
 from databases import Database
 from fastapi import Depends, Header
@@ -18,7 +19,7 @@ async def create_token(
     *,
     data: dict,
     expires_delta: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-    subject: str = TokenSubject.ACCESS
+    subject: str = TokenSubject.ACCESS,
 ) -> str:
     to_encode: dict = data.copy()
     if expires_delta:
@@ -56,10 +57,11 @@ def decode_token(token: str) -> dict:
 async def get_token_from_authorization_header(
     authorization: str = Header(None),
     required: bool = True,
-) -> Optional[str]:
+) -> str | None:
     if authorization:
         prefix, token = authorization.split(" ")
         if token is None and required:
+            # TODO: create custom exceptions
             raise StarletteHTTPException(
                 status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
             )

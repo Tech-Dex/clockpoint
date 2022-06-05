@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime
 from typing import Mapping
@@ -154,7 +156,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
     @classmethod
     async def get_group_user_by_group_id_and_user_id(
         cls, mysql_driver: Database, group_id: int, user_id: int
-    ) -> "DBGroupUser":
+    ) -> DBGroupUser:
 
         groups_users: Table = Table(cls.Meta.table_name)
         query = (

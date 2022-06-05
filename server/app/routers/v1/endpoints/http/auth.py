@@ -7,7 +7,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import get_current_user, wrap_user_data_in_token
+from app.core.jwt import create_token, get_current_user
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import BaseTokenPayload
 from app.models.user import (
@@ -43,10 +43,10 @@ async def register(
     user: DBUser = DBUser(**user_register.dict())
     user.change_password(user_register.password)
     await user.save(mysql_driver)
-    token: str = await wrap_user_data_in_token(
-        token_payload=BaseTokenPayload(
+    token: str = await create_token(
+        data=BaseTokenPayload(
             **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
-        ),
+        ).dict(),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
@@ -77,10 +77,10 @@ async def login(
         raise StarletteHTTPException(status_code=401, detail="Invalid credentials")
 
     user: BaseUser = BaseUser(**db_user.dict())
-    token: str = await wrap_user_data_in_token(
-        token_payload=BaseTokenPayload(
+    token: str = await create_token(
+        data=BaseTokenPayload(
             **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
-        ),
+        ).dict(),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
@@ -109,10 +109,10 @@ async def refresh(
     user_id, user_token = id_user_token
 
     user: BaseUser = BaseUser(**user_token.dict())
-    token: str = await wrap_user_data_in_token(
-        token_payload=BaseTokenPayload(
+    token: str = await create_token(
+        data=BaseTokenPayload(
             **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
-        ),
+        ).dict(),
         expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES),
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))

@@ -15,7 +15,10 @@ from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
 
 
 async def create_token(
-    *, data: dict, expires_delta: timedelta = None, subject: str = TokenSubject.ACCESS
+    *,
+    data: dict,
+    expires_delta: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    subject: str = TokenSubject.ACCESS
 ) -> str:
     to_encode: dict = data.copy()
     if expires_delta:
@@ -48,13 +51,6 @@ def decode_token(token: str) -> dict:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Token is invalid"
         )
-
-
-async def wrap_user_data_in_token(
-    token_payload: BaseTokenPayload,
-    expires_delta: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-) -> str:
-    return await create_token(data=token_payload.dict(), expires_delta=expires_delta)
 
 
 async def get_token_from_authorization_header(

@@ -2,11 +2,10 @@ from typing import Mapping
 
 from databases import Database
 from pypika import MySQLQuery, Parameter, Table
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
 
 
 class BasePermission(ConfigModel):
@@ -67,10 +66,14 @@ class DBPermission(DBCoreModel, BasePermission):
             query.get_sql(), values
         )
         if not permissions:
-            raise StarletteHTTPException(status_code=404, detail="Permission not available")
+            raise StarletteHTTPException(
+                status_code=404, detail="Permission not available"
+            )
 
         if not isinstance(permissions, list):
-            raise StarletteHTTPException(status_code=505, detail="Unknown exception in permission")
+            raise StarletteHTTPException(
+                status_code=505, detail="Unknown exception in permission"
+            )
 
         return [DBPermission(**permission) for permission in permissions]
 

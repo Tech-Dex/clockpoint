@@ -219,7 +219,9 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             return row_id_groups_users
 
     @classmethod
-    async def is_user_in_group(cls, mysql_driver: Database, user_id: int, group_id: int) -> bool:
+    async def is_user_in_group(
+        cls, mysql_driver: Database, user_id: int, group_id: int
+    ) -> bool:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(groups_users)

@@ -30,7 +30,6 @@ class DBCoreModel(BaseModel):
 
         return [cls(**result) for result in results]
 
-
     @classmethod
     async def get_by(
         cls,
@@ -57,7 +56,33 @@ class DBCoreModel(BaseModel):
 
         return cls(**result)
 
+    @classmethod
+    async def get_all_in(
+        cls,
+        mysql_driver: Database,
+        column_reflection_name: str,
+        reflection_values: list[str] | list[int],
+        exception_detail: Optional[str] = None,
+    ) -> any:
+        table: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(table)
+            .select("*")
+            .where(
+                getattr(table, column_reflection_name).isin(
+                    Parameter(f":{column_reflection_name}")
+                )
+            )
+            .where(table.deleted_at.isnull())
+        )
 
+        values = {column_reflection_name: reflection_values}
+
+        results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
+        if not results:
+            raise StarletteHTTPException(status_code=404, detail=exception_detail)
+
+        return [cls(**result) for result in results]
 
     async def save(
         self, mysql_driver: Database, exception_detail: Optional[str] = None
@@ -151,6 +176,26 @@ class DBCoreModel(BaseModel):
             values = {
                 "id": self.id,
                 "deleted_at": datetime.utcnow(),
+            }
+
+            try:
+                await mysql_driver.execute(query.get_sql(), values)
+                return self
+            except MySQLError as mySQLError:
+                raise StarletteHTTPException(
+                    status_code=500,
+                    detail=f"MySQL error: {mySQLError.args[1]}",
+                )
+
+    async def delete(self, mysql_driver: Database) -> ["DBCoreModel", None]:
+        async with mysql_driver.transaction():
+            table: Table = Table(self.Meta.table_name)
+            query = (
+                MySQLQuery.update(table).delete().where(table.id == Parameter(f":id"))
+            )
+
+            values = {
+                "id": self.id,
             }
 
             try:

@@ -152,6 +152,35 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         ]
 
     @classmethod
+    async def get_group_user_by_group_id_and_user_id(
+        cls, mysql_driver: Database, group_id: int, user_id: int
+    ) -> "DBGroupUser":
+
+        groups_users: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(groups_users)
+            .select(
+                groups_users.groups_id.as_("group_id"),
+                groups_users.users_id.as_("user_id"),
+                groups_users.roles_id.as_("role_id"),
+            )
+            .where(groups_users.groups_id == Parameter(f":group_id"))
+            .where(groups_users.users_id == Parameter(f":user_id"))
+        )
+
+        values = {"group_id": group_id, "user_id": user_id}
+
+        try:
+            group_user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
+        except MySQLError as mySQLError:
+            raise StarletteHTTPException(
+                status_code=500,
+                detail=f"MySQL error: {mySQLError.args[1]}",
+            )
+
+        return cls(**group_user)
+
+    @classmethod
     async def get_group_users_by_role(
         cls, mysql_driver: Database, group_id: int, role: str
     ) -> list[Mapping]:

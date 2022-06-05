@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Mapping
+from typing import Any, Mapping
 
 from databases import Database
 from pymysql import Error as MySQLError
@@ -62,7 +62,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     @classmethod
     async def get_role_permissions(
         cls, mysql_driver: Database, role_id: int
-    ) -> list[Mapping]:
+    ) -> dict[str, list[dict[str, Any]] | Any]:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
@@ -104,7 +104,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
         values = {"role_id": role_id}
 
         try:
-            full_role_permissions: list[Mapping] = await mysql_driver.fetch_all(
+            full_role_permissions: Mapping = await mysql_driver.fetch_one(
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
@@ -113,22 +113,18 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        return [
-            {
-                "role": json.loads(json.loads(role_permission_mapper)["role"]),
-                "permissions": [
-                    {"permission": json.loads(permission)}
-                    for permission in json.loads(role_permission_mapper)["permissions"]
-                ],
-            }
-            for role_permission in full_role_permissions
-            for role_permission_mapper in role_permission
-        ]
+        return {
+            "role": json.loads(json.loads(full_role_permissions[0])["role"]),
+            "permissions": [
+                {"permission": json.loads(permission)}
+                for permission in json.loads(full_role_permissions[0])["permissions"]
+            ],
+        }
 
     @classmethod
     async def get_roles_permission(
         cls, mysql_driver: Database, permission_id: int
-    ) -> list[Mapping]:
+    ) -> dict[str, list[dict[str, Any]] | Any]:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
@@ -170,7 +166,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
         values = {"permission_id": permission_id}
 
         try:
-            full_roles_permission: list[Mapping] = await mysql_driver.fetch_all(
+            full_roles_permission: Mapping = await mysql_driver.fetch_one(
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
@@ -179,16 +175,12 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        return [
-            {
-                "roles": [
-                    {"role": json.loads(permission)}
-                    for permission in json.loads(role_permission_mapper)["roles"]
-                ],
-                "permission": json.loads(
-                    json.loads(role_permission_mapper)["permission"]
-                ),
-            }
-            for role_permission in full_roles_permission
-            for role_permission_mapper in role_permission
-        ]
+        return {
+            "roles": [
+                {"role": json.loads(permission)}
+                for permission in json.loads(full_roles_permission[0])["roles"]
+            ],
+            "permission": json.loads(
+                json.loads(full_roles_permission[0])["permission"]
+            ),
+        }

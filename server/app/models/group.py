@@ -1,3 +1,5 @@
+from pydantic.networks import EmailStr
+
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 
@@ -25,3 +27,8 @@ class BaseGroupCreate(ConfigModel):
     name: str
     description: str | None = None
     custom_roles: list[BaseGroupCustomRolePermissionCreate] | None = []
+
+
+class GroupInviteRequest(ConfigModel):
+    name: str
+    email: EmailStr

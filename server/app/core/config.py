@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ACTIVATE_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 3  # 3 days
     RECOVER_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1  # 1 day
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 2  # 2 days
     MYSQL_HOST: str
     MYSQL_PORT: int
     MYSQL_USER: str

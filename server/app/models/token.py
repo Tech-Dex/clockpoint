@@ -15,3 +15,8 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
 
     class Meta:
         table_name: str = "tokens"
+
+
+class InviteGroupTokenPayload(BaseTokenPayload):
+    user_email: str
+    group_id: int

@@ -18,14 +18,14 @@ class DBCoreModel(BaseModel):
 
     @classmethod
     async def get_all(
-        cls, mysql_driver: Database, exception_detail: Optional[str] = None
-    ) -> list["DBCoreModel"]:
+        cls, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False
+    ) -> list[any]:
         table: Table = Table(cls.Meta.table_name)
         query = MySQLQuery.from_(table).select("*").where(table.deleted_at.isnull())
 
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
 
-        if not results:
+        if not results and not bypass_exception:
             raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
         return [cls(**result) for result in results]
@@ -37,6 +37,7 @@ class DBCoreModel(BaseModel):
         column_reflection_name: str,
         reflection_value: str | int,
         exception_detail: Optional[str] = None,
+        bypass_exception: bool = False,
     ) -> any:
         table: Table = Table(cls.Meta.table_name)
         query = (
@@ -52,6 +53,8 @@ class DBCoreModel(BaseModel):
 
         result: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         if not result:
+            if bypass_exception:
+                return None
             raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
         return cls(**result)
@@ -63,7 +66,8 @@ class DBCoreModel(BaseModel):
         column_reflection_name: str,
         reflection_values: list[str] | list[int],
         exception_detail: Optional[str] = None,
-    ) -> any:
+        bypass_exception: bool = False,
+    ) -> list[any] | None:
         table: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(table)
@@ -80,13 +84,15 @@ class DBCoreModel(BaseModel):
 
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
         if not results:
+            if bypass_exception:
+                return None
             raise StarletteHTTPException(status_code=404, detail=exception_detail)
 
         return [cls(**result) for result in results]
 
     async def save(
-        self, mysql_driver: Database, exception_detail: Optional[str] = None
-    ) -> ["DBCoreModel", None]:
+        self, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False,
+    ) -> any:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             filled_keys: list[str] = [
@@ -113,6 +119,8 @@ class DBCoreModel(BaseModel):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
+                    if bypass_exception:
+                        return None
                     raise StarletteHTTPException(
                         status_code=409,
                         detail=exception_detail,
@@ -124,8 +132,8 @@ class DBCoreModel(BaseModel):
                 )
 
     async def update(
-        self, mysql_driver: Database, exception_detail: Optional[str] = None, **kwargs
-    ) -> ["DBCoreModel", None]:
+        self, mysql_driver: Database, exception_detail: Optional[str] = None, bypass_exception: bool = False, **kwargs,
+    ) -> any:
         async with mysql_driver.transaction():
             for key, value in kwargs.items():
                 setattr(self, key, value)
@@ -154,6 +162,8 @@ class DBCoreModel(BaseModel):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
+                    if bypass_exception:
+                        return None
                     raise StarletteHTTPException(
                         status_code=409,
                         detail=exception_detail,
@@ -164,7 +174,7 @@ class DBCoreModel(BaseModel):
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 
-    async def soft_delete(self, mysql_driver: Database) -> ["DBCoreModel", None]:
+    async def soft_delete(self, mysql_driver: Database) -> any:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             query = (
@@ -187,7 +197,7 @@ class DBCoreModel(BaseModel):
                     detail=f"MySQL error: {mySQLError.args[1]}",
                 )
 
-    async def delete(self, mysql_driver: Database) -> ["DBCoreModel", None]:
+    async def delete(self, mysql_driver: Database) -> any:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             query = (

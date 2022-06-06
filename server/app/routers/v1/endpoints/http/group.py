@@ -9,7 +9,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import create_token, get_current_user
+from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import (
     BaseGroup,
@@ -25,6 +25,10 @@ from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupTokenPayload
 from app.models.user import BaseUserTokenWrapper, DBUser
+from app.services.dependencies import (
+    get_current_user,
+    get_current_user_and_group_allowed_to_invite,
+)
 
 router: APIRouter = APIRouter()
 
@@ -113,8 +117,7 @@ async def get_by_id(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
     user_id: int
-    user_token: BaseUserTokenWrapper
-    user_id, user_token = id_user_token
+    user_id, _ = id_user_token
     db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
 
     if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, db_group.id):
@@ -142,61 +145,41 @@ async def get_by_id(
 )
 async def invite(
     group_invite: GroupInviteRequest,
-    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    id_user_token_group: tuple[int, BaseUserTokenWrapper, DBGroup] = Depends(
+        get_current_user_and_group_allowed_to_invite
+    ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> JSONResponse:
-    user_id: int
-    user_token: BaseUserTokenWrapper
-    user_id, user_token = id_user_token
-    db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", group_invite.name)
+    async with mysql_driver.transaction():
+        user_id: int
+        db_group: DBGroup
+        user_id, _, db_group = id_user_token_group
 
-    db_group_user: DBGroupUser = (
-        await DBGroupUser.get_group_user_by_group_id_and_user_id(
-            mysql_driver, db_group.id, user_id
-        )
-    )
-    if not db_group_user:
-        raise StarletteHTTPException(
-            status_code=401, detail="You are not part of the group"
-        )
-
-    db_role_permissions = await DBRolePermission.get_role_permissions(
-        mysql_driver, db_group_user.role_id
-    )
-
-    if "invite_user" not in [
-        permission["permission"]["permission"]
-        for permission in db_role_permissions["permissions"]
-    ]:
-        raise StarletteHTTPException(
-            status_code=401, detail="You are not allowed to invite users"
-        )
-
-    if user_invite := await DBUser.get_by(
-        mysql_driver, "email", group_invite.email, bypass_exception=True
-    ):
-        if await DBGroupUser.is_user_in_group(
-            mysql_driver, user_invite.id, db_group.id
+        if user_invite := await DBUser.get_by(
+            mysql_driver, "email", group_invite.email, bypass_exception=True
         ):
-            raise StarletteHTTPException(
-                status_code=409, detail="User already in group"
-            )
+            if await DBGroupUser.is_user_in_group(
+                mysql_driver, user_invite.id, db_group.id
+            ):
+                raise StarletteHTTPException(
+                    status_code=409, detail="User already in group"
+                )
 
-    token: str = await create_token(
-        data=InviteGroupTokenPayload(
-            user_id=user_id,
-            user_email=group_invite.email,
-            group_id=db_group.id,
-            subject=TokenSubject.INVITE,
-        ).dict(),
-        expires_delta=timedelta(minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES),
-    )
+        token: str = await create_token(
+            data=InviteGroupTokenPayload(
+                user_id=user_id,
+                user_email=group_invite.email,
+                group_id=db_group.id,
+                subject=TokenSubject.INVITE,
+            ).dict(),
+            expires_delta=timedelta(minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES),
+        )
 
-    # TODO: Send email with token
-    return JSONResponse(
-        status_code=HTTP_200_OK,
-        content={"token": token},
-    )
+        # TODO: Send email with token
+        return JSONResponse(
+            status_code=HTTP_200_OK,
+            content={"token": token},
+        )
 
 
 # TODO: Add option to add user to group if the inviter has permission, can't generate JWT if no permission

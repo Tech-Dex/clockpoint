@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import FastAPI
@@ -16,13 +17,14 @@ from app.core.errors import (
     not_found_error_handler,
     validation_exception_handler,
 )
+from app.core.mailer.mailer_driver_init import connect_to_mailer, disconnect_from_mailer
 from app.routers.v1.router import HTTP_API_V1, router_http as api_v1_router_http
 
 rootLogger = logging.getLogger()
 consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(CustomFormatter())
 rootLogger.addHandler(consoleHandler)
-rootLogger.setLevel(logging.WARNING)
+rootLogger.setLevel(logging.DEBUG)
 
 # FastAPI app
 app: FastAPI = FastAPI(title=settings.APP_NAME, openapi_url="/api/v1/openapi.json")
@@ -46,11 +48,11 @@ if settings.BACKEND_CORS_ORIGINS:
 
 
 async def app_startup():
-    await connect_to_mysql_driver()
+    await asyncio.gather(connect_to_mysql_driver(), connect_to_mailer())
 
 
 async def app_shutdown():
-    await disconnect_from_mysql_driver()
+    await asyncio.gather(disconnect_from_mysql_driver(), disconnect_from_mailer())
 
 
 # App Events

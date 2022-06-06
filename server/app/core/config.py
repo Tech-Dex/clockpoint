@@ -4,6 +4,7 @@ from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, Formatter
 
 from databases import DatabaseURL
 from pydantic import BaseSettings
+from pydantic.networks import EmailStr
 
 
 class Settings(BaseSettings):
@@ -29,6 +30,11 @@ class Settings(BaseSettings):
     MYSQL_URL: DatabaseURL | None = None
     MYSQL_MIN_SIZE: int
     MYSQL_MAX_SIZE: int
+    MAIL_SERVER: str
+    MAIL_PORT: int
+    MAIL_USER: str
+    MAIL_PASSWORD: str
+    MAIL_SENDER: EmailStr
 
     def __init__(self, **values: any):
         super().__init__(**values)

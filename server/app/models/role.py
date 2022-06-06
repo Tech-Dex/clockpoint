@@ -28,7 +28,9 @@ class DBRole(DBCoreModel, BaseRole):
         table_name: str = "roles"
 
     @classmethod
-    async def save_batch(cls, mysql_driver: Database, group_id: int, group_roles: list) -> bool:
+    async def save_batch(
+        cls, mysql_driver: Database, group_id: int, group_roles: list
+    ) -> bool:
         async with mysql_driver.transaction():
             group_roles: list[dict] = DBRole.create_roles(group_roles)
             columns: list = ["role", "groups_id", "created_at", "updated_at"]

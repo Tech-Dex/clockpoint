@@ -2,14 +2,14 @@ from databases import Database
 
 
 class MySQLDriver:
-    client: Database = None
+    server: Database = None
 
 
 mysql_driver: MySQLDriver = MySQLDriver()
 
 
 async def get_mysql_driver() -> Database:
-    return mysql_driver.client
+    return mysql_driver.server
 
 
 def create_batch_insert_query(table_name: str, columns: list, values: list) -> str:

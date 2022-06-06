@@ -19,9 +19,7 @@ class DBPermission(DBCoreModel, BasePermission):
         table_name: str = "permissions"
 
     @classmethod
-    async def get_owner_permissions(
-        cls, mysql_driver: Database
-    ) -> list[DBPermission]:
+    async def get_owner_permissions(cls, mysql_driver: Database) -> list[DBPermission]:
         permissions: Table = Table(cls.Meta.table_name)
         query = MySQLQuery.from_(permissions).select(
             permissions.id, permissions.permission
@@ -32,9 +30,7 @@ class DBPermission(DBCoreModel, BasePermission):
             return [DBPermission(**permission) for permission in permissions]
 
     @classmethod
-    async def get_admin_permissions(
-        cls, mysql_driver: Database
-    ) -> list[DBPermission]:
+    async def get_admin_permissions(cls, mysql_driver: Database) -> list[DBPermission]:
         admin_permissions = [
             "view_own_report",
             "invite_user",

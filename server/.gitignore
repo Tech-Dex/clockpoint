@@ -138,7 +138,6 @@ dmypy.json
 
 # Logs
 logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -207,18 +206,16 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
 .env.test
 
 # parcel-bundler cache (https://parceljs.org/)
-.cache
 .parcel-cache
 
-# Next.js build output
+# Next.js minify-pages output
 .next
 out
 
-# Nuxt.js build / generate output
+# Nuxt.js minify-pages / generate output
 .nuxt
 dist
 
@@ -228,7 +225,7 @@ dist
 # https://nextjs.org/blog/next-9-1#public-directory-support
 # public
 
-# vuepress build output
+# vuepress minify-pages output
 .vuepress/dist
 
 # Serverless directories

@@ -7,7 +7,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import create_token, get_current_user
+from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import BaseTokenPayload
 from app.models.user import (
@@ -18,6 +18,7 @@ from app.models.user import (
     UserLogin,
     UserRegister,
 )
+from app.services.dependencies import get_current_user
 
 router: APIRouter = APIRouter()
 

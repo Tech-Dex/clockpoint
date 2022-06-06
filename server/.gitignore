@@ -1,6 +1,6 @@
 # Alembic
+alembic.ini
 
-app/alembic.ini
 # Pycharm files
 .idea/
 .idea

@@ -9,13 +9,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_403_FORBIDDEN
 
 from app.core.config import settings
-from app.core.database.mysql_driver import get_mysql_driver
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import DBTokenPayload
 
 
 async def create_token(
     *,
+    mysql_driver: Database,
     data: dict,
     expires_delta: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     subject: str = TokenSubject.ACCESS,
@@ -31,8 +31,6 @@ async def create_token(
 
     to_encode.update({"expire": expire.isoformat(), "subject": to_encode["subject"]})
     jwt = encode(to_encode, str(settings.SECRET_KEY), algorithm=settings.ALGORITHM)
-
-    mysql_driver: Database = await get_mysql_driver()
 
     await DBTokenPayload(**data, token=jwt, expire=expire).save(mysql_driver)
 

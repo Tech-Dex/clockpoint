@@ -1,9 +1,11 @@
 import asyncio
 from datetime import timedelta
 
+import numpy as np
 from databases import Database
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
+from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
@@ -29,6 +31,7 @@ from app.services.dependencies import (
     get_current_user,
     get_current_user_and_group_allowed_to_invite,
 )
+from app.services.mailer import send_group_invitation
 
 router: APIRouter = APIRouter()
 
@@ -145,6 +148,7 @@ async def get_by_id(
 )
 async def invite(
     group_invite: GroupInviteRequest,
+    bg_tasks: BackgroundTasks,
     id_user_token_group: tuple[int, BaseUserTokenWrapper, DBGroup] = Depends(
         get_current_user_and_group_allowed_to_invite
     ),
@@ -155,30 +159,57 @@ async def invite(
         db_group: DBGroup
         user_id, _, db_group = id_user_token_group
 
-        if user_invite := await DBUser.get_by(
-            mysql_driver, "email", group_invite.email, bypass_exception=True
-        ):
-            if await DBGroupUser.is_user_in_group(
-                mysql_driver, user_invite.id, db_group.id
-            ):
-                raise StarletteHTTPException(
-                    status_code=409, detail="User already in group"
-                )
-
-        token: str = await create_token(
-            data=InviteGroupTokenPayload(
-                user_id=user_id,
-                user_email=group_invite.email,
-                group_id=db_group.id,
-                subject=TokenSubject.INVITE,
-            ).dict(),
-            expires_delta=timedelta(minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES),
+        users_invite: list[DBUser] | None = await DBUser.get_all_in(
+            mysql_driver, "email", group_invite.emails, bypass_exception=True
+        )
+        invitation_receivers: list[EmailStr] = list(
+            np.setdiff1d(group_invite.emails, [user.email for user in users_invite])
         )
 
-        # TODO: Send email with token
+        users_ids_invite: list[int] = [user.id for user in users_invite]
+        users_ids_not_in_group: list[int] = []
+
+        if users_invite:
+            users_ids_in_group: list[int] = await DBGroupUser.are_users_in_group(
+                mysql_driver, users_ids_invite, db_group.id
+            )
+            users_ids_not_in_group = list(
+                np.setdiff1d(users_ids_invite, users_ids_in_group)
+            )
+
+        for user_invite in users_invite:
+            if user_invite.id in users_ids_not_in_group:
+                invitation_receivers.append(user_invite.email)
+
+        user_emails_bypassed: list[EmailStr] = list(
+            np.setdiff1d(group_invite.emails, invitation_receivers)
+        )
+
+        # TODO: When encode/databases fixes asyncio.gather(*functions) use it below
+        tokens = []
+        for invitation_receiver in invitation_receivers:
+            tokens.append(
+                await create_token(
+                    mysql_driver=mysql_driver,
+                    data=InviteGroupTokenPayload(
+                        user_id=user_id,
+                        user_email=invitation_receiver,
+                        group_id=db_group.id,
+                        subject=TokenSubject.INVITE,
+                    ).dict(),
+                    expires_delta=timedelta(
+                        minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES
+                    ),
+                )
+            )
+
+        bg_tasks.add_task(
+            send_group_invitation, invitation_receivers, db_group.name, tokens
+        )
+
         return JSONResponse(
             status_code=HTTP_200_OK,
-            content={"token": token},
+            content={"emails_bypassed": user_emails_bypassed},
         )
 
 

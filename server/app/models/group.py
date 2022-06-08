@@ -33,4 +33,4 @@ class BaseGroupCreate(ConfigModel):
 
 class GroupInviteRequest(ConfigModel):
     name: str
-    email: EmailStr
+    emails: list[EmailStr]

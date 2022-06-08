@@ -45,6 +45,7 @@ async def register(
     user.change_password(user_register.password)
     await user.save(mysql_driver)
     token: str = await create_token(
+        mysql_driver=mysql_driver,
         data=BaseTokenPayload(
             **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
         ).dict(),
@@ -79,6 +80,7 @@ async def login(
 
     user: BaseUser = BaseUser(**db_user.dict())
     token: str = await create_token(
+        mysql_driver=mysql_driver,
         data=BaseTokenPayload(
             **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
         ).dict(),
@@ -99,7 +101,8 @@ async def login(
     },
 )
 async def refresh(
-    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user)
+    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUserResponse:
     """
     Refresh a user token.
@@ -111,6 +114,7 @@ async def refresh(
 
     user: BaseUser = BaseUser(**user_token.dict())
     token: str = await create_token(
+        mysql_driver=mysql_driver,
         data=BaseTokenPayload(
             **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
         ).dict(),

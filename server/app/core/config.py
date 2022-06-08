@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     MAIL_USER: str
     MAIL_PASSWORD: str
     MAIL_SENDER: EmailStr
+    MAIL_FRONTEND_DNS: str
+    MAIL_FRONTEND_GROUP_INVITE_PATH: str
 
     def __init__(self, **values: any):
         super().__init__(**values)

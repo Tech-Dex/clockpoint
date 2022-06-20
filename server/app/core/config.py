@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     MYSQL_URL: DatabaseURL | None = None
     MYSQL_MIN_SIZE: int
     MYSQL_MAX_SIZE: int
+    REDIS_HOST: str
+    REDIS_URL: str | None = None
     MAIL_SERVER: str
     MAIL_PORT: int
     MAIL_USER: str
@@ -46,6 +48,7 @@ class Settings(BaseSettings):
             f"mysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:"
             f"{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
         )
+        self.REDIS_URL = f"redis://{self.REDIS_HOST}"
 
 
 settings: Settings = Settings(

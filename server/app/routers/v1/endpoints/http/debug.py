@@ -1,8 +1,10 @@
+from aioredis import Redis
 from databases import Database
 from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
+from app.core.redis.redis_driver import get_redis_driver
 from app.models.group import BaseGroup, DBGroup
 from app.models.role import BaseRole, DBRole
 
@@ -14,7 +16,8 @@ router: APIRouter = APIRouter()
     status_code=HTTP_200_OK,
     name="debug",
 )
-async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
+async def debug(mysql_driver: Database = Depends(get_mysql_driver),
+                redis_driver: Redis = Depends(get_redis_driver)) -> any:
     """
     Debug controller
     """
@@ -120,16 +123,21 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     # print(type(result))
     # return {"payload": result}
 
-    return [
-        BaseRole(**db_role.dict())
-        for db_role in await DBRole.get_all_by_group_id(mysql_driver, 18)
-    ]
-    db_group = await DBGroup.get_by(mysql_driver, "id", 22)
-    return BaseGroup(**db_group.dict())
-    # await db_group.update(mysql_driver, name="aaaa", description="aaaa")
-    return BaseGroup(
-        **(
-            await db_group.update(mysql_driver, name="tesst", description="dessc")
-        ).dict()
-    )
-    return 1
+    # return [
+    #     BaseRole(**db_role.dict())
+    #     for db_role in await DBRole.get_all_by_group_id(mysql_driver, 18)
+    # ]
+    # db_group = await DBGroup.get_by(mysql_driver, "id", 22)
+    # return BaseGroup(**db_group.dict())
+    # # await db_group.update(mysql_driver, name="aaaa", description="aaaa")
+    # return BaseGroup(
+    #     **(
+    #         await db_group.update(mysql_driver, name="tesst", description="dessc")
+    #     ).dict()
+    # )
+    # return 1
+
+    await redis_driver.execute_command("SET", "test", "test", 'EX', 60)
+    return await redis_driver.execute_command("GET", "test")
+
+

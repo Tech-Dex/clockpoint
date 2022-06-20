@@ -29,7 +29,7 @@ def upgrade():
         sa.Column("user_id", sa.Integer, nullable=False),
         sa.Column("subject", sa.String(length=255), nullable=False),
         sa.Column("expire", sa.DateTime, nullable=False),
-        sa.Column("token", sa.String(255), nullable=False),
+        sa.Column("token", sa.Text, nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("deleted_at", sa.DateTime, nullable=True),

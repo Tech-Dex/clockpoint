@@ -33,19 +33,3 @@ class DBUser(DBCoreModel, BaseUser):
 
 class BaseUserTokenWrapper(BaseUser):
     token: str | None = None
-
-
-class BaseUserResponse(ConfigModel):
-    user: BaseUserTokenWrapper
-
-
-class UserLogin(ConfigModel):
-    email: EmailStr
-    password: str
-
-
-class UserRegister(UserLogin):
-    first_name: str
-    second_name: str | None = None
-    last_name: str
-    username: str

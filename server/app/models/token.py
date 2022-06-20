@@ -6,12 +6,12 @@ from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 
 
-class BaseTokenPayload(ConfigModel):
+class BaseToken(ConfigModel):
     user_id: int
     subject: str = ""
 
 
-class DBTokenPayload(DBCoreModel, BaseTokenPayload):
+class DBToken(DBCoreModel, BaseToken):
     token: str
     expire: datetime
 
@@ -19,6 +19,6 @@ class DBTokenPayload(DBCoreModel, BaseTokenPayload):
         table_name: str = "tokens"
 
 
-class InviteGroupTokenPayload(BaseTokenPayload):
+class InviteGroupToken(BaseToken):
     user_email: str
     group_id: int

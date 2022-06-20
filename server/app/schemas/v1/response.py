@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from app.models.config_model import ConfigModel
-from app.models.group import BaseGroupResponse
+from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
 from app.models.role import BaseRoleResponse
-from app.models.user import BaseUserResponse
+from app.models.user import BaseUserTokenWrapper
+
+
+class BaseUserResponse(ConfigModel):
+    user: BaseUserTokenWrapper
+
+
+class BaseGroupResponse(ConfigModel):
+    group: BaseGroup
 
 
 class PayloadGroupUserRoleWrapper(

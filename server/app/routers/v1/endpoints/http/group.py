@@ -13,20 +13,15 @@ from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
-from app.models.group import (
-    BaseGroup,
-    BaseGroupCreate,
-    BaseGroupResponse,
-    DBGroup,
-    GroupInviteRequest,
-)
+from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
-from app.models.payload import PayloadGroupUserRoleResponse
 from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
-from app.models.token import InviteGroupTokenPayload
+from app.models.token import InviteGroupToken
 from app.models.user import BaseUserTokenWrapper, DBUser
+from app.schemas.v1.request import BaseGroupCreateRequest, GroupInviteRequest
+from app.schemas.v1.response import BaseGroupResponse, PayloadGroupUserRoleResponse
 from app.services.dependencies import (
     get_current_user,
     get_current_user_and_group_allowed_to_invite,
@@ -48,7 +43,7 @@ router: APIRouter = APIRouter()
     },
 )
 async def create(
-    group_create: BaseGroupCreate,
+    group_create: BaseGroupCreateRequest,
     id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseGroupResponse:
@@ -191,11 +186,11 @@ async def invite(
             tokens.append(
                 await create_token(
                     mysql_driver=mysql_driver,
-                    data=InviteGroupTokenPayload(
+                    data=InviteGroupToken(
                         user_id=user_id,
                         user_email=invitation_receiver,
                         group_id=db_group.id,
-                        subject=TokenSubject.INVITE,
+                        subject=TokenSubject.GROUP_INVITE,
                     ).dict(),
                     expires_delta=timedelta(
                         minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES
@@ -213,7 +208,7 @@ async def invite(
         )
 
 
-# TODO: Add option to add user to group if the inviter has permission, can't generate JWT if no permission
-# Do it with JWT, generate a JWT with a new subject GROUP_INVITE
+# Add link between token GROUP_INVITE and invited email - maybe use Redis, after 48 hours this one can be deleted
+# Maybe move all tokens to Redis -> read aioredis docs
 # Display all invitation ( JWT ) for a user ( /see_invites )
 # Join a group with the JWT if not expired.

@@ -15,8 +15,8 @@ from app.core.database.mysql_driver import create_batch_insert_query
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.enums.roles import Roles
-from app.models.group import BaseGroupCustomRolePermissionCreate
 from app.models.permission import DBPermission
+from app.schemas.v1.request import BaseGroupCustomRolePermissionCreateRequest
 
 
 class BaseRole(ConfigModel):
@@ -146,7 +146,7 @@ class DBRole(DBCoreModel, BaseRole):
         admin_permissions: list[DBPermission],
         user_permissions: list[DBPermission],
         group_id: int,
-        custom_roles_permissions: list[BaseGroupCustomRolePermissionCreate],
+        custom_roles_permissions: list[BaseGroupCustomRolePermissionCreateRequest],
     ) -> list[dict]:
         roles: Table = Table(cls.Meta.table_name)
         query = (

@@ -10,7 +10,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.models.enums.token_subject import TokenSubject
-from app.models.token import DBTokenPayload
+from app.models.token import DBToken
 
 
 async def create_token(
@@ -32,7 +32,7 @@ async def create_token(
     to_encode.update({"expire": expire.isoformat(), "subject": to_encode["subject"]})
     jwt = encode(to_encode, str(settings.SECRET_KEY), algorithm=settings.ALGORITHM)
 
-    await DBTokenPayload(**data, token=jwt, expire=expire).save(mysql_driver)
+    await DBToken(**data, token=jwt, expire=expire).save(mysql_driver)
 
     return jwt
 

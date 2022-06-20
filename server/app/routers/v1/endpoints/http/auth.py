@@ -9,15 +9,10 @@ from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
-from app.models.token import BaseTokenPayload
-from app.models.user import (
-    BaseUser,
-    BaseUserResponse,
-    BaseUserTokenWrapper,
-    DBUser,
-    UserLogin,
-    UserRegister,
-)
+from app.models.token import BaseToken
+from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
+from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
+from app.schemas.v1.response import BaseUserResponse
 from app.services.dependencies import get_current_user
 
 router: APIRouter = APIRouter()
@@ -35,7 +30,8 @@ router: APIRouter = APIRouter()
     },
 )
 async def register(
-    user_register: UserRegister, mysql_driver: Database = Depends(get_mysql_driver)
+    user_register: UserRegisterRequest,
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUserResponse:
     """
     Register a new user.
@@ -46,7 +42,7 @@ async def register(
     await user.save(mysql_driver)
     token: str = await create_token(
         mysql_driver=mysql_driver,
-        data=BaseTokenPayload(
+        data=BaseToken(
             **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -67,7 +63,7 @@ async def register(
     },
 )
 async def login(
-    user_login: UserLogin, mysql_driver: Database = Depends(get_mysql_driver)
+    user_login: UserLoginRequest, mysql_driver: Database = Depends(get_mysql_driver)
 ) -> BaseUserResponse:
     """
     Login a user.
@@ -81,7 +77,7 @@ async def login(
     user: BaseUser = BaseUser(**db_user.dict())
     token: str = await create_token(
         mysql_driver=mysql_driver,
-        data=BaseTokenPayload(
+        data=BaseToken(
             **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -115,7 +111,7 @@ async def refresh(
     user: BaseUser = BaseUser(**user_token.dict())
     token: str = await create_token(
         mysql_driver=mysql_driver,
-        data=BaseTokenPayload(
+        data=BaseToken(
             **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
         ).dict(),
         expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES),

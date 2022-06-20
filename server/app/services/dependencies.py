@@ -9,11 +9,12 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import decode_token, get_token_from_authorization_header
 from app.models.enums.token_subject import TokenSubject
-from app.models.group import DBGroup, GroupInviteRequest
+from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.role_permission import DBRolePermission
-from app.models.token import BaseTokenPayload
+from app.models.token import BaseToken
 from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
+from app.schemas.v1.request import GroupInviteRequest
 
 
 async def get_current_user(
@@ -22,7 +23,7 @@ async def get_current_user(
 ) -> tuple[int, BaseUserTokenWrapper]:
     try:
         payload: dict = decode_token(token)
-        token_payload: BaseTokenPayload = BaseTokenPayload(**payload)
+        token_payload: BaseToken = BaseToken(**payload)
     except PyJWTError:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Token is invalid"

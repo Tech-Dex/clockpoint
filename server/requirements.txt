@@ -1,5 +1,4 @@
 aiomysql==0.1.1
-aioredis==2.0.1
 aiosmtplib==1.1.6
 alembic==1.8.0
 anyio==3.6.1
@@ -24,6 +23,7 @@ email-validator==1.2.1
 fakeredis==1.8.1
 fastapi==0.78.0
 h11==0.13.0
+hiredis==2.0.0
 httpcore==0.15.0
 httptools==0.4.0
 httpx==0.23.0

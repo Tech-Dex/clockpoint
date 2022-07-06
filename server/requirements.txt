@@ -30,7 +30,7 @@ httpx==0.23.0
 idna==3.3
 isort==5.10.1
 Jinja2==3.1.2
-lxml==4.9.0
+lxml==4.9.1
 Mako==1.2.0
 MarkupSafe==2.1.1
 Mypackage==0.1

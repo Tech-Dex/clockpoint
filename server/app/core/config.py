@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     MYSQL_MIN_SIZE: int
     MYSQL_MAX_SIZE: int
     REDIS_HOST: str
-    REDIS_URL: str | None = None
+    REDIS_DATA_PORT: int
+    REDIS_CACHE_PORT: int
+    REDIS_DATA_URL: str | None = None
+    REDIS_CACHE_URL: str | None = None
     MAIL_SERVER: str
     MAIL_PORT: int
     MAIL_USER: str
@@ -48,7 +51,8 @@ class Settings(BaseSettings):
             f"mysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:"
             f"{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
         )
-        self.REDIS_URL = f"redis://{self.REDIS_HOST}"
+        self.REDIS_DATA_URL = f"redis://{self.REDIS_HOST}:{self.REDIS_DATA_PORT}"
+        self.REDIS_CACHE_URL = f"redis://{self.REDIS_HOST}:{self.REDIS_CACHE_PORT}"
 
 
 settings: Settings = Settings(

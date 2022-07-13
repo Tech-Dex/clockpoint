@@ -11,10 +11,6 @@ from app.core.database.mysql_driver_handler import (
     connect_to_mysql_driver,
     disconnect_from_mysql_driver,
 )
-from app.core.redis.redis_driver_handler import (
-    connect_to_redis_driver,
-    disconnect_from_redis_driver,
-)
 from app.core.errors import (
     http_exception_handler,
     internal_server_error_handler,
@@ -51,11 +47,11 @@ if settings.BACKEND_CORS_ORIGINS:
 
 
 async def app_startup():
-    await asyncio.gather(connect_to_mysql_driver(), connect_to_redis_driver())
+    await asyncio.gather(connect_to_mysql_driver())
 
 
 async def app_shutdown():
-    await asyncio.gather(disconnect_from_mysql_driver(), disconnect_from_redis_driver())
+    await asyncio.gather(disconnect_from_mysql_driver())
 
 
 # App Events

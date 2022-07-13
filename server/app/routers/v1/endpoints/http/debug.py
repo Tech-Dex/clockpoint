@@ -1,21 +1,8 @@
-import json
-
-import redis.asyncio as redis
-from redis.commands.json.path import Path
-import redis.commands.search.aggregation as aggregations
-import redis.commands.search.reducers as reducers
-from redis.commands.search.field import TextField, NumericField, TagField
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
-from redis.commands.search.query import NumericFilter, Query
-
 from databases import Database
 from fastapi import APIRouter, Depends
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.redis.redis_driver import get_redis_driver
-from app.models.group import BaseGroup, DBGroup
-from app.models.role import BaseRole, DBRole
 
 router: APIRouter = APIRouter()
 
@@ -25,8 +12,7 @@ router: APIRouter = APIRouter()
     status_code=HTTP_200_OK,
     name="debug",
 )
-async def debug(mysql_driver: Database = Depends(get_mysql_driver),
-                redis_driver: redis.Redis = Depends(get_redis_driver)) -> any:
+async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     """
     Debug controller
     """
@@ -145,41 +131,3 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver),
     #     ).dict()
     # )
     # return 1
-
-    user1 = {
-        "user": {
-            "name": "Paul John",
-            "email": "paul.john@example.com",
-            "age": 42,
-            "city": "London"
-        }
-    }
-    user2 = {
-        "user": {
-            "name": "Eden Zamir",
-            "email": "eden.zamir@example.com",
-            "age": 29,
-            "city": "Tel Aviv"
-        }
-    }
-    user3 = {
-        "user": {
-            "name": "Paul Zamir",
-            "email": "paul.zamir@example.com",
-            "age": 35,
-            "city": "Tel Aviv"
-        }
-    }
-
-    # await redis_driver.json().set("user:1", Path.root_path(), user1)
-    # await redis_driver.json().set("user:2", Path.root_path(), user2)
-    # await redis_driver.json().set("user:3", Path.root_path(), user3)
-    # schema = (TextField("$.user.name", as_name="name"), TagField("$.user.city", as_name="city"),
-    #           NumericField("$.user.age", as_name="age"))
-    #
-    # await redis_driver.ft().create_index(schema, definition=IndexDefinition(prefix=["user:"], index_type=IndexType.JSON))
-
-    # return await redis_driver.ft().search("@age:[29 29]")
-    # return await redis_driver.ft().search("@city:{Bucharest | London}")
-    return await redis_driver.ft().search("@name:(Paul|Eden) Zamir")
-

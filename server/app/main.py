@@ -1,11 +1,14 @@
 import asyncio
 import logging
 
+import aioredis
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
-
+from aredis_om import Migrator
 from app.core.config import CustomFormatter, settings
 from app.core.database.mysql_driver_handler import (
     connect_to_mysql_driver,
@@ -47,7 +50,16 @@ if settings.BACKEND_CORS_ORIGINS:
 
 
 async def app_startup():
-    await asyncio.gather(connect_to_mysql_driver())
+    FastAPICache.init(
+        RedisBackend(
+            aioredis.from_url(
+                settings.REDIS_CACHE_URL, encoding="utf8", decode_responses=True
+            )
+        ),
+        prefix="fastapi-cache",
+    )
+
+    await asyncio.gather(connect_to_mysql_driver(), Migrator().run())
 
 
 async def app_shutdown():

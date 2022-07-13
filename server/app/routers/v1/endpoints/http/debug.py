@@ -1,8 +1,12 @@
 from databases import Database
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi_cache.decorator import cache
+from starlette.requests import Request
+from starlette.responses import Response
 from starlette.status import HTTP_200_OK
-
+from aredis_om.model import HashModel, NotFoundError
 from app.core.database.mysql_driver import get_mysql_driver
+from app.models.token import RedisToken
 
 router: APIRouter = APIRouter()
 
@@ -131,3 +135,37 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     #     ).dict()
     # )
     # return 1
+
+
+@router.post("/customer")
+async def save_customer(customer: RedisToken):
+    # We can save the model to Redis by calling `save()`:
+    result = await customer.save()
+    await customer.expire(10)
+    return result
+
+
+@router.get("/customers")
+async def list_customers(request: Request, response: Response):
+    # To retrieve this customer with its primary key, we use `Customer.get()`:
+    return {"customers": [pk async for pk in await RedisToken.all_pks()]}
+
+
+@router.get("/customer/{pk}")
+@cache(expire=10)
+async def get_customer(pk: str, request: Request, response: Response):
+    # To retrieve this customer with its primary key, we use `Customer.get()`:
+    try:
+        return await RedisToken.get(pk)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+
+@router.get("/customers/{subject}")
+@cache(expire=10)
+async def get_customer(subject: str, request: Request, response: Response):
+    # To retrieve this customer with its primary key, we use `Customer.get()`:
+    try:
+        return await RedisToken.find(RedisToken.subject == subject).all()
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Customer not found")

@@ -10,29 +10,31 @@ from starlette.status import HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.models.enums.token_subject import TokenSubject
-from app.models.token import DBToken
+from app.models.token import DBToken, RedisToken
 
 
 async def create_token(
     *,
-    mysql_driver: Database,
     data: dict,
-    expires_delta: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    expire: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     subject: str = TokenSubject.ACCESS,
 ) -> str:
     to_encode: dict = data.copy()
-    if expires_delta:
-        expire: datetime = datetime.utcnow() + expires_delta
+    expire_date: datetime
+    if expire:
+        expire_date: datetime = datetime.utcnow() + timedelta(minutes=expire)
     else:
-        expire: datetime = datetime.utcnow() + timedelta(minutes=15)
+        expire_date: datetime = datetime.utcnow() + timedelta(minutes=15)
+        expire = 15 * 60
 
     if not to_encode["subject"]:
         to_encode["subject"] = subject
 
-    to_encode.update({"expire": expire.isoformat(), "subject": to_encode["subject"]})
+    to_encode.update({"expire": expire_date.isoformat(), "subject": to_encode["subject"]})
     jwt = encode(to_encode, str(settings.SECRET_KEY), algorithm=settings.ALGORITHM)
 
-    await DBToken(**data, token=jwt, expire=expire).save(mysql_driver)
+    redis_token: RedisToken = await RedisToken(**data, token=jwt).save()
+    await redis_token.expire(expire)
 
     return jwt
 

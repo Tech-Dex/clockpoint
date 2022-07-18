@@ -41,11 +41,10 @@ async def register(
     user.change_password(user_register.password)
     await user.save(mysql_driver)
     token: str = await create_token(
-        mysql_driver=mysql_driver,
         data=BaseToken(
             **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
         ).dict(),
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
 
@@ -76,11 +75,10 @@ async def login(
 
     user: BaseUser = BaseUser(**db_user.dict())
     token: str = await create_token(
-        mysql_driver=mysql_driver,
         data=BaseToken(
             **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
         ).dict(),
-        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
 
@@ -110,10 +108,9 @@ async def refresh(
 
     user: BaseUser = BaseUser(**user_token.dict())
     token: str = await create_token(
-        mysql_driver=mysql_driver,
         data=BaseToken(
             **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
         ).dict(),
-        expires_delta=timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES),
+        expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
     return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))

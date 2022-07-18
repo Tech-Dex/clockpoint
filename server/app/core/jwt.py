@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from databases import Database
 from fastapi import Header
 from jwt import PyJWTError, decode, encode
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -10,7 +9,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 
 from app.core.config import settings
 from app.models.enums.token_subject import TokenSubject
-from app.models.token import DBToken, RedisToken
+from app.models.token import RedisToken
 
 
 async def create_token(
@@ -30,7 +29,9 @@ async def create_token(
     if not to_encode["subject"]:
         to_encode["subject"] = subject
 
-    to_encode.update({"expire": expire_date.isoformat(), "subject": to_encode["subject"]})
+    to_encode.update(
+        {"expire": expire_date.isoformat(), "subject": to_encode["subject"]}
+    )
     jwt = encode(to_encode, str(settings.SECRET_KEY), algorithm=settings.ALGORITHM)
 
     redis_token: RedisToken = await RedisToken(**data, token=jwt).save()

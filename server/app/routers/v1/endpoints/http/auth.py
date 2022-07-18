@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from databases import Database
 from fastapi import APIRouter, Depends
 from starlette.exceptions import HTTPException as StarletteHTTPException

@@ -1,10 +1,11 @@
+from aredis_om.model import NotFoundError
 from databases import Database
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.status import HTTP_200_OK
-from aredis_om.model import HashModel, NotFoundError
+
 from app.core.database.mysql_driver import get_mysql_driver
 from app.models.token import RedisToken
 

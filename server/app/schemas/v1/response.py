@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pydantic.networks import EmailStr
+
 from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
@@ -39,3 +41,15 @@ class PayloadRolePermissionsResponse(ConfigModel):
 
 class PayloadRolesPermissionResponse(ConfigModel):
     payload: list[PayloadRolesPermissionWrapper]
+
+
+class GroupInviteResponse(BaseGroup):
+    token: str
+
+
+class InvitesGroupsResponse(ConfigModel):
+    invites: list[GroupInviteResponse]
+
+
+class BypassedInvitesGroupsResponse(ConfigModel):
+    bypassed_invites: list[EmailStr]

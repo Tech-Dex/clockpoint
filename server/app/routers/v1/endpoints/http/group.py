@@ -1,10 +1,9 @@
 import asyncio
-from datetime import timedelta
 
 import numpy as np
 from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse
+from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
@@ -18,10 +17,16 @@ from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
-from app.models.token import InviteGroupToken
-from app.models.user import BaseUserTokenWrapper, DBUser
+from app.models.token import InviteGroupToken, RedisToken
+from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
 from app.schemas.v1.request import BaseGroupCreateRequest, GroupInviteRequest
-from app.schemas.v1.response import BaseGroupResponse, PayloadGroupUserRoleResponse
+from app.schemas.v1.response import (
+    BaseGroupResponse,
+    BypassedInvitesGroupsResponse,
+    GroupInviteResponse,
+    InvitesGroupsResponse,
+    PayloadGroupUserRoleResponse,
+)
 from app.services.dependencies import (
     get_current_user,
     get_current_user_and_group_allowed_to_invite,
@@ -132,7 +137,7 @@ async def get_by_id(
 
 @router.post(
     "/invite",
-    # response_model=JSONResponse,
+    response_model=BypassedInvitesGroupsResponse,
     response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="invite",
@@ -148,7 +153,7 @@ async def invite(
         get_current_user_and_group_allowed_to_invite
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> JSONResponse:
+) -> BypassedInvitesGroupsResponse:
     async with mysql_driver.transaction():
         user_id: int
         db_group: DBGroup
@@ -157,10 +162,7 @@ async def invite(
         users_invite: list[DBUser] | None = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exception=True
         )
-        invitation_receivers: list[EmailStr] = list(
-            np.setdiff1d(group_invite.emails, [user.email for user in users_invite])
-        )
-
+        invitation_receivers: list[EmailStr] = []
         users_ids_invite: list[int] = [user.id for user in users_invite]
         users_ids_not_in_group: list[int] = []
 
@@ -168,6 +170,7 @@ async def invite(
             users_ids_in_group: list[int] = await DBGroupUser.are_users_in_group(
                 mysql_driver, users_ids_invite, db_group.id
             )
+
             users_ids_not_in_group = list(
                 np.setdiff1d(users_ids_invite, users_ids_in_group)
             )
@@ -185,16 +188,13 @@ async def invite(
         for invitation_receiver in invitation_receivers:
             tokens.append(
                 await create_token(
-                    mysql_driver=mysql_driver,
                     data=InviteGroupToken(
                         user_id=user_id,
-                        user_email=invitation_receiver,
+                        invite_user_email=invitation_receiver,
                         group_id=db_group.id,
                         subject=TokenSubject.GROUP_INVITE,
                     ).dict(),
-                    expires_delta=timedelta(
-                        minutes=settings.INVITE_TOKEN_EXPIRE_MINUTES
-                    ),
+                    expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
                 )
             )
 
@@ -202,13 +202,57 @@ async def invite(
             send_group_invitation, invitation_receivers, db_group.name, tokens
         )
 
-        return JSONResponse(
-            status_code=HTTP_200_OK,
-            content={"emails_bypassed": user_emails_bypassed},
-        )
+        return BypassedInvitesGroupsResponse(bypassed_invites=user_emails_bypassed)
 
 
 # Add link between token GROUP_INVITE and invited email - maybe use Redis, after 48 hours this one can be deleted
 # Maybe move all tokens to Redis -> read aioredis docs
 # Display all invitation ( JWT ) for a user ( /see_invites )
 # Join a group with the JWT if not expired.
+
+
+@router.get(
+    "/invites",
+    response_model_exclude_unset=True,
+    response_model=InvitesGroupsResponse,
+    status_code=HTTP_200_OK,
+    name="user invites",
+    responses={
+        400: {"description": "Invalid input"},
+    },
+)
+@cache(expire=300)
+async def get_invites(
+    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> InvitesGroupsResponse:
+    user_token: BaseUserTokenWrapper
+    _, user_token = id_user_token
+
+    user: BaseUser = BaseUser(**user_token.dict())
+
+    redis_tokens: list[RedisToken] = await RedisToken.find(
+        RedisToken.invite_user_email == user.email
+    ).all()
+
+    if not redis_tokens:
+        raise StarletteHTTPException(status_code=404, detail="No invites found")
+
+    db_groups: list[DBGroup] | None = await DBGroup.get_all_in(
+        mysql_driver, "id", [redis_token.group_id for redis_token in redis_tokens]
+    )
+
+    if not db_groups:
+        raise StarletteHTTPException(status_code=404, detail="No groups found")
+
+    invites: list[GroupInviteResponse] = []
+
+    for db_group in db_groups:
+        for redis_token in redis_tokens:
+            if redis_token.group_id == db_group.id:
+                invites.append(
+                    GroupInviteResponse(**db_group.dict(), token=redis_token.token)
+                )
+                break
+
+    return InvitesGroupsResponse(invites=invites)

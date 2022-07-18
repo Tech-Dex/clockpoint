@@ -179,6 +179,11 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 status_code=500,
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
+        if not group_user:
+            raise StarletteHTTPException(
+                status_code=404,
+                detail="Group user not found",
+            )
 
         return cls(**group_user)
 

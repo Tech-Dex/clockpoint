@@ -2,13 +2,14 @@ import asyncio
 import logging
 
 import aioredis
+from aredis_om import Migrator
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
-from aredis_om import Migrator
+
 from app.core.config import CustomFormatter, settings
 from app.core.database.mysql_driver_handler import (
     connect_to_mysql_driver,

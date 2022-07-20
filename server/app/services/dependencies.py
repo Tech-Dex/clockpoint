@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from databases import Database
-from fastapi import Depends
+from fastapi import Depends, Header
 from jwt import PyJWTError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import decode_token, get_token_from_authorization_header
+from app.core.jwt import decode_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
@@ -17,9 +17,32 @@ from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
 from app.schemas.v1.request import GroupInviteRequest
 
 
+async def get_authorization_header(
+    authorization: str = Header(None),
+    required: bool = True,
+) -> str | None:
+    if authorization:
+        prefix, token = authorization.split(" ")
+        if token is None and required:
+            # TODO: create custom exceptions
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Token is required"
+            )
+        if prefix.lower() != "bearer":
+            raise StarletteHTTPException(
+                status_code=HTTP_403_FORBIDDEN, detail="Token type is not valid"
+            )
+        return token
+    elif required:
+        raise StarletteHTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Token is required"
+        )
+    return None
+
+
 async def get_current_user(
     mysql_driver: Database = Depends(get_mysql_driver),
-    token: str = Depends(get_token_from_authorization_header),
+    token: str = Depends(get_authorization_header),
 ) -> tuple[int, BaseUserTokenWrapper]:
     try:
         payload: dict = decode_token(token)
@@ -44,7 +67,7 @@ async def get_current_user(
         )
 
 
-async def get_current_user_and_group_allowed_to_invite(
+async def get_current_user_allowed_to_invite_and_group(
     group_invite: GroupInviteRequest,
     id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
     mysql_driver: Database = Depends(get_mysql_driver),

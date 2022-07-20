@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from fastapi import Header
 from jwt import PyJWTError, decode, encode
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_403_FORBIDDEN
@@ -52,26 +51,3 @@ def decode_token(token: str) -> dict:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Token is invalid"
         )
-
-
-async def get_token_from_authorization_header(
-    authorization: str = Header(None),
-    required: bool = True,
-) -> str | None:
-    if authorization:
-        prefix, token = authorization.split(" ")
-        if token is None and required:
-            # TODO: create custom exceptions
-            raise StarletteHTTPException(
-                status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
-            )
-        if prefix.lower() != "bearer":
-            raise StarletteHTTPException(
-                status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
-            )
-        return token
-    elif required:
-        raise StarletteHTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
-        )
-    return None

@@ -29,7 +29,7 @@ from app.schemas.v1.response import (
 )
 from app.services.dependencies import (
     get_current_user,
-    get_current_user_and_group_allowed_to_invite,
+    get_current_user_allowed_to_invite_and_group,
 )
 from app.services.mailer import send_group_invitation
 
@@ -152,7 +152,7 @@ async def invite(
     group_invite: GroupInviteRequest,
     bg_tasks: BackgroundTasks,
     id_user_token_group: tuple[int, BaseUserTokenWrapper, DBGroup] = Depends(
-        get_current_user_and_group_allowed_to_invite
+        get_current_user_allowed_to_invite_and_group
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:

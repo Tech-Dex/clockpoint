@@ -1,8 +1,10 @@
 import asyncio
+from typing import Mapping
 
 import numpy as np
 from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -11,6 +13,7 @@ from starlette.status import HTTP_200_OK
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token, decode_token
+from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
@@ -259,7 +262,7 @@ async def get_invites(
     response_model_exclude_unset=True,
     response_model=BaseGroupResponse,
     status_code=HTTP_200_OK,
-    name="user invites",
+    name="join",
     responses={
         400: {"description": "Invalid input"},
     },
@@ -317,3 +320,52 @@ async def join(
     await RedisToken.delete(redis_token)
 
     return BaseGroupResponse(group=BaseGroup(**db_group.dict()))
+
+
+@router.put(
+    "/leave",
+    response_model_exclude_unset=True,
+    # response_model=BaseGroupResponse,
+    status_code=HTTP_200_OK,
+    name="leave",
+    responses={
+        400: {"description": "Invalid input"},
+    },
+)
+async def leave(
+    name: str,
+    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    mysql_driver: Database = Depends(get_mysql_driver),
+):
+    async with mysql_driver.transaction():
+        user_id: int
+        user_token: BaseUserTokenWrapper
+        user_id, user_token = id_user_token
+
+        db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
+        if not db_group:
+            raise StarletteHTTPException(status_code=404, detail="No group found")
+
+        if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, db_group.id):
+            raise StarletteHTTPException(
+                status_code=403, detail="You are not in this group"
+            )
+
+        users_with_owner: list[Mapping] = await DBGroupUser.get_group_users_by_role(
+            mysql_driver, db_group.id, Roles.OWNER
+        )
+        if user_id in [user["id"] for user in users_with_owner]:
+            raise StarletteHTTPException(
+                status_code=403, detail="You can't leave a group you own"
+            )
+
+        db_group_user: DBGroupUser = (
+            await DBGroupUser.get_group_user_by_group_id_and_user_id(
+                mysql_driver, db_group.id, user_id
+            )
+        )
+
+        await db_group_user.remove_entry(mysql_driver)
+
+        return JSONResponse(status_code=200, content={"message": "User left group"})
+

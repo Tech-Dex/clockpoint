@@ -225,7 +225,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
         return users_by_role
 
-    async def remove_user(self, mysql_driver: Database, user_id: int) -> int:
+    async def remove_entry(self, mysql_driver: Database) -> int:
         """
         usage: await db_group.remove_user(mysql_driver, 1)
         """
@@ -238,10 +238,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 .where(groups_users.users_id == Parameter(":users_id"))
             )
             values = {
-                "groups_id": self.id,
-                "users_id": user_id,
+                "groups_id": self.group_id,
+                "users_id": self.user_id,
             }
 
+            print(query.get_sql())
+            print(values)
             try:
                 row_id_groups_users: int = await mysql_driver.execute(
                     query.get_sql(), values

@@ -31,3 +31,9 @@ class BaseGroupCreateRequest(ConfigModel):
 class GroupInviteRequest(ConfigModel):
     name: str
     emails: list[EmailStr]
+
+
+class GroupAssignRoleRequest(ConfigModel):
+    name: str
+    username: str
+    role_name: str

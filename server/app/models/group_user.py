@@ -242,8 +242,6 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 "users_id": self.user_id,
             }
 
-            print(query.get_sql())
-            print(values)
             try:
                 row_id_groups_users: int = await mysql_driver.execute(
                     query.get_sql(), values
@@ -272,7 +270,6 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             "users_id": user_id,
         }
 
-        print(query.get_sql())
         try:
             groups_users: Mapping = await mysql_driver.fetch_one(
                 query.get_sql(), values

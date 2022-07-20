@@ -67,7 +67,7 @@ async def get_current_user(
         )
 
 
-async def get_current_user_allowed_to_invite_and_group(
+async def get_current_user_allowed_to_invite_in_group(
     group_invite: GroupInviteRequest,
     id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
     mysql_driver: Database = Depends(get_mysql_driver),

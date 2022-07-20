@@ -38,15 +38,15 @@ class DBPermission(DBCoreModel, BasePermission):
             "generate_report",
             "view_report",
         ]
-        return await cls.get_permission_by_name(mysql_driver, admin_permissions)
+        return await cls.get_permissions_by_name(mysql_driver, admin_permissions)
 
     @classmethod
     async def get_user_permissions(cls, mysql_driver: Database) -> list[DBPermission]:
         user_permissions = ["view_own_report"]
-        return await cls.get_permission_by_name(mysql_driver, user_permissions)
+        return await cls.get_permissions_by_name(mysql_driver, user_permissions)
 
     @classmethod
-    async def get_permission_by_name(
+    async def get_permissions_by_name(
         cls, mysql_driver: Database, permission_name: list[str]
     ) -> list[DBPermission]:
         permissions: Table = Table(cls.Meta.table_name)

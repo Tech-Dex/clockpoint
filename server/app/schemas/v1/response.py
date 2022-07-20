@@ -5,8 +5,12 @@ from pydantic.networks import EmailStr
 from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
-from app.models.role import BaseRoleResponse
+from app.models.role import BaseRole, BaseRoleResponse
 from app.models.user import BaseUserTokenWrapper
+
+
+class GenericResponse(ConfigModel):
+    message: str
 
 
 class BaseUserResponse(ConfigModel):
@@ -53,3 +57,11 @@ class InvitesGroupsResponse(ConfigModel):
 
 class BypassedInvitesGroupsResponse(ConfigModel):
     bypassed_invites: list[EmailStr]
+
+
+class BaseRoleResponse(BaseRole):
+    pass
+
+
+class GroupRolesResponse(ConfigModel):
+    roles: list[BaseRoleResponse]

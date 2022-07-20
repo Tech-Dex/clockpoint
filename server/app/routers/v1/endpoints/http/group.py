@@ -4,7 +4,6 @@ from typing import Mapping
 import numpy as np
 from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -18,7 +17,7 @@ from app.models.enums.token_subject import TokenSubject
 from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
-from app.models.role import DBRole
+from app.models.role import BaseRole, DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupToken, RedisToken
 from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
@@ -26,7 +25,9 @@ from app.schemas.v1.request import BaseGroupCreateRequest, GroupInviteRequest
 from app.schemas.v1.response import (
     BaseGroupResponse,
     BypassedInvitesGroupsResponse,
+    GenericResponse,
     GroupInviteResponse,
+    GroupRolesResponse,
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
 )
@@ -325,7 +326,7 @@ async def join(
 @router.put(
     "/leave",
     response_model_exclude_unset=True,
-    # response_model=BaseGroupResponse,
+    response_model=GenericResponse,
     status_code=HTTP_200_OK,
     name="leave",
     responses={
@@ -339,8 +340,7 @@ async def leave(
 ):
     async with mysql_driver.transaction():
         user_id: int
-        user_token: BaseUserTokenWrapper
-        user_id, user_token = id_user_token
+        user_id, _ = id_user_token
 
         db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
         if not db_group:
@@ -367,5 +367,42 @@ async def leave(
 
         await db_group_user.remove_entry(mysql_driver)
 
-        return JSONResponse(status_code=200, content={"message": "User left group"})
+        return GenericResponse(message="You have left the group")
 
+
+@router.get(
+    "/roles",
+    response_model_exclude_unset=True,
+    # response_model=BaseGroupResponse,
+    status_code=HTTP_200_OK,
+    name="leave",
+    responses={
+        400: {"description": "Invalid input"},
+    },
+)
+async def roles(
+    name: str,
+    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    mysql_driver: Database = Depends(get_mysql_driver),
+):
+    user_id: int
+    user_id, _ = id_user_token
+
+    db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
+    if not db_group:
+        raise StarletteHTTPException(status_code=404, detail="No group found")
+
+    if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, db_group.id):
+        raise StarletteHTTPException(
+            status_code=403, detail="You are not in this group"
+        )
+
+    return GroupRolesResponse(
+        roles=[
+            BaseRole(**role.dict())
+            for role in (await DBRole.get_all_by_group_id(mysql_driver, db_group.id))
+        ]
+    )
+
+
+# TODO: Create a dependency to check if a group exists and a user is in the group

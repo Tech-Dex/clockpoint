@@ -270,6 +270,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             "users_id": user_id,
         }
 
+        print(query.get_sql())
         try:
             groups_users: Mapping = await mysql_driver.fetch_one(
                 query.get_sql(), values

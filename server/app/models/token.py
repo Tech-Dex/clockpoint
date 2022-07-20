@@ -26,7 +26,7 @@ class RedisToken(HashModel, ConfigModel):
     user_id: int = Field(index=True)
     subject: str = Field(index=True)
     token: str = Field(index=True)
-    group_id: int | None = Field(index=True, default=None)
+    group_id: int | None = Field(index=True, default=0)
     invite_user_email: str | None = Field(index=True, default=None)
 
     class Meta:

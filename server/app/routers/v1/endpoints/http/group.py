@@ -10,7 +10,7 @@ from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import create_token
+from app.core.jwt import create_token, decode_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
@@ -109,7 +109,7 @@ async def create(
     response_model=PayloadGroupUserRoleResponse,
     response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
-    name="create",
+    name="get a group details",
     responses={
         400: {"description": "Invalid input"},
     },
@@ -123,6 +123,8 @@ async def get_by_id(
     user_id, _ = id_user_token
     db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
 
+    print(user_id)
+    print(db_group.id)
     if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, db_group.id):
         raise StarletteHTTPException(
             status_code=401, detail="You are not part of the group"
@@ -205,12 +207,6 @@ async def invite(
         return BypassedInvitesGroupsResponse(bypassed_invites=user_emails_bypassed)
 
 
-# Add link between token GROUP_INVITE and invited email - maybe use Redis, after 48 hours this one can be deleted
-# Maybe move all tokens to Redis -> read aioredis docs
-# Display all invitation ( JWT ) for a user ( /see_invites )
-# Join a group with the JWT if not expired.
-
-
 @router.get(
     "/invites",
     response_model_exclude_unset=True,
@@ -256,3 +252,68 @@ async def get_invites(
                 break
 
     return InvitesGroupsResponse(invites=invites)
+
+
+@router.put(
+    "/join",
+    response_model_exclude_unset=True,
+    response_model=BaseGroupResponse,
+    status_code=HTTP_200_OK,
+    name="user invites",
+    responses={
+        400: {"description": "Invalid input"},
+    },
+)
+async def join(
+    invite_token: str,
+    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    mysql_driver: Database = Depends(get_mysql_driver),
+):
+    user_id: int
+    user_token: BaseUserTokenWrapper
+    user_id, user_token = id_user_token
+
+    if not invite_token:
+        raise StarletteHTTPException(status_code=400, detail="Invalid input")
+
+    redis_token: RedisToken = await RedisToken.find(
+        RedisToken.token == invite_token
+    ).first()
+    if not redis_token:
+        raise StarletteHTTPException(status_code=404, detail="No token found")
+
+    if redis_token.invite_user_email != user_token.email:
+        raise StarletteHTTPException(
+            status_code=403, detail="This token is not associated with you"
+        )
+
+    decode_token(invite_token)
+
+    if await DBGroupUser.is_user_in_group(mysql_driver, user_id, redis_token.group_id):
+        raise StarletteHTTPException(
+            status_code=403, detail="You are already in this group"
+        )
+
+    db_group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.group_id)
+    if not db_group:
+        raise StarletteHTTPException(status_code=404, detail="No group found")
+
+    await DBGroupUser.save_batch(
+        mysql_driver,
+        redis_token.group_id,
+        [
+            {
+                "user_id": user_id,
+                "role_id": (
+                    await DBRole.get_role_user_by_group(
+                        mysql_driver, redis_token.group_id
+                    )
+                ).id,
+            }
+        ],
+    )
+
+    # Find how to delete the token from redis_data
+    await RedisToken.delete(redis_token)
+
+    return BaseGroupResponse(group=BaseGroup(**db_group.dict()))

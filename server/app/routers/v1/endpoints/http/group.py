@@ -83,7 +83,7 @@ async def create(
             [
                 {
                     "users_id": users_id,
-                    "role_id": (
+                    "roles_id": (
                         await DBRole.get_role_owner_by_group(mysql_driver, db_group.id)
                     ).id,
                 }
@@ -310,7 +310,7 @@ async def join(
         [
             {
                 "users_id": users_id,
-                "role_id": (
+                "roles_id": (
                     await DBRole.get_role_user_by_group(
                         mysql_driver, redis_token.groups_id
                     )

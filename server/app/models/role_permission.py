@@ -18,7 +18,7 @@ from app.models.db_core_model import DBCoreModel
 
 
 class BaseRolePermission(ConfigModel):
-    role_id: int
+    roles_id: int
     permission_id: int
 
 
@@ -38,7 +38,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             ]
             now = datetime.now()
             values = [
-                f"{permission['role_id']!r}, {permission['permission_id']},"
+                f"{permission['roles_id']!r}, {permission['permission_id']},"
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for permission in permissions
             ]
@@ -63,7 +63,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
 
     @classmethod
     async def get_role_permissions(
-        cls, mysql_driver: Database, role_id: int
+        cls, mysql_driver: Database, roles_id: int
     ) -> dict[str, list[dict[str, any]] | any]:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
@@ -100,10 +100,10 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             )
             .join(roles)
             .on(roles_permissions.roles_id == roles.id)
-            .where(roles_permissions.roles_id == Parameter(":role_id"))
+            .where(roles_permissions.roles_id == Parameter(":roles_id"))
             .where(roles_permissions.deleted_at.isnull())
         )
-        values = {"role_id": role_id}
+        values = {"roles_id": roles_id}
 
         try:
             full_role_permissions: Mapping = await mysql_driver.fetch_one(

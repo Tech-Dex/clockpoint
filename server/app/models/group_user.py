@@ -42,7 +42,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             ]
             now = datetime.now()
             values = [
-                f"{groups_id}, {user_role['users_id']}, {user_role['role_id']}, "
+                f"{groups_id}, {user_role['users_id']}, {user_role['roles_id']}, "
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for user_role in users_roles
             ]

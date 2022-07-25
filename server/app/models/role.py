@@ -167,7 +167,7 @@ class DBRole(DBCoreModel, BaseRole):
                     for owner_permission in owner_permissions:
                         final_role_permissions.append(
                             {
-                                "role_id": role["id"],
+                                "roles_id": role["id"],
                                 "permission_id": owner_permission.id,
                             }
                         )
@@ -175,7 +175,7 @@ class DBRole(DBCoreModel, BaseRole):
                     for admin_permission in admin_permissions:
                         final_role_permissions.append(
                             {
-                                "role_id": role["id"],
+                                "roles_id": role["id"],
                                 "permission_id": admin_permission.id,
                             }
                         )
@@ -183,7 +183,7 @@ class DBRole(DBCoreModel, BaseRole):
                     for user_permission in user_permissions:
                         final_role_permissions.append(
                             {
-                                "role_id": role["id"],
+                                "roles_id": role["id"],
                                 "permission_id": user_permission.id,
                             }
                         )
@@ -195,7 +195,7 @@ class DBRole(DBCoreModel, BaseRole):
                                     if owner_permission.permission == permissions:
                                         final_role_permissions.append(
                                             {
-                                                "role_id": db_role.id,
+                                                "roles_id": db_role.id,
                                                 "permission_id": owner_permission.id,
                                             }
                                         )

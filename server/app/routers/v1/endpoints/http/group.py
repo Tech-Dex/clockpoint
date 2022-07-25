@@ -131,7 +131,6 @@ async def get_by_id(
     user_id, _ = id_user_token
     db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
 
-
     if not await DBGroupUser.is_user_in_group(mysql_driver, user_id, db_group.id):
         raise StarletteHTTPException(
             status_code=401, detail="You are not part of the group"
@@ -405,7 +404,9 @@ async def roles(
         return GroupRolesResponse(
             roles=[
                 BaseRole(**role.dict())
-                for role in (await DBRole.get_all_by_group_id(mysql_driver, db_group.id))
+                for role in (
+                    await DBRole.get_all_by_group_id(mysql_driver, db_group.id)
+                )
             ]
         )
 
@@ -429,7 +430,11 @@ async def assign_role(
         user_id: int
         user_id, _ = id_user_token
 
-        db_role: DBRole = await DBRole.get_by(mysql_driver, "role", group_assign_role.role_name)
+        db_role: DBRole = await DBRole.get_by(
+            mysql_driver, "role", group_assign_role.role_name
+        )
+        if not db_role:
+            raise StarletteHTTPException(status_code=404, detail="No role found")
 
         db_group: DBGroup = await DBGroup.get_by(
             mysql_driver, "name", group_assign_role.name
@@ -442,11 +447,15 @@ async def assign_role(
                 status_code=403, detail="You are not in this group"
             )
 
-        db_user_upgraded: DBUser = await DBUser.get_by(mysql_driver, "username", group_assign_role.username)
+        db_user_upgraded: DBUser = await DBUser.get_by(
+            mysql_driver, "username", group_assign_role.username
+        )
         if not db_user_upgraded:
             raise StarletteHTTPException(status_code=404, detail="No user found")
 
-        if not await DBGroupUser.is_user_in_group(mysql_driver, db_user_upgraded.id, db_group.id):
+        if not await DBGroupUser.is_user_in_group(
+            mysql_driver, db_user_upgraded.id, db_group.id
+        ):
             raise StarletteHTTPException(
                 status_code=403, detail="User is not in this group"
             )
@@ -463,21 +472,25 @@ async def assign_role(
             )
         )
 
-        permission_to_invite = await DBPermission.get_by(mysql_driver, "permission", "invite_user")
+        permission_to_invite = await DBPermission.get_by(
+            mysql_driver, "permission", "invite_user"
+        )
 
-        roles_with_permission_to_invite = await DBRolePermission.get_roles_permission(mysql_driver, permission_to_invite.id)
-        if db_group_user.role_id not in [role["role"]["id"] for role in roles_with_permission_to_invite["roles"]]:
+        roles_with_permission_to_invite = await DBRolePermission.get_roles_permission(
+            mysql_driver, permission_to_invite.id
+        )
+        if db_group_user.roles_id not in [
+            role["role"]["id"] for role in roles_with_permission_to_invite["roles"]
+        ]:
             raise StarletteHTTPException(
                 status_code=403, detail="You don't have permission to invite users"
             )
 
-        db_role: DBRole = await DBRole.get_by(mysql_driver, "name", group_assign_role.role_name)
-        if not db_role:
-            raise StarletteHTTPException(status_code=404, detail="No role found")
+        db_group_user_upgraded.roles_id = db_role.id
 
-        db_group_user_upgraded.role_id = db_role.id
         await db_group_user_upgraded.update(mysql_driver)
 
         return GenericResponse(message="Role assigned")
+
 
 # TODO: Create a dependency to check if a group exists and a user is in the group

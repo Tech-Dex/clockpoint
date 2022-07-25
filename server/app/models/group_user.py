@@ -18,9 +18,9 @@ from app.models.db_core_model import DBCoreModel
 
 
 class BaseGroupUser(ConfigModel):
-    group_id: int
-    user_id: int
-    role_id: int
+    groups_id: int
+    users_id: int
+    roles_id: int
 
 
 class DBGroupUser(DBCoreModel, BaseGroupUser):
@@ -162,9 +162,10 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         query = (
             MySQLQuery.from_(groups_users)
             .select(
-                groups_users.groups_id.as_("group_id"),
-                groups_users.users_id.as_("user_id"),
-                groups_users.roles_id.as_("role_id"),
+                groups_users.id,
+                groups_users.groups_id.as_("groups_id"),
+                groups_users.users_id.as_("users_id"),
+                groups_users.roles_id.as_("roles_id"),
             )
             .where(groups_users.groups_id == Parameter(f":group_id"))
             .where(groups_users.users_id == Parameter(f":user_id"))
@@ -238,8 +239,8 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 .where(groups_users.users_id == Parameter(":users_id"))
             )
             values = {
-                "groups_id": self.group_id,
-                "users_id": self.user_id,
+                "groups_id": self.groups_id,
+                "users_id": self.users_id,
             }
 
             try:

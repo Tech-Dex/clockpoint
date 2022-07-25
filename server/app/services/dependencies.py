@@ -88,7 +88,7 @@ async def get_current_user_allowed_to_invite_in_group(
         )
 
     db_role_permissions = await DBRolePermission.get_role_permissions(
-        mysql_driver, db_group_user.role_id
+        mysql_driver, db_group_user.roles_id
     )
 
     if "invite_user" not in [

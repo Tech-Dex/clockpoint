@@ -67,7 +67,7 @@ async def create(
         user_id, user_token = id_user_token
 
         custom_roles = [
-            custom_role_permission.role
+            custom_role_permission.role.lower()
             for custom_role_permission in group_create.custom_roles
         ]
 
@@ -375,7 +375,7 @@ async def leave(
 @router.get(
     "/roles",
     response_model_exclude_unset=True,
-    # response_model=BaseGroupResponse,
+    response_model=GroupRolesResponse,
     status_code=HTTP_200_OK,
     name="get group roles",
     responses={
@@ -414,7 +414,7 @@ async def roles(
 @router.post(
     "/role",
     response_model_exclude_unset=True,
-    response_model=GenericResponse,
+    response_model=PayloadGroupUserRoleResponse,
     status_code=HTTP_200_OK,
     name="assign a role to a user",
     responses={
@@ -425,7 +425,7 @@ async def assign_role(
     group_assign_role: GroupAssignRoleRequest,
     id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> GenericResponse:
+) -> PayloadGroupUserRoleResponse:
     async with mysql_driver.transaction():
         user_id: int
         user_id, _ = id_user_token
@@ -490,7 +490,11 @@ async def assign_role(
 
         await db_group_user_upgraded.update(mysql_driver)
 
-        return GenericResponse(message="Role assigned")
+        return PayloadGroupUserRoleResponse(
+            payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+                mysql_driver, "groups_id", db_group.id
+            )
+        )
 
 
 # TODO: Create a dependency to check if a group exists and a user is in the group

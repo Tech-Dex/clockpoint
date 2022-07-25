@@ -168,7 +168,7 @@ class DBRole(DBCoreModel, BaseRole):
                         final_role_permissions.append(
                             {
                                 "roles_id": role["id"],
-                                "permission_id": owner_permission.id,
+                                "permissions_id": owner_permission.id,
                             }
                         )
                 case Roles.ADMIN.value:
@@ -176,7 +176,7 @@ class DBRole(DBCoreModel, BaseRole):
                         final_role_permissions.append(
                             {
                                 "roles_id": role["id"],
-                                "permission_id": admin_permission.id,
+                                "permissions_id": admin_permission.id,
                             }
                         )
                 case Roles.USER.value:
@@ -184,7 +184,7 @@ class DBRole(DBCoreModel, BaseRole):
                         final_role_permissions.append(
                             {
                                 "roles_id": role["id"],
-                                "permission_id": user_permission.id,
+                                "permissions_id": user_permission.id,
                             }
                         )
                 case _:
@@ -196,7 +196,7 @@ class DBRole(DBCoreModel, BaseRole):
                                         final_role_permissions.append(
                                             {
                                                 "roles_id": db_role.id,
-                                                "permission_id": owner_permission.id,
+                                                "permissions_id": owner_permission.id,
                                             }
                                         )
                                         break

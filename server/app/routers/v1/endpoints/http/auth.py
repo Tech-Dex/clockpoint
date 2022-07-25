@@ -40,7 +40,7 @@ async def register(
     await user.save(mysql_driver)
     token: str = await create_token(
         data=BaseToken(
-            **user.dict(), user_id=user.id, subject=TokenSubject.ACCESS
+            **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
@@ -74,7 +74,7 @@ async def login(
     user: BaseUser = BaseUser(**db_user.dict())
     token: str = await create_token(
         data=BaseToken(
-            **user.dict(), user_id=db_user.id, subject=TokenSubject.ACCESS
+            **user.dict(), users_id=db_user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
@@ -100,14 +100,14 @@ async def refresh(
     Refresh a user token.
     """
 
-    user_id: int
+    users_id: int
     user_token: BaseUserTokenWrapper
-    user_id, user_token = id_user_token
+    users_id, user_token = id_user_token
 
     user: BaseUser = BaseUser(**user_token.dict())
     token: str = await create_token(
         data=BaseToken(
-            **user.dict(), user_id=user_id, subject=TokenSubject.ACCESS
+            **user.dict(), users_id=users_id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )

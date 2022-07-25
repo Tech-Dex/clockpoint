@@ -10,7 +10,7 @@ from app.models.db_core_model import DBCoreModel
 
 
 class BaseToken(ConfigModel):
-    user_id: int
+    users_id: int
     subject: str = ""
 
 
@@ -23,7 +23,7 @@ class DBToken(DBCoreModel, BaseToken):
 
 
 class RedisToken(HashModel, ConfigModel):
-    user_id: int = Field(index=True)
+    users_id: int = Field(index=True)
     subject: str = Field(index=True)
     token: str = Field(index=True)
     groups_id: int | None = Field(index=True, default=0)

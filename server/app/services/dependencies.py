@@ -53,7 +53,7 @@ async def get_current_user(
         )
 
     if token_payload.subject == TokenSubject.ACCESS:
-        db_user: DBUser = await DBUser.get_by(mysql_driver, "id", token_payload.user_id)
+        db_user: DBUser = await DBUser.get_by(mysql_driver, "id", token_payload.users_id)
         user: BaseUser = BaseUser(**db_user.dict())
 
         if user is None:
@@ -72,14 +72,14 @@ async def get_current_user_allowed_to_invite_in_group(
     id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> tuple[int, BaseUserTokenWrapper, DBGroup]:
-    user_id: int
+    users_id: int
     user_token: BaseUserTokenWrapper
-    user_id, user_token = id_user_token
+    users_id, user_token = id_user_token
     db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", group_invite.name)
 
     db_group_user: DBGroupUser = (
         await DBGroupUser.get_group_user_by_group_id_and_user_id(
-            mysql_driver, db_group.id, user_id
+            mysql_driver, db_group.id, users_id
         )
     )
     if not db_group_user:
@@ -99,4 +99,4 @@ async def get_current_user_allowed_to_invite_in_group(
             status_code=401, detail="You are not allowed to invite users"
         )
 
-    return user_id, user_token, db_group
+    return users_id, user_token, db_group

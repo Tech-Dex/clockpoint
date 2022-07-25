@@ -29,7 +29,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def save_batch(
-        cls, mysql_driver: Database, group_id: int, users_roles: list[dict]
+        cls, mysql_driver: Database, groups_id: int, users_roles: list[dict]
     ) -> bool:
         async with mysql_driver.transaction():
             groups_users: str = cls.Meta.table_name
@@ -42,7 +42,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             ]
             now = datetime.now()
             values = [
-                f"{group_id}, {user_role['user_id']}, {user_role['role_id']}, "
+                f"{groups_id}, {user_role['user_id']}, {user_role['role_id']}, "
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for user_role in users_roles
             ]
@@ -155,7 +155,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def get_group_user_by_group_id_and_user_id(
-        cls, mysql_driver: Database, group_id: int, user_id: int
+        cls, mysql_driver: Database, groups_id: int, user_id: int
     ) -> DBGroupUser:
 
         groups_users: Table = Table(cls.Meta.table_name)
@@ -167,11 +167,11 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 groups_users.users_id.as_("users_id"),
                 groups_users.roles_id.as_("roles_id"),
             )
-            .where(groups_users.groups_id == Parameter(f":group_id"))
+            .where(groups_users.groups_id == Parameter(f":groups_id"))
             .where(groups_users.users_id == Parameter(f":user_id"))
         )
 
-        values = {"group_id": group_id, "user_id": user_id}
+        values = {"groups_id": groups_id, "user_id": user_id}
 
         try:
             group_user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
@@ -190,7 +190,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def get_group_users_by_role(
-        cls, mysql_driver: Database, group_id: int, role: str
+        cls, mysql_driver: Database, groups_id: int, role: str
     ) -> list[Mapping]:
         groups_users: Table = Table(cls.Meta.table_name)
         users: Table = Table("users")
@@ -212,7 +212,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             .where(roles.role == Parameter(":role"))
             .where(groups_users.deleted_at.isnull())
         )
-        values = {"groups_id": group_id, "role": role}
+        values = {"groups_id": groups_id, "role": role}
 
         try:
             users_by_role: list[Mapping] = await mysql_driver.fetch_all(
@@ -257,7 +257,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def is_user_in_group(
-        cls, mysql_driver: Database, user_id: int, group_id: int
+        cls, mysql_driver: Database, user_id: int, groups_id: int
     ) -> bool:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
@@ -267,7 +267,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             .where(groups_users.users_id == Parameter(":users_id"))
         )
         values = {
-            "groups_id": group_id,
+            "groups_id": groups_id,
             "users_id": user_id,
         }
 
@@ -288,7 +288,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def are_users_in_group(
-        cls, mysql_driver: Database, user_ids: list[int], group_id: int
+        cls, mysql_driver: Database, user_ids: list[int], groups_id: int
     ) -> list[int]:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
@@ -298,7 +298,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             .where(groups_users.users_id.isin(Parameter(":users_id")))
         )
         values = {
-            "groups_id": group_id,
+            "groups_id": groups_id,
             "users_id": user_ids,
         }
 

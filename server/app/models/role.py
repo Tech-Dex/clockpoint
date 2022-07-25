@@ -29,14 +29,14 @@ class DBRole(DBCoreModel, BaseRole):
 
     @classmethod
     async def save_batch(
-        cls, mysql_driver: Database, group_id: int, group_roles: list
+        cls, mysql_driver: Database, groups_id: int, group_roles: list
     ) -> bool:
         async with mysql_driver.transaction():
             group_roles: list[dict] = DBRole.create_roles(group_roles)
             columns: list = ["role", "groups_id", "created_at", "updated_at"]
             now = datetime.now()
             values: list = [
-                f"{role['role']!r}, {group_id}, "
+                f"{role['role']!r}, {groups_id}, "
                 f"{now.strftime('%Y-%m-%d %H:%M:%S')!r}, {now.strftime('%Y-%m-%d %H:%M:%S')!r}"
                 for role in group_roles
             ]
@@ -62,7 +62,7 @@ class DBRole(DBCoreModel, BaseRole):
 
     @classmethod
     async def get_all_by_group_id(
-        cls, mysql_driver: Database, group_id: int
+        cls, mysql_driver: Database, groups_id: int
     ) -> list[DBRole]:
         """
         usage: [BaseRole(**db_role.dict()) for db_role in await DBRole.get_all(mysql_driver, 1)]
@@ -72,52 +72,52 @@ class DBRole(DBCoreModel, BaseRole):
             MySQLQuery.from_(roles)
             .select(roles.id, roles.role)
             .where(roles.deleted_at.isnull())
-            .where(roles.groups_id == Parameter(f":group_id"))
+            .where(roles.groups_id == Parameter(f":groups_id"))
         )
 
-        values = {"group_id": group_id}
+        values = {"groups_id": groups_id}
         roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
 
         return [cls(**role) for role in roles]
 
     @classmethod
     async def get_role_owner_by_group(
-        cls, mysql_driver: Database, group_id: int
+        cls, mysql_driver: Database, groups_id: int
     ) -> DBRole | None:
         return await cls.get_role_type_by_group(
-            mysql_driver, group_id, Roles.OWNER.value
+            mysql_driver, groups_id, Roles.OWNER.value
         )
 
     @classmethod
     async def get_role_admin_by_group(
-        cls, mysql_driver: Database, group_id: int
+        cls, mysql_driver: Database, groups_id: int
     ) -> DBRole | None:
         return await cls.get_role_type_by_group(
-            mysql_driver, group_id, Roles.ADMIN.value
+            mysql_driver, groups_id, Roles.ADMIN.value
         )
 
     @classmethod
     async def get_role_user_by_group(
-        cls, mysql_driver: Database, group_id: int
+        cls, mysql_driver: Database, groups_id: int
     ) -> DBRole | None:
         return await cls.get_role_type_by_group(
-            mysql_driver, group_id, Roles.USER.value
+            mysql_driver, groups_id, Roles.USER.value
         )
 
     @classmethod
     async def get_role_type_by_group(
-        cls, mysql_driver: Database, group_id: int, role: str
+        cls, mysql_driver: Database, groups_id: int, role: str
     ) -> DBRole | None:
         roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)
             .select("*")
             .where(roles.deleted_at.isnull())
-            .where(roles.groups_id == Parameter(f":group_id"))
+            .where(roles.groups_id == Parameter(f":groups_id"))
             .where(roles.role == Parameter(f":role"))
         )
 
-        values = {"group_id": group_id, "role": role}
+        values = {"groups_id": groups_id, "role": role}
         role: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
 
         return cls(**role)
@@ -145,16 +145,16 @@ class DBRole(DBCoreModel, BaseRole):
         owner_permissions: list[DBPermission],
         admin_permissions: list[DBPermission],
         user_permissions: list[DBPermission],
-        group_id: int,
+        groups_id: int,
         custom_roles_permissions: list[BaseGroupCustomRolePermissionCreateRequest],
     ) -> list[dict]:
         roles: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(roles)
             .select(roles.id, roles.role)
-            .where(roles.groups_id == Parameter(":group_id"))
+            .where(roles.groups_id == Parameter(":groups_id"))
         )
-        values = {"group_id": group_id}
+        values = {"groups_id": groups_id}
 
         test: Record
         roles: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)

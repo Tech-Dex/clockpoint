@@ -199,7 +199,7 @@ async def invite(
                     data=InviteGroupToken(
                         user_id=user_id,
                         invite_user_email=invitation_receiver,
-                        group_id=db_group.id,
+                        groups_id=db_group.id,
                         subject=TokenSubject.GROUP_INVITE,
                     ).dict(),
                     expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
@@ -241,7 +241,7 @@ async def get_invites(
         raise StarletteHTTPException(status_code=404, detail="No invites found")
 
     db_groups: list[DBGroup] | None = await DBGroup.get_all_in(
-        mysql_driver, "id", [redis_token.group_id for redis_token in redis_tokens]
+        mysql_driver, "id", [redis_token.groups_id for redis_token in redis_tokens]
     )
 
     if not db_groups:
@@ -251,7 +251,7 @@ async def get_invites(
 
     for db_group in db_groups:
         for redis_token in redis_tokens:
-            if redis_token.group_id == db_group.id:
+            if redis_token.groups_id == db_group.id:
                 invites.append(
                     GroupInviteResponse(**db_group.dict(), token=redis_token.token)
                 )
@@ -295,24 +295,24 @@ async def join(
 
     decode_token(invite_token)
 
-    if await DBGroupUser.is_user_in_group(mysql_driver, user_id, redis_token.group_id):
+    if await DBGroupUser.is_user_in_group(mysql_driver, user_id, redis_token.groups_id):
         raise StarletteHTTPException(
             status_code=403, detail="You are already in this group"
         )
 
-    db_group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.group_id)
+    db_group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.groups_id)
     if not db_group:
         raise StarletteHTTPException(status_code=404, detail="No group found")
 
     await DBGroupUser.save_batch(
         mysql_driver,
-        redis_token.group_id,
+        redis_token.groups_id,
         [
             {
                 "user_id": user_id,
                 "role_id": (
                     await DBRole.get_role_user_by_group(
-                        mysql_driver, redis_token.group_id
+                        mysql_driver, redis_token.groups_id
                     )
                 ).id,
             }

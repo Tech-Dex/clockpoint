@@ -13,7 +13,7 @@ from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
-from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
+from app.models.user import BaseUser, UserToken, DBUser
 from app.schemas.v1.request import GroupInviteRequest
 
 
@@ -40,10 +40,10 @@ async def get_authorization_header(
     return None
 
 
-async def get_current_user(
+async def fetch_user_from_token(
     mysql_driver: Database = Depends(get_mysql_driver),
     token: str = Depends(get_authorization_header),
-) -> tuple[int, BaseUserTokenWrapper]:
+) -> UserToken:
     try:
         payload: dict = decode_token(token)
         token_payload: BaseToken = BaseToken(**payload)
@@ -54,32 +54,28 @@ async def get_current_user(
 
     if token_payload.subject == TokenSubject.ACCESS:
         db_user: DBUser = await DBUser.get_by(mysql_driver, "id", token_payload.users_id)
-        user: BaseUser = BaseUser(**db_user.dict())
 
-        if user is None:
+        if db_user is None:
             raise StarletteHTTPException(
                 status_code=HTTP_404_NOT_FOUND, detail="User not found"
             )
-        return db_user.id, BaseUserTokenWrapper(**user.dict(), token=token)
+        return UserToken(**db_user.dict(), token=token)
     else:
         raise StarletteHTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
         )
 
 
-async def get_current_user_allowed_to_invite_in_group(
+async def fetch_user_invite_permission_from_token(
     group_invite: GroupInviteRequest,
-    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
+    user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> tuple[int, BaseUserTokenWrapper, DBGroup]:
-    users_id: int
-    user_token: BaseUserTokenWrapper
-    users_id, user_token = id_user_token
+) -> tuple[int, UserToken, DBGroup]:
     db_group: DBGroup = await DBGroup.get_by(mysql_driver, "name", group_invite.name)
 
     db_group_user: DBGroupUser = (
         await DBGroupUser.get_group_user_by_group_id_and_user_id(
-            mysql_driver, db_group.id, users_id
+            mysql_driver, db_group.id, user_token.id
         )
     )
     if not db_group_user:
@@ -99,4 +95,4 @@ async def get_current_user_allowed_to_invite_in_group(
             status_code=401, detail="You are not allowed to invite users"
         )
 
-    return users_id, user_token, db_group
+    return user_token.id, user_token, db_group

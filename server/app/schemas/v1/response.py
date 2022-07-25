@@ -6,15 +6,19 @@ from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
-from app.models.user import BaseUserTokenWrapper
+from app.models.user import UserToken, BaseUser
 
 
 class GenericResponse(ConfigModel):
     message: str
 
 
+class UserTokenResponse(BaseUser):
+    token: str | None = None
+
+
 class BaseUserResponse(ConfigModel):
-    user: BaseUserTokenWrapper
+    user: UserTokenResponse
 
 
 class BaseGroupResponse(ConfigModel):

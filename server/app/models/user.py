@@ -31,5 +31,6 @@ class DBUser(DBCoreModel, BaseUser):
         self.hashed_password = hash_password(self.salt, password)
 
 
-class BaseUserTokenWrapper(BaseUser):
+class UserToken(BaseUser):
+    id: int
     token: str | None = None

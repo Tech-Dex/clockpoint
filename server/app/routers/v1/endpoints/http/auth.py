@@ -8,10 +8,10 @@ from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import BaseToken
-from app.models.user import BaseUser, BaseUserTokenWrapper, DBUser
+from app.models.user import BaseUser, UserToken, DBUser
 from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
 from app.schemas.v1.response import BaseUserResponse
-from app.services.dependencies import get_current_user
+from app.services.dependencies import fetch_user_from_token
 
 router: APIRouter = APIRouter()
 
@@ -44,7 +44,7 @@ async def register(
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
+    return BaseUserResponse(user=UserToken(**user.dict(), token=token))
 
 
 @router.post(
@@ -71,14 +71,13 @@ async def login(
     if not db_user.verify_password(user_login.password):
         raise StarletteHTTPException(status_code=401, detail="Invalid credentials")
 
-    user: BaseUser = BaseUser(**db_user.dict())
     token: str = await create_token(
         data=BaseToken(
-            **user.dict(), users_id=db_user.id, subject=TokenSubject.ACCESS
+            **db_user.dict(), users_id=db_user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
+    return BaseUserResponse(user=UserToken(**db_user.dict(), token=token))
 
 
 @router.get(
@@ -93,22 +92,17 @@ async def login(
     },
 )
 async def refresh(
-    id_user_token: tuple[int, BaseUserTokenWrapper] = Depends(get_current_user),
-    mysql_driver: Database = Depends(get_mysql_driver),
+    user_token: UserToken = Depends(fetch_user_from_token)
 ) -> BaseUserResponse:
     """
     Refresh a user token.
     """
-
-    users_id: int
-    user_token: BaseUserTokenWrapper
-    users_id, user_token = id_user_token
-
-    user: BaseUser = BaseUser(**user_token.dict())
     token: str = await create_token(
         data=BaseToken(
-            **user.dict(), users_id=users_id, subject=TokenSubject.ACCESS
+            **user_token.dict(), users_id=user_token.id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    return BaseUserResponse(user=BaseUserTokenWrapper(**user.dict(), token=token))
+
+    user_token.token = token
+    return BaseUserResponse(user=UserToken(**user_token.dict()))

@@ -20,7 +20,7 @@ from app.models.permission import DBPermission
 from app.models.role import BaseRole, DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupToken, RedisToken
-from app.models.user import BaseUser, UserToken, DBUser
+from app.models.user import BaseUser, DBUser, UserToken
 from app.schemas.v1.request import (
     BaseGroupCreateRequest,
     GroupAssignRoleRequest,
@@ -35,8 +35,11 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
 )
+from app.schemas.v1.wrapper import UserInGroupWrapper
 from app.services.dependencies import (
+    fetch_user_edit_permission_from_token,
     fetch_user_from_token,
+    fetch_user_in_group_from_token_qp_name,
     fetch_user_invite_permission_from_token,
 )
 from app.services.mailer import send_group_invitation
@@ -121,20 +124,12 @@ async def create(
     },
 )
 async def get_by_name(
-    name: str,
-    user_token: UserToken = Depends(fetch_user_from_token),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
-    group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
-
-    if not await DBGroupUser.is_user_in_group(mysql_driver, user_token.id, group.id):
-        raise StarletteHTTPException(
-            status_code=401, detail="You are not part of the group"
-        )
-
     return PayloadGroupUserRoleResponse(
         payload=await DBGroupUser.get_group_user_by_reflection_with_id(
-            mysql_driver, "groups_id", group.id
+            mysql_driver, "groups_id", user_in_group.group.id
         )
     )
 
@@ -153,16 +148,12 @@ async def get_by_name(
 async def invite(
     group_invite: GroupInviteRequest,
     bg_tasks: BackgroundTasks,
-    id_user_token_group: tuple[int, UserToken, DBGroup] = Depends(
+    user_in_group: UserInGroupWrapper = Depends(
         fetch_user_invite_permission_from_token
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
     async with mysql_driver.transaction():
-        users_id: int
-        db_group: DBGroup
-        users_id, _, db_group = id_user_token_group
-
         users_invite: list[DBUser] | None = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exception=True
         )
@@ -171,9 +162,14 @@ async def invite(
         users_ids_not_in_group: list[int] = []
 
         if users_invite:
-            users_ids_in_group: list[int] = await DBGroupUser.are_users_in_group(
-                mysql_driver, users_ids_invite, db_group.id
-            )
+            users_ids_in_group: list[int] = [
+                user_in_group.id
+                for user_in_group in await DBGroupUser.are_users_in_group(
+                    mysql_driver,
+                    users_ids_invite,
+                    user_in_group.group.id,
+                )
+            ]
 
             users_ids_not_in_group = list(
                 np.setdiff1d(users_ids_invite, users_ids_in_group)
@@ -193,9 +189,9 @@ async def invite(
             tokens.append(
                 await create_token(
                     data=InviteGroupToken(
-                        users_id=users_id,
+                        users_id=user_in_group.user_token.id,
                         invite_user_email=invitation_receiver,
-                        groups_id=db_group.id,
+                        groups_id=user_in_group.group.id,
                         subject=TokenSubject.GROUP_INVITE,
                     ).dict(),
                     expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
@@ -203,7 +199,10 @@ async def invite(
             )
 
         bg_tasks.add_task(
-            send_group_invitation, invitation_receivers, db_group.name, tokens
+            send_group_invitation,
+            invitation_receivers,
+            user_in_group.group.name,
+            tokens,
         )
 
         return BypassedInvitesGroupsResponse(bypassed_invites=user_emails_bypassed)
@@ -253,6 +252,7 @@ async def get_invites(
     return InvitesGroupsResponse(invites=invites)
 
 
+@cache(expire=300)
 @router.post(
     "/join",
     response_model_exclude_unset=True,
@@ -284,7 +284,9 @@ async def join(
 
     decode_token(invite_token)
 
-    if await DBGroupUser.is_user_in_group(mysql_driver, user_token.id, redis_token.groups_id):
+    if await DBGroupUser.is_user_in_group(
+        mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
+    ):
         raise StarletteHTTPException(
             status_code=403, detail="You are already in this group"
         )
@@ -324,35 +326,19 @@ async def join(
     },
 )
 async def leave(
-    name: str,
-    user_token: UserToken = Depends(fetch_user_from_token),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GenericResponse:
     async with mysql_driver.transaction():
-        group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
-        if not group:
-            raise StarletteHTTPException(status_code=404, detail="No group found")
-
-        if not await DBGroupUser.is_user_in_group(mysql_driver, user_token.id, group.id):
-            raise StarletteHTTPException(
-                status_code=403, detail="You are not in this group"
-            )
-
         owners: list[Mapping] = await DBGroupUser.get_group_users_by_role(
-            mysql_driver, group.id, Roles.OWNER
+            mysql_driver, user_in_group.group.id, Roles.OWNER
         )
-        if user_token.id in [user["id"] for user in owners]:
+        if user_in_group.user_token.id in [user["id"] for user in owners]:
             raise StarletteHTTPException(
                 status_code=403, detail="You can't leave a group you own"
             )
 
-        group_user: DBGroupUser = (
-            await DBGroupUser.get_group_user_by_group_id_and_user_id(
-                mysql_driver, group.id, user_token.id
-            )
-        )
-
-        await group_user.remove_entry(mysql_driver)
+        await user_in_group.group_user.remove_entry(mysql_driver)
 
         return GenericResponse(message="You have left the group")
 
@@ -368,26 +354,18 @@ async def leave(
     },
 )
 async def roles(
-    name: str,
-    user_token: UserToken = Depends(fetch_user_from_token),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GroupRolesResponse:
     async with mysql_driver.transaction():
-        group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
-        if not group:
-            raise StarletteHTTPException(status_code=404, detail="No group found")
-
-        if not await DBGroupUser.is_user_in_group(mysql_driver, user_token.id, group.id):
-            raise StarletteHTTPException(
-                status_code=403, detail="You are not in this group"
-            )
-
         # TODO: Add in Role_permissions a query to fetch all roles with permissions for a group
         return GroupRolesResponse(
             roles=[
                 BaseRole(**role.dict())
                 for role in (
-                    await DBRole.get_all_by_group_id(mysql_driver, group.id)
+                    await DBRole.get_all_by_group_id(
+                        mysql_driver, user_in_group.group.id
+                    )
                 )
             ]
         )
@@ -405,7 +383,7 @@ async def roles(
 )
 async def assign_role(
     group_assign_role: GroupAssignRoleRequest,
-    user_token: UserToken = Depends(fetch_user_from_token),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_edit_permission_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
     async with mysql_driver.transaction():
@@ -415,17 +393,6 @@ async def assign_role(
         if not role:
             raise StarletteHTTPException(status_code=404, detail="No role found")
 
-        group: DBGroup = await DBGroup.get_by(
-            mysql_driver, "name", group_assign_role.name
-        )
-        if not group:
-            raise StarletteHTTPException(status_code=404, detail="No group found")
-
-        if not await DBGroupUser.is_user_in_group(mysql_driver, user_token.id, group.id):
-            raise StarletteHTTPException(
-                status_code=403, detail="You are not in this group"
-            )
-
         user_to_upgrade: DBUser = await DBUser.get_by(
             mysql_driver, "username", group_assign_role.username
         )
@@ -433,22 +400,14 @@ async def assign_role(
             raise StarletteHTTPException(status_code=404, detail="No user found")
 
         if not await DBGroupUser.is_user_in_group(
-            mysql_driver, user_to_upgrade.id, group.id
+            mysql_driver, user_to_upgrade.id, user_in_group.group.id
         ):
             raise StarletteHTTPException(
                 status_code=403, detail="User is not in this group"
             )
 
-        group_user: DBGroupUser = (
-            await DBGroupUser.get_group_user_by_group_id_and_user_id(
-                mysql_driver, group.id, user_token.id
-            )
-        )
-
-        group_user_to_upgrade: DBGroupUser = (
-            await DBGroupUser.get_group_user_by_group_id_and_user_id(
-                mysql_driver, group.id, user_to_upgrade.id
-            )
+        group_user_to_upgrade: DBGroupUser = await DBGroupUser.is_user_in_group(
+            mysql_driver, user_in_group.group.id, user_to_upgrade.id
         )
 
         permission_to_invite = await DBPermission.get_by(
@@ -458,9 +417,11 @@ async def assign_role(
         roles_with_permission_to_invite = await DBRolePermission.get_roles_permission(
             mysql_driver, permission_to_invite.id
         )
-        if group_user.roles_id not in [
+        if user_in_group.group_user.roles_id not in [
             role_with_permission_to_invite["role"]["id"]
-            for role_with_permission_to_invite in roles_with_permission_to_invite["roles"]
+            for role_with_permission_to_invite in roles_with_permission_to_invite[
+                "roles"
+            ]
         ]:
             raise StarletteHTTPException(
                 status_code=403, detail="You don't have permission to invite users"
@@ -472,9 +433,6 @@ async def assign_role(
 
         return PayloadGroupUserRoleResponse(
             payload=await DBGroupUser.get_group_user_by_reflection_with_id(
-                mysql_driver, "groups_id", group.id
+                mysql_driver, "groups_id", user_in_group.group.id
             )
         )
-
-
-# TODO: Create a dependency to check if a group exists and a user is in the group

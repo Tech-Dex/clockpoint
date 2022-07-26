@@ -27,4 +27,7 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("tokens")
+    op.create_table(
+        "tokens",
+        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True)
+    )

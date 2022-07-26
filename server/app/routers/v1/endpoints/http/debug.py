@@ -2,8 +2,6 @@ from aredis_om.model import NotFoundError
 from databases import Database
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_cache.decorator import cache
-from starlette.requests import Request
-from starlette.responses import Response
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
@@ -147,14 +145,14 @@ async def save_customer(customer: RedisToken):
 
 
 @router.get("/customers")
-async def list_customers(request: Request, response: Response):
+async def list_customers():
     # To retrieve this customer with its primary key, we use `Customer.get()`:
     return {"customers": [pk async for pk in await RedisToken.all_pks()]}
 
 
 @router.get("/customer/{pk}")
 @cache(expire=10)
-async def get_customer(pk: str, request: Request, response: Response):
+async def get_customer(pk: str):
     # To retrieve this customer with its primary key, we use `Customer.get()`:
     try:
         return await RedisToken.get(pk)
@@ -164,7 +162,7 @@ async def get_customer(pk: str, request: Request, response: Response):
 
 @router.get("/customers/{subject}")
 @cache(expire=10)
-async def get_customer(subject: str, request: Request, response: Response):
+async def get_customer(subject: str):
     # To retrieve this customer with its primary key, we use `Customer.get()`:
     try:
         return await RedisToken.find(RedisToken.subject == subject).all()

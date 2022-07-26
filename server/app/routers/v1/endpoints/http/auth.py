@@ -8,7 +8,7 @@ from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import BaseToken
-from app.models.user import BaseUser, UserToken, DBUser
+from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
 from app.schemas.v1.response import BaseUserResponse
 from app.services.dependencies import fetch_user_from_token
@@ -92,7 +92,7 @@ async def login(
     },
 )
 async def refresh(
-    user_token: UserToken = Depends(fetch_user_from_token)
+    user_token: UserToken = Depends(fetch_user_from_token),
 ) -> BaseUserResponse:
     """
     Refresh a user token.

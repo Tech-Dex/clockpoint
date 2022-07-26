@@ -6,7 +6,7 @@ from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
-from app.models.user import UserToken, BaseUser
+from app.models.user import BaseUser
 
 
 class GenericResponse(ConfigModel):

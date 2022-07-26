@@ -154,41 +154,6 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         ]
 
     @classmethod
-    async def get_group_user_by_group_id_and_user_id(
-        cls, mysql_driver: Database, groups_id: int, users_id: int
-    ) -> DBGroupUser:
-
-        groups_users: Table = Table(cls.Meta.table_name)
-        query = (
-            MySQLQuery.from_(groups_users)
-            .select(
-                groups_users.id,
-                groups_users.groups_id.as_("groups_id"),
-                groups_users.users_id.as_("users_id"),
-                groups_users.roles_id.as_("roles_id"),
-            )
-            .where(groups_users.groups_id == Parameter(f":groups_id"))
-            .where(groups_users.users_id == Parameter(f":users_id"))
-        )
-
-        values = {"groups_id": groups_id, "users_id": users_id}
-
-        try:
-            group_user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
-        except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
-        if not group_user:
-            raise StarletteHTTPException(
-                status_code=404,
-                detail="Group user not found",
-            )
-
-        return cls(**group_user)
-
-    @classmethod
     async def get_group_users_by_role(
         cls, mysql_driver: Database, groups_id: int, role: str
     ) -> list[Mapping]:
@@ -257,8 +222,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def is_user_in_group(
-        cls, mysql_driver: Database, users_id: int, groups_id: int
-    ) -> bool:
+        cls,
+        mysql_driver: Database,
+        users_id: int,
+        groups_id: int,
+        bypass_exception: bool = False,
+    ) -> DBGroupUser | None:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(groups_users)
@@ -272,24 +241,28 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         }
 
         try:
-            groups_users: Mapping = await mysql_driver.fetch_one(
-                query.get_sql(), values
-            )
+            group_user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         except MySQLError as mySQLError:
             raise StarletteHTTPException(
                 status_code=500,
                 detail=f"MySQL error: {mySQLError.args[1]}",
             )
 
-        if not groups_users:
-            return False
+        if not group_user and not bypass_exception:
+            raise StarletteHTTPException(
+                status_code=404,
+                detail="Group user not found",
+            )
 
-        return True
+        if not group_user and bypass_exception:
+            return None
+
+        return cls(**group_user)
 
     @classmethod
     async def are_users_in_group(
         cls, mysql_driver: Database, users_ids: list[int], groups_id: int
-    ) -> list[int]:
+    ) -> list[DBGroupUser]:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(groups_users)
@@ -315,8 +288,4 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         if not groups_users:
             return []
 
-        return [group_users["users_id"] for group_users in groups_users]
-
-
-class BaseGroupUserResponse(ConfigModel):
-    groups_users: list[BaseGroupUser]
+        return [cls(**group_users) for group_users in groups_users]

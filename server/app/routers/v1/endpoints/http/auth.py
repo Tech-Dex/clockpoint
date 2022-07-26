@@ -66,18 +66,18 @@ async def login(
     Login a user.
     """
 
-    db_user: DBUser = await DBUser.get_by(mysql_driver, "email", user_login.email)
+    user: DBUser = await DBUser.get_by(mysql_driver, "email", user_login.email)
 
-    if not db_user.verify_password(user_login.password):
+    if not user.verify_password(user_login.password):
         raise StarletteHTTPException(status_code=401, detail="Invalid credentials")
 
     token: str = await create_token(
         data=BaseToken(
-            **db_user.dict(), users_id=db_user.id, subject=TokenSubject.ACCESS
+            **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
-    return BaseUserResponse(user=UserToken(**db_user.dict(), token=token))
+    return BaseUserResponse(user=UserToken(**user.dict(), token=token))
 
 
 @router.get(

@@ -52,10 +52,9 @@ def upgrade():
             {"permission": "kick_user"},
             {"permission": "generate_report"},
             {"permission": "view_report"},
+            {"permission": "assign_role"},
             {"permission": "edit"},
             {"permission": "delete"},
-            {"permission": "add_admin"},
-            {"permission": "remove_admin"},
         ],
     )
 

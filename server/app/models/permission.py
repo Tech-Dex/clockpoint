@@ -37,6 +37,7 @@ class DBPermission(DBCoreModel, BasePermission):
             "kick_user",
             "generate_report",
             "view_report",
+            "assign_role",
         ]
         return await cls.get_permissions_by_name(mysql_driver, admin_permissions)
 

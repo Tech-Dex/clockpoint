@@ -35,7 +35,7 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
 )
-from app.schemas.v1.wrapper import UserInGroupRoleAssignWrapper, UserInGroupWrapper
+from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 from app.services.dependencies import (
     fetch_user_assign_role_permission_from_token,
     fetch_user_from_token,
@@ -386,12 +386,12 @@ async def roles(
 )
 async def assign_role(
     group_assign_role: GroupAssignRoleRequest,
-    user_in_group_role_assign: UserInGroupRoleAssignWrapper = Depends(
+    user_in_group_role_assign: UserInGroupWithRoleAssignWrapper = Depends(
         fetch_user_assign_role_permission_from_token
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
-    # TODO: Try to reduce the number of queries to DB, you have like 12 queries here
+    # TODO: Try to reduce the number of queries to DB, you have like 10 queries here
     async with mysql_driver.transaction():
         role_assign: DBRole = user_in_group_role_assign.role_assign
         if not role_assign:
@@ -410,23 +410,6 @@ async def assign_role(
         if not group_user_to_upgrade:
             raise StarletteHTTPException(
                 status_code=403, detail="User is not in this group"
-            )
-
-        permission_to_invite = await DBPermission.get_by(
-            mysql_driver, "permission", "invite_user"
-        )
-
-        roles_with_permission_to_invite = await DBRolePermission.get_roles_permission(
-            mysql_driver, permission_to_invite.id
-        )
-        if user_in_group_role_assign.group_user.roles_id not in [
-            role_with_permission_to_invite["role"]["id"]
-            for role_with_permission_to_invite in roles_with_permission_to_invite[
-                "roles"
-            ]
-        ]:
-            raise StarletteHTTPException(
-                status_code=403, detail="You don't have permission to invite users"
             )
 
         group_user_to_upgrade.roles_id = role_assign.id

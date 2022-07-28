@@ -11,5 +11,5 @@ class UserInGroupWrapper(ConfigModel):
     group_user: DBGroupUser
 
 
-class UserInGroupRoleAssignWrapper(UserInGroupWrapper):
+class UserInGroupWithRoleAssignWrapper(UserInGroupWrapper):
     role_assign: DBRole

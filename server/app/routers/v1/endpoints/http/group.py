@@ -156,6 +156,8 @@ async def invite(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
+    #TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
+    # an accound and then auto-join him to the group.
     async with mysql_driver.transaction():
         users_invite: list[DBUser] | None = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exception=True
@@ -360,18 +362,17 @@ async def roles(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GroupRolesResponse:
-    async with mysql_driver.transaction():
-        # TODO: Add in Role_permissions a query to fetch all roles with permissions for a group
-        return GroupRolesResponse(
-            roles=[
-                BaseRole(**role.dict())
-                for role in (
-                    await DBRole.get_all_by_group_id(
-                        mysql_driver, user_in_group.group.id
-                    )
+    # TODO: Add in Role_permissions a query to fetch all roles with permissions for a group
+    return GroupRolesResponse(
+        roles=[
+            BaseRole(**role.dict())
+            for role in (
+                await DBRole.get_all_by_group_id(
+                    mysql_driver, user_in_group.group.id
                 )
-            ]
-        )
+            )
+        ]
+    )
 
 
 @router.post(

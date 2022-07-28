@@ -16,7 +16,7 @@ from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
 from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import GroupAssignRoleRequest, GroupInviteRequest
-from app.schemas.v1.wrapper import UserInGroupRoleWrapper, UserInGroupWrapper
+from app.schemas.v1.wrapper import UserInGroupRoleAssignWrapper, UserInGroupWrapper
 
 
 async def get_authorization_header(
@@ -172,7 +172,7 @@ async def fetch_user_assign_role_permission_from_token(
         fetch_user_in_group_from_token_br_assign_role
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> UserInGroupRoleWrapper:
+) -> UserInGroupRoleAssignWrapper:
     role_permissions = await is_permission_granted(mysql_driver, user_in_group, "edit")
     permissions_ids: list[int] = [
         role_permission["permission"]["id"]
@@ -181,7 +181,7 @@ async def fetch_user_assign_role_permission_from_token(
     permissions_ids.sort()
 
     role_assign: DBRole = await DBRole.get_by(
-        mysql_driver, "role", group_assign_role.role_name
+        mysql_driver, "role", group_assign_role.role_name.lower()
     )
 
     if not role_assign:
@@ -202,4 +202,4 @@ async def fetch_user_assign_role_permission_from_token(
             status_code=403, detail="You can't assign a role that is higher than yours"
         )
 
-    return UserInGroupRoleWrapper(**user_in_group.dict(), role=role_assign)
+    return UserInGroupRoleAssignWrapper(**user_in_group.dict(), role_assign=role_assign)

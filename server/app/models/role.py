@@ -190,7 +190,7 @@ class DBRole(DBCoreModel, BaseRole):
                 case _:
                     for custom_role_permission in custom_roles_permissions:
                         if custom_role_permission.role == db_role.role:
-                            for permissions in custom_role_permission.permission:
+                            for permissions in custom_role_permission.permissions:
                                 for owner_permission in owner_permissions:
                                     if owner_permission.permission == permissions:
                                         final_role_permissions.append(

@@ -19,7 +19,7 @@ class UserRegisterRequest(UserLoginRequest):
 
 class BaseGroupCustomRolePermissionCreateRequest(ConfigModel):
     role: str
-    permission: list[str]
+    permissions: list[str]
 
 
 class BaseGroupCreateRequest(ConfigModel):

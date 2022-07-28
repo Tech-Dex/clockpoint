@@ -35,7 +35,7 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
 )
-from app.schemas.v1.wrapper import UserInGroupRoleWrapper, UserInGroupWrapper
+from app.schemas.v1.wrapper import UserInGroupRoleAssignWrapper, UserInGroupWrapper
 from app.services.dependencies import (
     fetch_user_assign_role_permission_from_token,
     fetch_user_from_token,
@@ -71,6 +71,9 @@ async def create(
             custom_role_permission.role.lower()
             for custom_role_permission in group_create.custom_roles
         ]
+
+        for custom_role_permission in group_create.custom_roles:
+            custom_role_permission.role = custom_role_permission.role.lower()
 
         group: DBGroup = await DBGroup(
             name=group_create.name, description=group_create.description
@@ -383,15 +386,15 @@ async def roles(
 )
 async def assign_role(
     group_assign_role: GroupAssignRoleRequest,
-    user_in_group_role: UserInGroupRoleWrapper = Depends(
+    user_in_group_role_assign: UserInGroupRoleAssignWrapper = Depends(
         fetch_user_assign_role_permission_from_token
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
-    #TODO: Try to reduce the number of queries to DB, you have like 12 queries here
+    # TODO: Try to reduce the number of queries to DB, you have like 12 queries here
     async with mysql_driver.transaction():
-        role: DBRole = user_in_group_role.role
-        if not role:
+        role_assign: DBRole = user_in_group_role_assign.role_assign
+        if not role_assign:
             raise StarletteHTTPException(status_code=404, detail="No role found")
 
         user_to_upgrade: DBUser = await DBUser.get_by(
@@ -401,7 +404,7 @@ async def assign_role(
             raise StarletteHTTPException(status_code=404, detail="No user found")
 
         group_user_to_upgrade: DBGroupUser = await DBGroupUser.is_user_in_group(
-            mysql_driver, user_to_upgrade.id, user_in_group_role.group.id
+            mysql_driver, user_to_upgrade.id, user_in_group_role_assign.group.id
         )
 
         if not group_user_to_upgrade:
@@ -416,7 +419,7 @@ async def assign_role(
         roles_with_permission_to_invite = await DBRolePermission.get_roles_permission(
             mysql_driver, permission_to_invite.id
         )
-        if user_in_group_role.group_user.roles_id not in [
+        if user_in_group_role_assign.group_user.roles_id not in [
             role_with_permission_to_invite["role"]["id"]
             for role_with_permission_to_invite in roles_with_permission_to_invite[
                 "roles"
@@ -426,12 +429,12 @@ async def assign_role(
                 status_code=403, detail="You don't have permission to invite users"
             )
 
-        group_user_to_upgrade.roles_id = role.id
+        group_user_to_upgrade.roles_id = role_assign.id
 
         await group_user_to_upgrade.update(mysql_driver)
 
         return PayloadGroupUserRoleResponse(
             payload=await DBGroupUser.get_group_user_by_reflection_with_id(
-                mysql_driver, "groups_id", user_in_group_role.group.id
+                mysql_driver, "groups_id", user_in_group_role_assign.group.id
             )
         )

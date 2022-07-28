@@ -11,11 +11,12 @@ from app.core.jwt import decode_token
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
+from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
 from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import GroupAssignRoleRequest, GroupInviteRequest
-from app.schemas.v1.wrapper import UserInGroupWrapper
+from app.schemas.v1.wrapper import UserInGroupRoleWrapper, UserInGroupWrapper
 
 
 async def get_authorization_header(
@@ -72,7 +73,6 @@ async def fetch_user_in_group_from_token_qp_name(
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
-    print(name)
     return await fetch_user_in_group_from_token(
         name=name,
         user_token=user_token,
@@ -140,7 +140,7 @@ async def fetch_user_in_group_from_token(
 
 async def is_permission_granted(
     mysql_driver: Database, user_in_group: UserInGroupWrapper, permission: str
-) -> None:
+) -> dict[str, list[dict[str, any]] | any]:
     role_permissions = await DBRolePermission.get_role_permissions(
         mysql_driver, user_in_group.group_user.roles_id
     )
@@ -153,6 +153,8 @@ async def is_permission_granted(
             status_code=401, detail="You are not allowed to invite users"
         )
 
+    return role_permissions
+
 
 async def fetch_user_invite_permission_from_token(
     user_in_group: UserInGroupWrapper = Depends(
@@ -164,11 +166,40 @@ async def fetch_user_invite_permission_from_token(
     return user_in_group
 
 
-async def fetch_user_edit_permission_from_token(
+async def fetch_user_assign_role_permission_from_token(
+    group_assign_role: GroupAssignRoleRequest,
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_in_group_from_token_br_assign_role
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> UserInGroupWrapper:
-    await is_permission_granted(mysql_driver, user_in_group, "edit")
-    return user_in_group
+) -> UserInGroupRoleWrapper:
+    role_permissions = await is_permission_granted(mysql_driver, user_in_group, "edit")
+    permissions_ids: list[int] = [
+        role_permission["permission"]["id"]
+        for role_permission in role_permissions["permissions"]
+    ]
+    permissions_ids.sort()
+
+    role_assign: DBRole = await DBRole.get_by(
+        mysql_driver, "role", group_assign_role.role_name
+    )
+
+    if not role_assign:
+        raise StarletteHTTPException(status_code=404, detail="No role found")
+
+    permissions_assign = await DBRolePermission.get_role_permissions(
+        mysql_driver, role_assign.id
+    )
+
+    permissions_assign_ids: list[int] = [
+        permission["permission"]["id"]
+        for permission in permissions_assign["permissions"]
+    ]
+    permissions_assign_ids.sort()
+
+    if permissions_assign_ids[-1] > permissions_ids[-1]:
+        raise StarletteHTTPException(
+            status_code=403, detail="You can't assign a role that is higher than yours"
+        )
+
+    return UserInGroupRoleWrapper(**user_in_group.dict(), role=role_assign)

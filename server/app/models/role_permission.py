@@ -137,42 +137,6 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             MySQLQuery.from_(roles_permissions)
             .select(
                 AggregateFunction(
-                    "json_object",
-                    "role",
-                    AggregateFunction(
-                        "json_object",
-                        "id",
-                        roles.id,
-                        "role",
-                        roles.role,
-                        "permissions",
-                        AggregateFunction(
-                            "json_arrayagg",
-                            MySQLQuery.from_(permissions)
-                            .select(
-                                AggregateFunction(
-                                    "json_object",
-                                    "id",
-                                    permissions.id,
-                                    "permission",
-                                    permissions.permission,
-                                )
-                            )
-                            .where(permissions.id == roles_permissions.permissions_id),
-                        ),
-                    ),
-                )
-            )
-            .join(roles)
-            .on(roles_permissions.roles_id == roles.id)
-            .where(roles_permissions.roles_id.isin(Parameter(":roles_id")))
-            .where(roles_permissions.deleted_at.isnull())
-        )
-
-        query = (
-            MySQLQuery.from_(roles_permissions)
-            .select(
-                AggregateFunction(
                     "json_arrayagg",
                     AggregateFunction(
                         "json_object",

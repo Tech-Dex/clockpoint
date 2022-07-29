@@ -144,7 +144,7 @@ async def is_permission_granted(
     role_permissions = await DBRolePermission.get_role_permissions(
         mysql_driver, user_in_group.group_user.roles_id
     )
-    #TODO: Create a get_roles_permissions in order to get your and the user you want to assign a role permissions
+    # TODO: Create a get_roles_permissions in order to get your and the user you want to assign a role permissions
     # and deny if the user you want to assign a role has higher permissions than you
     if permission not in [
         permission["permission"]["permission"]
@@ -179,7 +179,9 @@ async def fetch_user_assign_role_permission_from_token(
             status_code=400, detail="You cannot assign yourself a role"
         )
 
-    role_permissions = await is_permission_granted(mysql_driver, user_in_group, "assign_role")
+    role_permissions = await is_permission_granted(
+        mysql_driver, user_in_group, "assign_role"
+    )
     permissions_ids: list[int] = [
         role_permission["permission"]["id"]
         for role_permission in role_permissions["permissions"]
@@ -205,7 +207,8 @@ async def fetch_user_assign_role_permission_from_token(
 
     if permissions_assign_ids[-1] >= permissions_ids[-1]:
         raise StarletteHTTPException(
-            status_code=403, detail="You can't assign a role with higher or equals permissions than yours"
+            status_code=403,
+            detail="You can't assign a role with higher or equals permissions than yours",
         )
 
     return UserInGroupWithRoleAssignWrapper(

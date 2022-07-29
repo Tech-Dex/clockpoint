@@ -17,7 +17,7 @@ from app.models.enums.token_subject import TokenSubject
 from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
-from app.models.role import BaseRole, DBRole
+from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupToken, RedisToken
 from app.models.user import BaseUser, DBUser, UserToken
@@ -31,9 +31,9 @@ from app.schemas.v1.response import (
     BypassedInvitesGroupsResponse,
     GenericResponse,
     GroupInviteResponse,
-    GroupRolesResponse,
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
+    RolesPermissionsResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 from app.services.dependencies import (
@@ -156,7 +156,7 @@ async def invite(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
-    #TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
+    # TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
     # an accound and then auto-join him to the group.
     async with mysql_driver.transaction():
         users_invite: list[DBUser] | None = await DBUser.get_all_in(
@@ -351,7 +351,7 @@ async def leave(
 @router.get(
     "/roles",
     response_model_exclude_unset=True,
-    response_model=GroupRolesResponse,
+    # response_model=GroupRolesResponse,
     status_code=HTTP_200_OK,
     name="get group roles",
     responses={
@@ -361,17 +361,20 @@ async def leave(
 async def roles(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> GroupRolesResponse:
-    # TODO: Add in Role_permissions a query to fetch all roles with permissions for a group
-    return GroupRolesResponse(
-        roles=[
-            BaseRole(**role.dict())
-            for role in (
-                await DBRole.get_all_by_group_id(
-                    mysql_driver, user_in_group.group.id
-                )
+) -> any:
+    group_roles: list[DBRole] | None = await DBRole.get_all_in(
+        mysql_driver, "groups_id", [user_in_group.group.id]
+    )
+    if not group_roles:
+        raise StarletteHTTPException(status_code=404, detail="No roles found")
+
+    # TODO: create a better response for this
+    return RolesPermissionsResponse(
+        **(
+            await DBRolePermission.get_roles_permissions(
+                mysql_driver, [group_role.id for group_role in group_roles]
             )
-        ]
+        ).dict()
     )
 
 

@@ -4,10 +4,9 @@ from pydantic.networks import EmailStr
 
 from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
+from app.models.permission import BasePermission, BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
 from app.models.user import BaseUser
-from app.schemas.v1.wrapper import PayloadGroupUserRoleWrapper, PayloadRolePermissionsWrapper, \
-    PayloadRolesPermissionWrapper
 
 
 class GenericResponse(ConfigModel):
@@ -24,6 +23,29 @@ class BaseUserResponse(ConfigModel):
 
 class BaseGroupResponse(ConfigModel):
     group: BaseGroup
+
+
+class PayloadGroupUserRoleWrapper(
+    BaseUserResponse, BaseGroupResponse, BaseRoleResponse
+):
+    pass
+
+
+class PayloadRolePermissionsWrapper(BaseRoleResponse):
+    permissions: list[BasePermissionResponse]
+
+
+class PayloadRolesPermissionWrapper(BasePermissionResponse):
+    roles: list[BaseRoleResponse]
+
+
+class RolePermissionsResponse(ConfigModel):
+    role: BaseRole
+    permissions: list[BasePermission]
+
+
+class RolesPermissionsResponse(ConfigModel):
+    roles_permissions: list[RolePermissionsResponse]
 
 
 class PayloadGroupUserRoleResponse(ConfigModel):

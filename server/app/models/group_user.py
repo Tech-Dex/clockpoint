@@ -154,6 +154,95 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         ]
 
     @classmethod
+    async def get_groups_user_by_reflection_with_ids(
+        cls,
+        mysql_driver: Database,
+        column_reflection_name: str,
+        reflection_ids: list[int],
+    ) -> any:
+        groups_users: Table = Table(cls.Meta.table_name)
+        groups: Table = Table("groups")
+        users: Table = Table("users")
+        roles: Table = Table("roles")
+        query = (
+            MySQLQuery.from_(groups_users)
+            .select(
+                AggregateFunction(
+                    "json_arrayagg",
+                    AggregateFunction(
+                        "json_object",
+                        "user",
+                        AggregateFunction(
+                            "json_object",
+                            "id",
+                            users.id,
+                            "email",
+                            users.email,
+                            "username",
+                            users.username,
+                            "first_name",
+                            users.first_name,
+                            "last_name",
+                            users.last_name,
+                        ),
+                        "role",
+                        AggregateFunction(
+                            "json_object",
+                            "id",
+                            roles.id,
+                            "role",
+                            roles.role,
+                        ),
+                        "group",
+                        AggregateFunction(
+                            "json_object",
+                            "id",
+                            groups.id,
+                            "name",
+                            groups.name,
+                            "description",
+                            groups.description,
+                        ),
+                    ),
+                )
+            )
+            .join(users)
+            .on(groups_users.users_id == users.id)
+            .join(roles)
+            .on(groups_users.roles_id == roles.id)
+            .join(groups)
+            .on(groups_users.groups_id == groups.id)
+            .where(
+                getattr(groups_users, column_reflection_name).isin(
+                    Parameter(f":{column_reflection_name}")
+                )
+            )
+            .where(groups_users.deleted_at.isnull())
+        )
+        values = {column_reflection_name: reflection_ids}
+
+        try:
+            groups_user_role: list[Mapping] = await mysql_driver.fetch_all(
+                query.get_sql(), values
+            )
+        except MySQLError as mySQLError:
+            raise StarletteHTTPException(
+                status_code=500,
+                detail=f"MySQL error: {mySQLError.args[1]}",
+            )
+        formatted_groups_user_role = {}
+        for group_user_role_w in groups_user_role[0]:
+            for group_user_role in json.loads(group_user_role_w):
+                if group_user_role["group"]["id"] not in formatted_groups_user_role.keys():
+                    formatted_groups_user_role[group_user_role["group"]["id"]] = []
+                formatted_groups_user_role[group_user_role["group"]["id"]].append(
+                    group_user_role
+                )
+
+
+        return formatted_groups_user_role
+
+    @classmethod
     async def get_group_users_by_role(
         cls, mysql_driver: Database, groups_id: int, role: str
     ) -> list[Mapping]:

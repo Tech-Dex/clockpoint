@@ -78,3 +78,12 @@ class BaseRoleResponse(BaseRole):
 
 class GroupRolesResponse(ConfigModel):
     roles: list[BaseRoleResponse]
+
+
+class RolePermissionsResponse(ConfigModel):
+    role: str
+    permissions: list[str]
+
+
+class RolesPermissionsResponse(ConfigModel):
+    roles_permissions: list[RolePermissionsResponse]

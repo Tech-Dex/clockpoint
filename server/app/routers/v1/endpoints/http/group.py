@@ -33,6 +33,7 @@ from app.schemas.v1.response import (
     GroupInviteResponse,
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
+    RolePermissionsResponse,
     RolesPermissionsResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
@@ -368,13 +369,20 @@ async def roles(
     if not group_roles:
         raise StarletteHTTPException(status_code=404, detail="No roles found")
 
-    # TODO: create a better response for this
     return RolesPermissionsResponse(
-        **(
-            await DBRolePermission.get_roles_permissions(
-                mysql_driver, [group_role.id for group_role in group_roles]
+        roles_permissions=[
+            RolePermissionsResponse(
+                role=role_permissions.role.role,
+                permissions=[
+                    permission.permission for permission in role_permissions.permissions
+                ],
             )
-        ).dict()
+            for role_permissions in (
+                await DBRolePermission.get_roles_permissions(
+                    mysql_driver, [group_role.id for group_role in group_roles]
+                )
+            ).roles_permissions
+        ]
     )
 
 

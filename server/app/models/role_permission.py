@@ -129,7 +129,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
     @classmethod
     async def get_roles_permissions(
         cls, mysql_driver: Database, roles_id: list[int]
-    ) -> any:
+    ) -> RolesPermissionsWrapper:
         roles_permissions: Table = Table(cls.Meta.table_name)
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")

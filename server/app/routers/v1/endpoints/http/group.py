@@ -352,7 +352,7 @@ async def leave(
 @router.get(
     "/roles",
     response_model_exclude_unset=True,
-    # response_model=GroupRolesResponse,
+    response_model=RolesPermissionsResponse,
     status_code=HTTP_200_OK,
     name="get group roles",
     responses={
@@ -362,7 +362,7 @@ async def leave(
 async def roles(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> any:
+) -> RolesPermissionsResponse:
     group_roles: list[DBRole] | None = await DBRole.get_all_in(
         mysql_driver, "groups_id", [user_in_group.group.id]
     )

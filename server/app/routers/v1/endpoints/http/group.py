@@ -1,6 +1,7 @@
 import asyncio
 from typing import Mapping
 
+import aredis_om.model.model
 import numpy as np
 from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -34,7 +35,7 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
     RolePermissionsResponse,
-    RolesPermissionsResponse,
+    RolesPermissionsResponse, BaseGroupIdWrapper,
 )
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 from app.services.dependencies import (
@@ -114,7 +115,7 @@ async def create(
 
         await DBRolePermission.save_batch(mysql_driver, roles_permissions)
 
-        return BaseGroupResponse(group=BaseGroup(**group.dict()))
+        return BaseGroupResponse(group=BaseGroupIdWrapper(**group.dict()))
 
 
 @router.get(
@@ -127,7 +128,7 @@ async def create(
         400: {"description": "Invalid input"},
     },
 )
-async def get_by_name(
+async def get_by_id(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
@@ -158,7 +159,7 @@ async def invite(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
     # TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
-    # an accound and then auto-join him to the group.
+    # an account and then auto-join him to the group.
     async with mysql_driver.transaction():
         users_invite: list[DBUser] | None = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exception=True
@@ -274,51 +275,56 @@ async def join(
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ):
-    if not invite_token:
-        raise StarletteHTTPException(status_code=400, detail="Invalid input")
+    async with mysql_driver.transaction():
+        if not invite_token:
+            raise StarletteHTTPException(status_code=400, detail="Invalid input")
 
-    redis_token: RedisToken = await RedisToken.find(
-        RedisToken.token == invite_token
-    ).first()
-    if not redis_token:
-        raise StarletteHTTPException(status_code=404, detail="No token found")
+        try:
+            redis_token: RedisToken = await RedisToken.find(
+                RedisToken.token == invite_token
+            ).first()
+        except aredis_om.model.model.NotFoundError:
+            raise StarletteHTTPException(status_code=404, detail="No token found")
 
-    if redis_token.invite_user_email != user_token.email:
-        raise StarletteHTTPException(
-            status_code=403, detail="This token is not associated with you"
+        if not redis_token:
+            raise StarletteHTTPException(status_code=404, detail="No token found")
+
+        if redis_token.invite_user_email != user_token.email:
+            raise StarletteHTTPException(
+                status_code=403, detail="This token is not associated with you"
+            )
+
+        decode_token(invite_token)
+
+        if await DBGroupUser.is_user_in_group(
+            mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
+        ):
+            raise StarletteHTTPException(
+                status_code=403, detail="You are already in this group"
+            )
+
+        group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.groups_id)
+        if not group:
+            raise StarletteHTTPException(status_code=404, detail="No group found")
+
+        await DBGroupUser.save_batch(
+            mysql_driver,
+            redis_token.groups_id,
+            [
+                {
+                    "users_id": user_token.id,
+                    "roles_id": (
+                        await DBRole.get_role_user_by_group(
+                            mysql_driver, redis_token.groups_id
+                        )
+                    ).id,
+                }
+            ],
         )
 
-    decode_token(invite_token)
+        await RedisToken.delete(redis_token.pk)
 
-    if await DBGroupUser.is_user_in_group(
-        mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
-    ):
-        raise StarletteHTTPException(
-            status_code=403, detail="You are already in this group"
-        )
-
-    group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.groups_id)
-    if not group:
-        raise StarletteHTTPException(status_code=404, detail="No group found")
-
-    await DBGroupUser.save_batch(
-        mysql_driver,
-        redis_token.groups_id,
-        [
-            {
-                "users_id": user_token.id,
-                "roles_id": (
-                    await DBRole.get_role_user_by_group(
-                        mysql_driver, redis_token.groups_id
-                    )
-                ).id,
-            }
-        ],
-    )
-
-    await RedisToken.delete(redis_token.pk)
-
-    return BaseGroupResponse(group=BaseGroup(**group.dict()))
+        return BaseGroupResponse(group=BaseGroupIdWrapper(**group.dict()))
 
 
 @router.put(
@@ -433,3 +439,6 @@ async def assign_role(
                 mysql_driver, "groups_id", user_in_group_role_assign.group.id
             )
         )
+
+
+# Refactor group in order to be unique by ID not by Name.

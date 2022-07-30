@@ -21,8 +21,12 @@ class BaseUserResponse(ConfigModel):
     user: UserTokenResponse
 
 
+class BaseGroupIdWrapper(BaseGroup):
+    id: int
+
+
 class BaseGroupResponse(ConfigModel):
-    group: BaseGroup
+    group: BaseGroupIdWrapper
 
 
 class PayloadGroupUserRoleWrapper(

@@ -29,11 +29,11 @@ class BaseGroupCreateRequest(ConfigModel):
 
 
 class GroupInviteRequest(ConfigModel):
-    name: str
+    group_id: int
     emails: list[EmailStr]
 
 
 class GroupAssignRoleRequest(ConfigModel):
-    name: str
+    group_id: int
     username: str
     role_name: str

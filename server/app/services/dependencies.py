@@ -69,12 +69,12 @@ async def fetch_user_from_token(
 
 
 async def fetch_user_in_group_from_token_qp_name(
-    name: str,
+    group_id: int,
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
     return await fetch_user_in_group_from_token(
-        name=name,
+        group_id=group_id,
         user_token=user_token,
         mysql_driver=mysql_driver,
     )
@@ -100,7 +100,7 @@ async def fetch_user_in_group_from_token_br_assign_role(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
     return await fetch_user_in_group_from_token(
-        name=group_assign_role.name,
+        group_id=group_assign_role.group_id,
         user_token=user_token,
         mysql_driver=mysql_driver,
     )
@@ -110,22 +110,19 @@ async def fetch_user_in_group_from_token(
     user_token: UserToken,
     mysql_driver: Database,
     group_invite: GroupInviteRequest | None = None,
-    name: str | None = None,
+    group_id: int | None = None,
 ) -> UserInGroupWrapper:
-    if name:
-        group: DBGroup = await DBGroup.get_by(mysql_driver, "name", name)
-        if not group:
-            raise StarletteHTTPException(
-                status_code=HTTP_404_NOT_FOUND, detail="Group not found"
-            )
-    elif group_invite:
-        group: DBGroup = await DBGroup.get_by(mysql_driver, "name", group_invite.name)
-        if not group:
-            raise StarletteHTTPException(
-                status_code=HTTP_404_NOT_FOUND, detail="Group not found"
-            )
-    else:
-        raise StarletteHTTPException(status_code=400, detail="Unknown error")
+    group_id: int = group_id or group_invite.group_id
+    if not group_id:
+        raise StarletteHTTPException(
+            status_code=400, detail="No group id provided"
+        )
+
+    group: DBGroup = await DBGroup.get_by(mysql_driver, "id", group_id)
+    if not group:
+        raise StarletteHTTPException(
+            status_code=HTTP_404_NOT_FOUND, detail="Group not found"
+        )
 
     group_user: DBGroupUser = await DBGroupUser.is_user_in_group(
         mysql_driver, user_token.id, group.id, bypass_exception=True
@@ -144,8 +141,7 @@ async def is_permission_granted(
     role_permissions = await DBRolePermission.get_role_permissions(
         mysql_driver, user_in_group.group_user.roles_id
     )
-    # TODO: Create a get_roles_permissions in order to get your and the user you want to assign a role permissions
-    # and deny if the user you want to assign a role has higher permissions than you
+
     if permission not in [
         permission["permission"]["permission"]
         for permission in role_permissions["permissions"]

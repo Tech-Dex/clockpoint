@@ -33,8 +33,5 @@ def upgrade():
         sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
-    op.create_index("ix_name", "groups", ["name"], unique=True)
-
-
 def downgrade():
     op.drop_table("groups")

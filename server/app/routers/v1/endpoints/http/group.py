@@ -192,10 +192,10 @@ async def invite(
         )
 
         # TODO: When encode/databases fixes asyncio.gather(*functions) use it below
-        tokens = []
+        tasks = []
         for invitation_receiver in invitation_receivers:
-            tokens.append(
-                await create_token(
+            tasks.append(
+                create_token(
                     data=InviteGroupToken(
                         users_id=user_in_group.user_token.id,
                         invite_user_email=invitation_receiver,
@@ -205,6 +205,8 @@ async def invite(
                     expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
                 )
             )
+
+        tokens = await asyncio.gather(*tasks)
 
         bg_tasks.add_task(
             send_group_invitation,

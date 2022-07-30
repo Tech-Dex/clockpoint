@@ -16,11 +16,7 @@ from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
 from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import GroupAssignRoleRequest, GroupInviteRequest
-from app.schemas.v1.wrapper import (
-    RolesPermissionsWrapper,
-    UserInGroupWithRoleAssignWrapper,
-    UserInGroupWrapper,
-)
+from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 
 
 async def get_authorization_header(
@@ -167,9 +163,7 @@ async def fetch_user_invite_permission_from_token(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
-    await is_permission_granted(
-        mysql_driver, user_in_group, "invite_user"
-    )
+    await is_permission_granted(mysql_driver, user_in_group, "invite_user")
     return user_in_group
 
 
@@ -180,11 +174,15 @@ async def fetch_user_assign_role_permission_from_token(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWithRoleAssignWrapper:
-    user_assign = await DBUser.get_by(mysql_driver, "username", group_assign_role.username)
+    user_assign = await DBUser.get_by(
+        mysql_driver, "username", group_assign_role.username
+    )
     if not user_assign:
         raise StarletteHTTPException(status_code=404, detail="No user found")
 
-    user_assign_in_group: DBGroupUser = await DBGroupUser.is_user_in_group(mysql_driver, user_assign.id, user_in_group.group.id)
+    user_assign_in_group: DBGroupUser = await DBGroupUser.is_user_in_group(
+        mysql_driver, user_assign.id, user_in_group.group.id
+    )
     if not user_assign_in_group:
         raise StarletteHTTPException(status_code=401, detail="User is not in group")
 
@@ -193,30 +191,13 @@ async def fetch_user_assign_role_permission_from_token(
             status_code=400, detail="You cannot assign yourself a role"
         )
 
-    role_permissions = await is_permission_granted(
-        mysql_driver, user_in_group, "assign_role"
+    group_roles: list[DBRole] | None = await DBRole.get_all_in(
+        mysql_driver, "groups_id", [user_in_group.group.id]
     )
 
-    permissions_ids: list[int] = [
-        role_permission["permission"]["id"]
-        for role_permission in role_permissions["permissions"]
-    ]
-    permissions_ids.sort()
-
-    role_assign_current_permissions = await DBRolePermission.get_role_permissions(
-        mysql_driver, user_assign_in_group.roles_id
+    group_roles_permissions = await DBRolePermission.get_roles_permissions(
+        mysql_driver, [group_role.id for group_role in group_roles]
     )
-
-    permissions_current_ids: list[int] = [
-        role_permission["permission"]["id"]
-        for role_permission in role_assign_current_permissions["permissions"]
-    ]
-    permissions_current_ids.sort()
-
-    if permissions_current_ids >= permissions_ids:
-        raise StarletteHTTPException(
-            status_code=401, detail="User has higher permissions than you"
-        )
 
     role_assign: DBRole = await DBRole.get_by(
         mysql_driver, "role", group_assign_role.role_name.lower()
@@ -225,22 +206,44 @@ async def fetch_user_assign_role_permission_from_token(
     if not role_assign:
         raise StarletteHTTPException(status_code=404, detail="No role found")
 
-    permissions_assign = await DBRolePermission.get_role_permissions(
-        mysql_driver, role_assign.id
-    )
+    permissions_ids: list[int] = []
+    permissions_current_ids: list[int] = []
+    permissions_assign_ids: list[int] = []
+    for group_role_permissions in group_roles_permissions.roles_permissions:
+        if user_in_group.group_user.roles_id == group_role_permissions.role.id:
+            if "assign_role" not in [
+                permission.permission
+                for permission in group_role_permissions.permissions
+            ]:
+                raise StarletteHTTPException(
+                    status_code=401, detail="You are not allowed to assign roles"
+                )
+            permissions_ids = [
+                permission.id for permission in group_role_permissions.permissions
+            ]
+        if user_assign_in_group.roles_id == group_role_permissions.role.id:
+            permissions_current_ids = [
+                permission.id for permission in group_role_permissions.permissions
+            ]
+        if role_assign.id == group_role_permissions.role.id:
+            permissions_assign_ids = [
+                permission.id for permission in group_role_permissions.permissions
+            ]
 
-    permissions_assign_ids: list[int] = [
-        permission["permission"]["id"]
-        for permission in permissions_assign["permissions"]
-    ]
+    permissions_ids.sort()
+    permissions_current_ids.sort()
     permissions_assign_ids.sort()
+
+    if permissions_current_ids >= permissions_ids:
+        raise StarletteHTTPException(
+            status_code=401, detail="User has higher permissions than you"
+        )
 
     if permissions_assign_ids[-1] >= permissions_ids[-1]:
         raise StarletteHTTPException(
             status_code=403,
             detail="You can't assign a role with higher or equals permissions than yours",
         )
-
 
     return UserInGroupWithRoleAssignWrapper(
         **user_in_group.dict(), role_assign=role_assign

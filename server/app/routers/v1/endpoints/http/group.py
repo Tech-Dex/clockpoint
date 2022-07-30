@@ -15,7 +15,7 @@ from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token, decode_token
 from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
-from app.models.group import BaseGroup, DBGroup
+from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
 from app.models.role import DBRole
@@ -28,6 +28,7 @@ from app.schemas.v1.request import (
     GroupInviteRequest,
 )
 from app.schemas.v1.response import (
+    BaseGroupIdWrapper,
     BaseGroupResponse,
     BypassedInvitesGroupsResponse,
     GenericResponse,
@@ -35,7 +36,7 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupUserRoleResponse,
     RolePermissionsResponse,
-    RolesPermissionsResponse, BaseGroupIdWrapper,
+    RolesPermissionsResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 from app.services.dependencies import (
@@ -439,6 +440,3 @@ async def assign_role(
                 mysql_driver, "groups_id", user_in_group_role_assign.group.id
             )
         )
-
-
-# Refactor group in order to be unique by ID not by Name.

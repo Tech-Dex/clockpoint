@@ -114,9 +114,7 @@ async def fetch_user_in_group_from_token(
 ) -> UserInGroupWrapper:
     group_id: int = group_id or group_invite.group_id
     if not group_id:
-        raise StarletteHTTPException(
-            status_code=400, detail="No group id provided"
-        )
+        raise StarletteHTTPException(status_code=400, detail="No group id provided")
 
     group: DBGroup = await DBGroup.get_by(mysql_driver, "id", group_id)
     if not group:

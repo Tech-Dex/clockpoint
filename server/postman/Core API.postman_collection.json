@@ -1,0 +1,500 @@
+{
+	"info": {
+		"_postman_id": "46ee1e69-0275-43dd-b98f-e27318d88640",
+		"name": "Core API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "10063092"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"responseBody = pm.response.json()",
+									"pm.environment.set(\"accessToken\", responseBody[\"user\"][\"token\"]);",
+									"pm.environment.set(\"isActive\", responseBody[\"user\"][\"isActive\"]);",
+									"pm.collectionVariables.set(\"email\", responseBody[\"user\"][\"email\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"defaultPassword1!\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"secondName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"username\": \"{{$randomUserName}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/register",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"responseBody = pm.response.json()",
+									"pm.environment.set(\"accessToken\", responseBody[\"user\"][\"token\"]);",
+									"pm.environment.set(\"isActive\", responseBody[\"user\"][\"isActive\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"Charlie1@yahoo.com\",\n    \"password\": \"defaultPassword1!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/login",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"responseBody = pm.response.json()",
+									"pm.environment.set(\"accessToken\", responseBody[\"user\"][\"token\"]);",
+									"pm.environment.set(\"isActive\", responseBody[\"user\"][\"isActive\"]);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/refresh",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Group",
+			"item": [
+				{
+					"name": "Create",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"{{$randomLoremWords}}\",\n    \"description\": \"{{$randomLoremSlug}}\",\n    \"custom_roles\": [\n        {\n            \"role\": \"Inviter\",\n            \"permissions\": [\"invite_user\"]\n        }\n    ]\n\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/create",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"create"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invite",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"groupId\": 1,\n    \"emails\": [\n        \"sample@domain.com\"\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/invite",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"invite"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Join",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/join?invite_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0LCJzdWJqZWN0IjoiR1JPVVBfSU5WSVRFIiwiaW52aXRlX3VzZXJfZW1haWwiOiJKYWJhcmlfRW1hcmQ2MUB5YWhvby5jb20iLCJncm91cF9pZCI6MywiZXhwaXJlIjoiMjAyMi0wNy0yMlQxNzoyNToyNC42MDgzMDEifQ.iFIPWVG2H9Q1JV2HRAhj5A4snxmASgCiMGwwEdCRv0c",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"join"
+							],
+							"query": [
+								{
+									"key": "invite_token",
+									"value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0LCJzdWJqZWN0IjoiR1JPVVBfSU5WSVRFIiwiaW52aXRlX3VzZXJfZW1haWwiOiJKYWJhcmlfRW1hcmQ2MUB5YWhvby5jb20iLCJncm91cF9pZCI6MywiZXhwaXJlIjoiMjAyMi0wNy0yMlQxNzoyNToyNC42MDgzMDEifQ.iFIPWVG2H9Q1JV2HRAhj5A4snxmASgCiMGwwEdCRv0c"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Role",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"groupId\": \"1\",\n    \"username\": \"Miles.Jast\",\n    \"roleName\": \"admin\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/role",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"role"
+							],
+							"query": [
+								{
+									"key": "name",
+									"value": "repudiandae sunt vel",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "My Groups",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/my_groups",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"my_groups"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fetch By Id",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}?group_id=1",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}"
+							],
+							"query": [
+								{
+									"key": "group_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Invites",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/invites",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"invites"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Roles",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/roles?group_id=1",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"roles"
+							],
+							"query": [
+								{
+									"key": "group_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Leave",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/leave?group_id=1",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"leave"
+							],
+							"query": [
+								{
+									"key": "group_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "path_auth",
+			"value": "api/v1/auth",
+			"type": "string"
+		},
+		{
+			"key": "path_group",
+			"value": "api/v1/group",
+			"type": "string"
+		},
+		{
+			"key": "email",
+			"value": "example@domain.com",
+			"type": "string"
+		}
+	]
+}

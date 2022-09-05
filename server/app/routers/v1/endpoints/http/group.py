@@ -453,7 +453,6 @@ async def assign_role(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
-    # TODO: Try to reduce the number of queries to DB, you have like 10 queries here
     async with mysql_driver.transaction():
         role_assign: DBRole = user_in_group_role_assign.role_assign
         if not role_assign:

@@ -191,17 +191,13 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                             "role": full_role_permission["role"],
                         },
                         "permissions": [
-                            json.loads(
-                                full_role_permission["permissions"]["permission"]
-                            ),
+                            full_role_permission["permissions"]["permission"],
                         ],
                     }
                 else:
                     formatted_roles_permissions[full_role_permission["role"]][
                         "permissions"
-                    ].append(
-                        json.loads(full_role_permission["permissions"]["permission"])
-                    )
+                    ].append(full_role_permission["permissions"]["permission"])
 
         roles_permissions: list[RolePermissionsWrapper] = []
         for k, v in formatted_roles_permissions.items():

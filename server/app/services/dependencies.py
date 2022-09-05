@@ -228,9 +228,9 @@ async def fetch_user_assign_role_permission_from_token(
     permissions_current_ids.sort()
     permissions_assign_ids.sort()
 
-    if permissions_current_ids >= permissions_ids:
+    if len(permissions_current_ids) >= len(permissions_ids):
         raise StarletteHTTPException(
-            status_code=401, detail="User has higher permissions than you"
+            status_code=401, detail="User has higher or equals permissions than you"
         )
 
     if permissions_assign_ids[-1] >= permissions_ids[-1]:

@@ -5,13 +5,13 @@ Revises: deee135305c9
 Create Date: 2022-07-25 20:17:29.669491
 
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = 'e5d593676c14'
-down_revision = 'deee135305c9'
+revision = "e5d593676c14"
+down_revision = "deee135305c9"
 branch_labels = None
 depends_on = None
 
@@ -28,6 +28,5 @@ def upgrade():
 
 def downgrade():
     op.create_table(
-        "tokens",
-        sa.Column("id", sa.Integer, primary_key=True, autoincrement=True)
+        "tokens", sa.Column("id", sa.Integer, primary_key=True, autoincrement=True)
     )

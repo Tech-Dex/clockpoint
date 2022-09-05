@@ -119,9 +119,9 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             )
 
         return {
-            "role": json.loads(json.loads(full_role_permissions[0])["role"]),
+            "role": json.loads(full_role_permissions[0])["role"],
             "permissions": [
-                {"permission": json.loads(permission)}
+                {"permission": permission}
                 for permission in json.loads(full_role_permissions[0])["permissions"]
             ],
         }

@@ -233,12 +233,14 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         formatted_groups_user_role = {}
         for group_user_role_w in groups_user_role[0]:
             for group_user_role in json.loads(group_user_role_w):
-                if group_user_role["group"]["id"] not in formatted_groups_user_role.keys():
+                if (
+                    group_user_role["group"]["id"]
+                    not in formatted_groups_user_role.keys()
+                ):
                     formatted_groups_user_role[group_user_role["group"]["id"]] = []
                 formatted_groups_user_role[group_user_role["group"]["id"]].append(
                     group_user_role
                 )
-
 
         return formatted_groups_user_role
 

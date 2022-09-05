@@ -56,6 +56,10 @@ class PayloadGroupUserRoleResponse(ConfigModel):
     payload: list[PayloadGroupUserRoleWrapper]
 
 
+class PayloadGroupsUserRoleResponse(ConfigModel):
+    payload: list[list[PayloadGroupUserRoleWrapper]]
+
+
 class PayloadRolePermissionsResponse(ConfigModel):
     payload: list[PayloadRolePermissionsWrapper]
 

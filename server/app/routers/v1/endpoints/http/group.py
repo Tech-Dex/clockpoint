@@ -18,7 +18,7 @@ from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
-from app.models.role import DBRole
+from app.models.role import BaseRoleResponse, DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupToken, RedisToken
 from app.models.user import BaseUser, DBUser, UserToken
@@ -30,11 +30,14 @@ from app.schemas.v1.request import (
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     BaseGroupResponse,
+    BaseUserResponse,
     BypassedInvitesGroupsResponse,
     GenericResponse,
     GroupInviteResponse,
     InvitesGroupsResponse,
+    PayloadGroupsUserRoleResponse,
     PayloadGroupUserRoleResponse,
+    PayloadGroupUserRoleWrapper,
     RolePermissionsResponse,
     RolesPermissionsResponse,
 )
@@ -62,9 +65,9 @@ router: APIRouter = APIRouter()
     },
 )
 async def create(
-        group_create: BaseGroupCreateRequest,
-        user_token: UserToken = Depends(fetch_user_from_token),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    group_create: BaseGroupCreateRequest,
+    user_token: UserToken = Depends(fetch_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseGroupResponse:
     """
     Create a new group.
@@ -130,8 +133,8 @@ async def create(
     },
 )
 async def get_by_id(
-        user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
     return PayloadGroupUserRoleResponse(
         payload=await DBGroupUser.get_group_user_by_reflection_with_id(
@@ -143,7 +146,7 @@ async def get_by_id(
 @router.get(
     "/my_groups",
     response_model_exclude_unset=True,
-    # response_model=PayloadGroupUserRoleResponse,
+    response_model=PayloadGroupsUserRoleResponse,
     status_code=HTTP_200_OK,
     name="get a group details",
     responses={
@@ -151,25 +154,32 @@ async def get_by_id(
     },
 )
 async def get_user_groups(
-        user_token: UserToken = Depends(fetch_user_from_token),
-        mysql_driver: Database = Depends(get_mysql_driver),
-) -> any:
+    user_token: UserToken = Depends(fetch_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> PayloadGroupsUserRoleResponse:
     groups: list[DBGroupUser] | None = await DBGroupUser.get_all_in(
         mysql_driver, "users_id", [user_token.id]
     )
     if not groups:
         raise StarletteHTTPException(status_code=404, detail="No groups found")
 
-    #Todo: take care of the response model
-    return await DBGroupUser.get_groups_user_by_reflection_with_ids(
-            mysql_driver, "groups_id", [group.groups_id for group in groups]
-        )
-
-    return PayloadGroupUserRoleResponse(
-        payload=await DBGroupUser.get_groups_user_by_reflection_with_ids(
-            mysql_driver, "groups_id", [group.groups_id for group in groups]
-        )
+    groups_user_role = await DBGroupUser.get_groups_user_by_reflection_with_ids(
+        mysql_driver, "groups_id", [group.groups_id for group in groups]
     )
+    payload = []
+    for k, v in groups_user_role.items():
+        wrapper: list[PayloadGroupUserRoleWrapper] = []
+        for group_user_role in v:
+            wrapper.append(
+                PayloadGroupUserRoleWrapper(
+                    **BaseGroupResponse(group=group_user_role["group"]).dict(),
+                    **BaseUserResponse(user=group_user_role["user"]).dict(),
+                    **BaseRoleResponse(role=group_user_role["role"]).dict()
+                )
+            )
+        payload.append(wrapper)
+
+    return PayloadGroupsUserRoleResponse(payload=payload)
 
 
 @router.post(
@@ -184,12 +194,12 @@ async def get_user_groups(
     },
 )
 async def invite(
-        group_invite: GroupInviteRequest,
-        bg_tasks: BackgroundTasks,
-        user_in_group: UserInGroupWrapper = Depends(
-            fetch_user_invite_permission_from_token
-        ),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    group_invite: GroupInviteRequest,
+    bg_tasks: BackgroundTasks,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_invite_permission_from_token
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
     # TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
     # an account and then auto-join him to the group.
@@ -262,8 +272,8 @@ async def invite(
 )
 @cache(expire=300)
 async def get_invites(
-        user_token: UserToken = Depends(fetch_user_from_token),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    user_token: UserToken = Depends(fetch_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> InvitesGroupsResponse:
     user: BaseUser = BaseUser(**user_token.dict())
 
@@ -305,9 +315,9 @@ async def get_invites(
     },
 )
 async def join(
-        invite_token: str,
-        user_token: UserToken = Depends(fetch_user_from_token),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    invite_token: str,
+    user_token: UserToken = Depends(fetch_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ):
     async with mysql_driver.transaction():
         if not invite_token:
@@ -331,7 +341,7 @@ async def join(
         decode_token(invite_token)
 
         if await DBGroupUser.is_user_in_group(
-                mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
+            mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
         ):
             raise StarletteHTTPException(
                 status_code=403, detail="You are already in this group"
@@ -372,8 +382,8 @@ async def join(
     },
 )
 async def leave(
-        user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GenericResponse:
     async with mysql_driver.transaction():
         owners: list[Mapping] = await DBGroupUser.get_group_users_by_role(
@@ -400,8 +410,8 @@ async def leave(
     },
 )
 async def roles(
-        user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> RolesPermissionsResponse:
     group_roles: list[DBRole] | None = await DBRole.get_all_in(
         mysql_driver, "groups_id", [user_in_group.group.id]
@@ -437,11 +447,11 @@ async def roles(
     },
 )
 async def assign_role(
-        group_assign_role: GroupAssignRoleRequest,
-        user_in_group_role_assign: UserInGroupWithRoleAssignWrapper = Depends(
-            fetch_user_assign_role_permission_from_token
-        ),
-        mysql_driver: Database = Depends(get_mysql_driver),
+    group_assign_role: GroupAssignRoleRequest,
+    user_in_group_role_assign: UserInGroupWithRoleAssignWrapper = Depends(
+        fetch_user_assign_role_permission_from_token
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
     # TODO: Try to reduce the number of queries to DB, you have like 10 queries here
     async with mysql_driver.transaction():

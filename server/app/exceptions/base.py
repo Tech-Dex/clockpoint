@@ -10,11 +10,11 @@ class CustomBaseException(StarletteHTTPException):
     fields: dict = {}
 
     def __init__(
-            self,
-            detail: str,
-            status: HTTPStatus = None,
-            headers: dict = None,
-            fields: dict = None,
+        self,
+        detail: str,
+        status: HTTPStatus = None,
+        headers: dict = None,
+        fields: dict = None,
     ):
         if status:
             super().__init__(status.value or self.status_code, detail, headers)
@@ -27,9 +27,6 @@ class CustomBaseException(StarletteHTTPException):
             super().__init__(self.status_code, detail, headers)
 
         self.fields = fields or {}
-
-
-
 
 
 class BadRequestException(CustomBaseException):

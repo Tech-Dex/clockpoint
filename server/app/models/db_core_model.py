@@ -9,6 +9,7 @@ from pymysql import Error as MySQLError
 from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import Field, MySQLQuery, Parameter, Table
+
 from app.exceptions import base as base_exceptions
 
 
@@ -137,13 +138,9 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     if bypass_exception:
                         return None
-                    raise exc or base_exceptions.DuplicateResourceException(
-                        detail=msg
-                    )
+                    raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
-                raise base_exceptions.CustomBaseException(
-                    detail=mySQLError.args[1]
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
     async def update(
         self,
@@ -182,13 +179,9 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     if bypass_exception:
                         return None
-                    raise exc or base_exceptions.DuplicateResourceException(
-                        detail=msg
-                    )
+                    raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
-                raise base_exceptions.CustomBaseException(
-                    detail=mySQLError.args[1]
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
     async def soft_delete(self, mysql_driver: Database) -> DBCoreModel | None:
         async with mysql_driver.transaction():
@@ -208,9 +201,7 @@ class DBCoreModel(BaseModel):
                 await mysql_driver.execute(query.get_sql(), values)
                 return self
             except MySQLError as mySQLError:
-                raise base_exceptions.CustomBaseException(
-                    detail=mySQLError.args[1]
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
     async def delete(self, mysql_driver: Database) -> DBCoreModel | None:
         async with mysql_driver.transaction():
@@ -227,6 +218,4 @@ class DBCoreModel(BaseModel):
                 await mysql_driver.execute(query.get_sql(), values)
                 return self
             except MySQLError as mySQLError:
-                raise base_exceptions.CustomBaseException(
-                    detail=mySQLError.args[1]
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])

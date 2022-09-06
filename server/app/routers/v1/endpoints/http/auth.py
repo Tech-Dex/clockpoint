@@ -1,11 +1,15 @@
 from databases import Database
 from fastapi import APIRouter, Depends
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token
+from app.exceptions import (
+    auth as auth_exceptions,
+    base as base_exceptions,
+    user as user_exceptions,
+)
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import BaseToken
 from app.models.user import DBUser, UserToken
@@ -15,6 +19,8 @@ from app.services.dependencies import fetch_user_from_token
 
 router: APIRouter = APIRouter()
 
+base_responses = {400: {"description": base_exceptions.BadRequestException.description}}
+
 
 @router.post(
     "/register",
@@ -23,8 +29,10 @@ router: APIRouter = APIRouter()
     status_code=HTTP_200_OK,
     name="register",
     responses={
-        400: {"description": "Invalid input"},
-        409: {"description": "User already exists"},
+        **base_responses,
+        409: {
+            "description": auth_exceptions.DuplicateEmailOrUsernameException.description
+        },
     },
 )
 async def register(
@@ -37,7 +45,9 @@ async def register(
 
     user: DBUser = DBUser(**user_register.dict())
     user.change_password(user_register.password)
-    await user.save(mysql_driver)
+    await user.save(
+        mysql_driver, exc=auth_exceptions.DuplicateEmailOrUsernameException()
+    )
     token: str = await create_token(
         data=BaseToken(
             **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
@@ -54,9 +64,12 @@ async def register(
     status_code=HTTP_200_OK,
     name="login",
     responses={
-        400: {"description": "Invalid input"},
-        401: {"description": "Invalid credentials"},
-        404: {"description": "User not found"},
+        400: {"description": base_exceptions.BadRequestException.description},
+        401: {"description": base_exceptions.UnauthorizedException.description},
+        404: {"description": user_exceptions.UserNotFoundException.description},
+        409: {
+            "description": auth_exceptions.DuplicateEmailOrUsernameException.description
+        },
     },
 )
 async def login(
@@ -66,10 +79,14 @@ async def login(
     Login a user.
     """
 
-    user: DBUser = await DBUser.get_by(mysql_driver, "email", user_login.email)
+    user: DBUser = await DBUser.get_by(
+        mysql_driver,
+        "email",
+        user_login.email,
+        exc=user_exceptions.UserNotFoundException(),
+    )
 
-    if not user.verify_password(user_login.password):
-        raise StarletteHTTPException(status_code=401, detail="Invalid credentials")
+    user.verify_password(user_login.password)
 
     token: str = await create_token(
         data=BaseToken(
@@ -87,8 +104,9 @@ async def login(
     status_code=HTTP_200_OK,
     name="refresh",
     responses={
-        401: {"description": "Invalid credentials"},
-        404: {"description": "User not found"},
+        **base_responses,
+        401: {"description": base_exceptions.UnauthorizedException.description},
+        404: {"description": user_exceptions.UserNotFoundException.description},
     },
 )
 async def refresh(

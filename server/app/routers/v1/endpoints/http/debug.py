@@ -6,7 +6,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.exceptions import base as base_exceptions
 from app.models.token import RedisToken
 
 router: APIRouter = APIRouter()
@@ -174,9 +173,8 @@ async def get_customer(subject: str):
 
 @router.get("/exceptions")
 async def test_exceptions(
-        mysql_driver: any = Depends(get_mysql_driver),
+    mysql_driver: any = Depends(get_mysql_driver),
 ):
-    from http import HTTPStatus
     from app.models.user import DBUser
 
     r = await DBUser.get_all(mysql_driver)

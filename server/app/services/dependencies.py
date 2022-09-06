@@ -8,6 +8,7 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import decode_token
+from app.exceptions import user as user_exceptions
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
@@ -55,12 +56,13 @@ async def fetch_user_from_token(
         )
 
     if token_payload.subject == TokenSubject.ACCESS:
-        user: DBUser = await DBUser.get_by(mysql_driver, "id", token_payload.users_id)
+        user: DBUser = await DBUser.get_by(
+            mysql_driver,
+            "id",
+            token_payload.users_id,
+            exc=user_exceptions.UserNotFoundException(),
+        )
 
-        if user is None:
-            raise StarletteHTTPException(
-                status_code=HTTP_404_NOT_FOUND, detail="User not found"
-            )
         return UserToken(**user.dict(), token=token)
     else:
         raise StarletteHTTPException(

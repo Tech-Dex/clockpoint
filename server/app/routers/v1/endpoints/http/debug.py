@@ -1,10 +1,12 @@
 from aredis_om.model import NotFoundError
 from databases import Database
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi_cache.decorator import cache
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
+from app.exceptions import base as base_exceptions
 from app.models.token import RedisToken
 
 router: APIRouter = APIRouter()
@@ -157,7 +159,7 @@ async def get_customer(pk: str):
     try:
         return await RedisToken.get(pk)
     except NotFoundError:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise StarletteHTTPException(status_code=404, detail="Customer not found")
 
 
 @router.get("/customers/{subject}")
@@ -167,4 +169,16 @@ async def get_customer(subject: str):
     try:
         return await RedisToken.find(RedisToken.subject == subject).all()
     except NotFoundError:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise StarletteHTTPException(status_code=404, detail="Customer not found")
+
+
+@router.get("/exceptions")
+async def test_exceptions(
+        mysql_driver: any = Depends(get_mysql_driver),
+):
+    from http import HTTPStatus
+    from app.models.user import DBUser
+
+    r = await DBUser.get_all(mysql_driver)
+
+    return r

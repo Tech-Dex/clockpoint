@@ -127,19 +127,21 @@ async def http_exception_handler(_, exc: StarletteHTTPException) -> UJSONRespons
     :param exc: StarletteHTTPException instance
     :return: UJSONResponse with newly formatted error data
     """
-    fields = getattr(exc, "fields", [])
     message = getattr(exc, "detail", "Validation error")
-    headers = getattr(exc, "headers", None)
     if message and not any(
         [message.endswith("."), message.endswith("?"), message.endswith("!")]
     ):
         message = message + "."
     data = {
         "error_codes": [getattr(exc, "error_code", exc.status_code)],
+        "description": getattr(exc, "description", None),
+        "phrase": getattr(exc, "phrase", None),
         "message": message,
-        "fields": fields,
+        "fields": getattr(exc, "fields", []),
     }
-    return UJSONResponse(data, status_code=exc.status_code, headers=headers)
+    return UJSONResponse(
+        data, status_code=exc.status_code, headers=getattr(exc, "headers", None)
+    )
 
 
 async def validation_exception_handler(_, exc: RequestValidationError) -> UJSONResponse:
@@ -154,7 +156,6 @@ async def validation_exception_handler(_, exc: RequestValidationError) -> UJSONR
     :return: UJSONResponse with newly formatted error data
     """
     status_code = getattr(exc, "status_code", 400)
-    headers = getattr(exc, "headers", None)
     fields = raw_errors_to_fields(exc.raw_errors)
 
     if fields:
@@ -168,27 +169,38 @@ async def validation_exception_handler(_, exc: RequestValidationError) -> UJSONR
     ):
         message = message + "."  # pragma: no cover
 
-    data = {"error_codes": error_codes, "message": message, "fields": fields}
-    return UJSONResponse(data, status_code=status_code, headers=headers)
+    data = {
+        "error_codes": error_codes,
+        "description": getattr(exc, "description", None),
+        "phrase": getattr(exc, "phrase", None),
+        "message": message,
+        "fields": fields,
+    }
+    return UJSONResponse(
+        data, status_code=status_code, headers=getattr(exc, "headers", None)
+    )
 
 
 async def not_found_error_handler(_, exc: RequestValidationError) -> UJSONResponse:
-    code = getattr(exc, "error_code", 404)
-    detail = getattr(exc, "detail", "Not found")
-    fields = getattr(exc, "fields", [])
-    headers = getattr(exc, "headers", None)
-    status_code = getattr(exc, "status_code", 404)
-    data = {"error_codes": [code], "message": detail, "fields": fields}
-    return UJSONResponse(data, status_code=status_code, headers=headers)
+    return generic_error_handler(_, exc)
 
 
 async def internal_server_error_handler(
     _, exc: RequestValidationError
 ) -> UJSONResponse:
-    code = getattr(exc, "error_code", 500)
-    detail = getattr(exc, "detail", "Internal Server Error")
-    fields = getattr(exc, "fields", [])
-    headers = getattr(exc, "headers", None)
-    status_code = getattr(exc, "status_code", 500)
-    data = {"error_codes": [code], "message": detail, "fields": fields}
-    return UJSONResponse(data, status_code=status_code, headers=headers)
+    return generic_error_handler(_, exc)
+
+
+def generic_error_handler(_, exc: Exception) -> UJSONResponse:
+    data = {
+        "error_codes": [getattr(exc, "error_code", 404)],
+        "description": getattr(exc, "description", None),
+        "phrase": getattr(exc, "phrase", None),
+        "message": getattr(exc, "detail", "Not found"),
+        "fields": getattr(exc, "fields", []),
+    }
+    return UJSONResponse(
+        data,
+        status_code=getattr(exc, "status_code", 404),
+        headers=getattr(exc, "headers", None),
+    )

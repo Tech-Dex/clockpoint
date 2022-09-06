@@ -9,7 +9,7 @@ from pymysql import Error as MySQLError
 from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import Field, MySQLQuery, Parameter, Table
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.exceptions import base as base_exceptions
 
 
 class DBCoreModel(BaseModel):
@@ -22,9 +22,9 @@ class DBCoreModel(BaseModel):
     async def get_all(
         cls,
         mysql_driver: Database,
-        exception_detail: str | None = None,
         bypass_exception: bool = False,
-    ) -> list[DBCoreModel] | None:
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> list[DBCoreModel]:
         table: Table = Table(cls.Meta.table_name)
         query = MySQLQuery.from_(table).select("*").where(table.deleted_at.isnull())
 
@@ -32,8 +32,10 @@ class DBCoreModel(BaseModel):
 
         if not results:
             if bypass_exception:
-                return None
-            raise StarletteHTTPException(status_code=404, detail=exception_detail)
+                return []
+            raise exc or base_exceptions.UnprocessableEntityException(
+                detail=f"No {cls.Meta.table_name} found"
+            )
 
         return [cls(**result) for result in results]
 
@@ -43,8 +45,8 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_value: str | int,
-        exception_detail: str | None = None,
         bypass_exception: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> DBCoreModel | None:
         table: Table = Table(cls.Meta.table_name)
         query = (
@@ -62,7 +64,9 @@ class DBCoreModel(BaseModel):
         if not result:
             if bypass_exception:
                 return None
-            raise StarletteHTTPException(status_code=404, detail=exception_detail)
+            raise exc or base_exceptions.UnprocessableEntityException(
+                detail=f"No {cls.Meta.table_name} found"
+            )
 
         return cls(**result)
 
@@ -72,9 +76,9 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_values: list[str] | list[int],
-        exception_detail: str | None = None,
         bypass_exception: bool = False,
-    ) -> list[DBCoreModel] | None:
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> list[DBCoreModel]:
         table: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(table)
@@ -92,16 +96,18 @@ class DBCoreModel(BaseModel):
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
         if not results:
             if bypass_exception:
-                return None
-            raise StarletteHTTPException(status_code=404, detail=exception_detail)
+                return []
+            raise exc or base_exceptions.UnprocessableEntityException(
+                detail=f"No {cls.Meta.table_name} found"
+            )
 
         return [cls(**result) for result in results]
 
     async def save(
         self,
         mysql_driver: Database,
-        exception_detail: str | None = None,
         bypass_exception: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> DBCoreModel | None:
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
@@ -131,21 +137,19 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     if bypass_exception:
                         return None
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail=exception_detail,
+                    raise exc or base_exceptions.DuplicateResourceException(
+                        detail=msg
                     )
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
+                raise base_exceptions.CustomBaseException(
+                    detail=mySQLError.args[1]
                 )
 
     async def update(
         self,
         mysql_driver: Database,
-        exception_detail: str | None = None,
         bypass_exception: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
         **kwargs,
     ) -> DBCoreModel | None:
         async with mysql_driver.transaction():
@@ -178,14 +182,12 @@ class DBCoreModel(BaseModel):
                 if code == DUP_ENTRY:
                     if bypass_exception:
                         return None
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail=exception_detail,
+                    raise exc or base_exceptions.DuplicateResourceException(
+                        detail=msg
                     )
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
+                raise base_exceptions.CustomBaseException(
+                    detail=mySQLError.args[1]
                 )
 
     async def soft_delete(self, mysql_driver: Database) -> DBCoreModel | None:
@@ -206,9 +208,8 @@ class DBCoreModel(BaseModel):
                 await mysql_driver.execute(query.get_sql(), values)
                 return self
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
+                raise base_exceptions.CustomBaseException(
+                    detail=mySQLError.args[1]
                 )
 
     async def delete(self, mysql_driver: Database) -> DBCoreModel | None:
@@ -226,7 +227,6 @@ class DBCoreModel(BaseModel):
                 await mysql_driver.execute(query.get_sql(), values)
                 return self
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
+                raise base_exceptions.CustomBaseException(
+                    detail=mySQLError.args[1]
                 )

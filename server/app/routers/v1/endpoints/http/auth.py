@@ -1,6 +1,5 @@
 from databases import Database
 from fastapi import APIRouter, Depends
-from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -16,7 +15,7 @@ from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
 from app.schemas.v1.response import BaseUserResponse
 from app.services.dependencies import fetch_user_from_token
-
+from http import HTTPStatus
 router: APIRouter = APIRouter()
 
 base_responses = {400: {"description": base_exceptions.BadRequestException.description}}
@@ -26,7 +25,7 @@ base_responses = {400: {"description": base_exceptions.BadRequestException.descr
     "/register",
     response_model=BaseUserResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="register",
     responses={
         **base_responses,
@@ -61,7 +60,7 @@ async def register(
     "/login",
     response_model=BaseUserResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="login",
     responses={
         400: {"description": base_exceptions.BadRequestException.description},
@@ -101,7 +100,7 @@ async def login(
     "/refresh",
     response_model=BaseUserResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="refresh",
     responses={
         **base_responses,

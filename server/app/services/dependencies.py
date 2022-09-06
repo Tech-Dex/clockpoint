@@ -9,6 +9,7 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import decode_token
 from app.exceptions import user as user_exceptions
+from app.exceptions import token as token_exceptions
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
@@ -27,19 +28,12 @@ async def get_authorization_header(
     if authorization:
         prefix, token = authorization.split(" ")
         if token is None and required:
-            # TODO: create custom exceptions
-            raise StarletteHTTPException(
-                status_code=HTTP_403_FORBIDDEN, detail="Token is required"
-            )
+            raise token_exceptions.MissingTokenException()
         if prefix.lower() != "bearer":
-            raise StarletteHTTPException(
-                status_code=HTTP_403_FORBIDDEN, detail="Token type is not valid"
-            )
+            raise token_exceptions.BearTokenException()
         return token
     elif required:
-        raise StarletteHTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Token is required"
-        )
+        raise token_exceptions.MissingTokenException()
     return None
 
 
@@ -47,13 +41,8 @@ async def fetch_user_from_token(
     mysql_driver: Database = Depends(get_mysql_driver),
     token: str = Depends(get_authorization_header),
 ) -> UserToken:
-    try:
-        payload: dict = decode_token(token)
-        token_payload: BaseToken = BaseToken(**payload)
-    except PyJWTError:
-        raise StarletteHTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Token is invalid"
-        )
+    payload: dict = decode_token(token)
+    token_payload: BaseToken = BaseToken(**payload)
 
     if token_payload.subject == TokenSubject.ACCESS:
         user: DBUser = await DBUser.get_by(
@@ -62,12 +51,9 @@ async def fetch_user_from_token(
             token_payload.users_id,
             exc=user_exceptions.UserNotFoundException(),
         )
-
         return UserToken(**user.dict(), token=token)
     else:
-        raise StarletteHTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
-        )
+        raise token_exceptions.AccessTokenException()
 
 
 async def fetch_user_in_group_from_token_qp_name(

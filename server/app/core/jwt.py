@@ -9,13 +9,14 @@ from starlette.status import HTTP_403_FORBIDDEN
 from app.core.config import settings
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import RedisToken
+from app.exceptions import token as token_exceptions
 
 
 async def create_token(
-    *,
-    data: dict,
-    expire: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-    subject: str = TokenSubject.ACCESS,
+        *,
+        data: dict,
+        expire: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        subject: str = TokenSubject.ACCESS,
 ) -> str:
     to_encode: dict = data.copy()
     expire_date: datetime
@@ -45,9 +46,7 @@ def decode_token(token: str) -> dict:
             token, str(settings.SECRET_KEY), algorithms=[settings.ALGORITHM]
         )
         if datetime.fromisoformat(payload.get("expire")) < datetime.utcnow():
-            raise PyJWTError()
+            raise token_exceptions.ExpiredTokenException()
         return payload
     except PyJWTError:
-        raise StarletteHTTPException(
-            status_code=HTTP_403_FORBIDDEN, detail="Token is invalid"
-        )
+        raise token_exceptions.DecodeTokenException()

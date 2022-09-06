@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from databases import Database
 from fastapi import APIRouter, Depends
 
@@ -15,7 +17,7 @@ from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
 from app.schemas.v1.response import BaseUserResponse
 from app.services.dependencies import fetch_user_from_token
-from http import HTTPStatus
+
 router: APIRouter = APIRouter()
 
 base_responses = {400: {"description": base_exceptions.BadRequestException.description}}

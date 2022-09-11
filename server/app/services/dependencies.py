@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from databases import Database
 from fastapi import Depends, Header
-from jwt import PyJWTError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.status import HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND
 
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import decode_token
-from app.exceptions import user as user_exceptions
-from app.exceptions import token as token_exceptions
+from app.exceptions import (
+    group as group_exceptions,
+    group_user as group_user_exceptions,
+    permission as permission_exceptions,
+    role as role_exceptions,
+    token as token_exceptions,
+    user as user_exceptions,
+)
 from app.models.enums.token_subject import TokenSubject
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
@@ -74,7 +77,7 @@ async def fetch_user_in_group_from_token_br_invite(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
     if not group_invite.emails:
-        raise StarletteHTTPException(status_code=400, detail="No emails provided")
+        raise group_exceptions.GroupEmailInvitationException()
     return await fetch_user_in_group_from_token(
         group_invite=group_invite,
         user_token=user_token,
@@ -102,21 +105,18 @@ async def fetch_user_in_group_from_token(
 ) -> UserInGroupWrapper:
     group_id: int = group_id or group_invite.group_id
     if not group_id:
-        raise StarletteHTTPException(status_code=400, detail="No group id provided")
+        raise group_exceptions.GroupIDMissingException()
 
-    group: DBGroup = await DBGroup.get_by(mysql_driver, "id", group_id)
-    if not group:
-        raise StarletteHTTPException(
-            status_code=HTTP_404_NOT_FOUND, detail="Group not found"
-        )
+    group: DBGroup = await DBGroup.get_by(
+        mysql_driver, "id", group_id, exc=group_exceptions.GroupNotFoundException()
+    )
 
     group_user: DBGroupUser = await DBGroupUser.is_user_in_group(
-        mysql_driver, user_token.id, group.id, bypass_exception=True
+        mysql_driver,
+        user_token.id,
+        group.id,
+        exc=group_user_exceptions.UserNotInGroupException(),
     )
-    if not group_user:
-        raise StarletteHTTPException(
-            status_code=401, detail="You are not part of the group"
-        )
 
     return UserInGroupWrapper(user_token=user_token, group=group, group_user=group_user)
 
@@ -132,9 +132,7 @@ async def is_permission_granted(
         permission["permission"]["permission"]
         for permission in role_permissions["permissions"]
     ]:
-        raise StarletteHTTPException(
-            status_code=401, detail="You are not allowed to invite users"
-        )
+        raise permission_exceptions.NotAllowedToInviteUsersInGroupException()
 
     return role_permissions
 
@@ -157,24 +155,27 @@ async def fetch_user_assign_role_permission_from_token(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWithRoleAssignWrapper:
     user_assign = await DBUser.get_by(
-        mysql_driver, "username", group_assign_role.username
+        mysql_driver,
+        "username",
+        group_assign_role.username,
+        exc=user_exceptions.UserNotFoundException(),
     )
-    if not user_assign:
-        raise StarletteHTTPException(status_code=404, detail="No user found")
 
     user_assign_in_group: DBGroupUser = await DBGroupUser.is_user_in_group(
-        mysql_driver, user_assign.id, user_in_group.group.id
+        mysql_driver,
+        user_assign.id,
+        user_in_group.group.id,
+        exc=group_user_exceptions.UserNotInGroupException(),
     )
-    if not user_assign_in_group:
-        raise StarletteHTTPException(status_code=401, detail="User is not in group")
 
     if group_assign_role.username == user_in_group.user_token.username:
-        raise StarletteHTTPException(
-            status_code=400, detail="You cannot assign yourself a role"
-        )
+        raise group_user_exceptions.SelfAssignRoleException()
 
-    group_roles: list[DBRole] | None = await DBRole.get_all_in(
-        mysql_driver, "groups_id", [user_in_group.group.id]
+    group_roles: list[DBRole] = await DBRole.get_all_in(
+        mysql_driver,
+        "groups_id",
+        [user_in_group.group.id],
+        exc=role_exceptions.RoleNotFoundException(),
     )
 
     group_roles_permissions = await DBRolePermission.get_roles_permissions(
@@ -182,11 +183,11 @@ async def fetch_user_assign_role_permission_from_token(
     )
 
     role_assign: DBRole = await DBRole.get_by(
-        mysql_driver, "role", group_assign_role.role_name.lower()
+        mysql_driver,
+        "role",
+        group_assign_role.role_name.lower(),
+        exc=role_exceptions.RoleNotFoundException(),
     )
-
-    if not role_assign:
-        raise StarletteHTTPException(status_code=404, detail="No role found")
 
     permissions_ids: list[int] = []
     permissions_current_ids: list[int] = []
@@ -197,9 +198,7 @@ async def fetch_user_assign_role_permission_from_token(
                 permission.permission
                 for permission in group_role_permissions.permissions
             ]:
-                raise StarletteHTTPException(
-                    status_code=401, detail="You are not allowed to assign roles"
-                )
+                raise permission_exceptions.NotAllowedToAssignRoleInGroupException()
             permissions_ids = [
                 permission.id for permission in group_role_permissions.permissions
             ]
@@ -217,15 +216,10 @@ async def fetch_user_assign_role_permission_from_token(
     permissions_assign_ids.sort()
 
     if len(permissions_current_ids) >= len(permissions_ids):
-        raise StarletteHTTPException(
-            status_code=401, detail="User has higher or equals permissions than you"
-        )
+        raise permission_exceptions.UserPermissionsAreHigherException()
 
     if permissions_assign_ids[-1] >= permissions_ids[-1]:
-        raise StarletteHTTPException(
-            status_code=403,
-            detail="You can't assign a role with higher or equals permissions than yours",
-        )
+        raise permission_exceptions.UserPermissionsAreNotSufficientException()
 
     return UserInGroupWithRoleAssignWrapper(
         **user_in_group.dict(), role_assign=role_assign

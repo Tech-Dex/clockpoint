@@ -10,9 +10,9 @@ from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
 from pypika.terms import AggregateFunction
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.database.mysql_driver import create_batch_insert_query
+from app.exceptions import base as base_exceptions, group_user as group_user_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 
@@ -29,7 +29,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def save_batch(
-        cls, mysql_driver: Database, groups_id: int, users_roles: list[dict]
+        cls,
+        mysql_driver: Database,
+        groups_id: int,
+        users_roles: list[dict],
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> bool:
         async with mysql_driver.transaction():
             groups_users: str = cls.Meta.table_name
@@ -53,15 +58,11 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="User already exists in group",
-                    )
+                    if bypass_exc:
+                        return False
+                    raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
             return True
 
@@ -142,10 +143,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         return [
             json.loads(group_user_role_mapper)
@@ -226,10 +224,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
         formatted_groups_user_role = {}
         for group_user_role_w in groups_user_role[0]:
             for group_user_role in json.loads(group_user_role_w):
@@ -246,7 +241,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
 
     @classmethod
     async def get_group_users_by_role(
-        cls, mysql_driver: Database, groups_id: int, role: str
+        cls,
+        mysql_driver: Database,
+        groups_id: int,
+        role: str,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> list[Mapping]:
         groups_users: Table = Table(cls.Meta.table_name)
         users: Table = Table("users")
@@ -274,11 +274,8 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             users_by_role: list[Mapping] = await mysql_driver.fetch_all(
                 query.get_sql(), values
             )
-        except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+        except MySQLError:
+            raise exc or group_user_exceptions.UserNotInGroupException()
 
         return users_by_role
 
@@ -304,10 +301,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                     query.get_sql(), values
                 )
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
             return row_id_groups_users
 
@@ -317,7 +311,8 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         mysql_driver: Database,
         users_id: int,
         groups_id: int,
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> DBGroupUser | None:
         groups_users: Table = Table(cls.Meta.table_name)
         query = (
@@ -334,18 +329,12 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         try:
             group_user: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
-        if not group_user and not bypass_exception:
-            raise StarletteHTTPException(
-                status_code=404,
-                detail="Group user not found",
-            )
+        if not bypass_exc and not group_user:
+            raise exc or group_user_exceptions.UserNotInGroupException()
 
-        if not group_user and bypass_exception:
+        if not group_user and bypass_exc:
             return None
 
         return cls(**group_user)
@@ -371,10 +360,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         if not groups_users:
             return []

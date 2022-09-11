@@ -133,7 +133,7 @@ async def http_exception_handler(_, exc: StarletteHTTPException) -> UJSONRespons
     ):
         message = message + "."
     data = {
-        "error_codes": [getattr(exc, "error_code", exc.status_code)],
+        "errorCodes": [getattr(exc, "error_code", exc.status_code)],
         "description": getattr(exc, "description", None),
         "phrase": getattr(exc, "phrase", None),
         "message": message,
@@ -170,7 +170,7 @@ async def validation_exception_handler(_, exc: RequestValidationError) -> UJSONR
         message = message + "."  # pragma: no cover
 
     data = {
-        "error_codes": error_codes,
+        "errorCodes": error_codes,
         "description": getattr(exc, "description", None),
         "phrase": getattr(exc, "phrase", None),
         "message": message,
@@ -193,7 +193,7 @@ async def internal_server_error_handler(
 
 def generic_error_handler(_, exc: Exception) -> UJSONResponse:
     data = {
-        "error_codes": [getattr(exc, "error_code", 404)],
+        "errorCodes": [getattr(exc, "error_code", 404)],
         "description": getattr(exc, "description", None),
         "phrase": getattr(exc, "phrase", None),
         "message": getattr(exc, "detail", "Not found"),

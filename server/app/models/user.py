@@ -24,7 +24,7 @@ class DBUser(DBCoreModel, BaseUser):
     class Meta:
         table_name: str = "users"
 
-    def verify_password(self, password: str):
+    def verify_password(self, password: str) -> None:
         if not verify_password(self.salt, password, self.hashed_password):
             raise auth_exceptions.PasswordsNotMatchException()
 

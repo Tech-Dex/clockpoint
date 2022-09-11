@@ -23,7 +23,7 @@ class DBCoreModel(BaseModel):
     async def get_all(
         cls,
         mysql_driver: Database,
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> list[DBCoreModel]:
         table: Table = Table(cls.Meta.table_name)
@@ -32,7 +32,7 @@ class DBCoreModel(BaseModel):
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
 
         if not results:
-            if bypass_exception:
+            if bypass_exc:
                 return []
             raise exc or base_exceptions.UnprocessableEntityException(
                 detail=f"No {cls.Meta.table_name} found"
@@ -46,7 +46,7 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_value: str | int,
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> DBCoreModel | None:
         table: Table = Table(cls.Meta.table_name)
@@ -63,7 +63,7 @@ class DBCoreModel(BaseModel):
 
         result: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
         if not result:
-            if bypass_exception:
+            if bypass_exc:
                 return None
             raise exc or base_exceptions.UnprocessableEntityException(
                 detail=f"No {cls.Meta.table_name} found"
@@ -77,7 +77,7 @@ class DBCoreModel(BaseModel):
         mysql_driver: Database,
         column_reflection_name: str,
         reflection_values: list[str] | list[int],
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> list[DBCoreModel]:
         table: Table = Table(cls.Meta.table_name)
@@ -96,7 +96,7 @@ class DBCoreModel(BaseModel):
 
         results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
         if not results:
-            if bypass_exception:
+            if bypass_exc:
                 return []
             raise exc or base_exceptions.UnprocessableEntityException(
                 detail=f"No {cls.Meta.table_name} found"
@@ -107,7 +107,7 @@ class DBCoreModel(BaseModel):
     async def save(
         self,
         mysql_driver: Database,
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> DBCoreModel | None:
         async with mysql_driver.transaction():
@@ -136,7 +136,7 @@ class DBCoreModel(BaseModel):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
-                    if bypass_exception:
+                    if bypass_exc:
                         return None
                     raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
@@ -145,7 +145,7 @@ class DBCoreModel(BaseModel):
     async def update(
         self,
         mysql_driver: Database,
-        bypass_exception: bool = False,
+        bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
         **kwargs,
     ) -> DBCoreModel | None:
@@ -177,7 +177,7 @@ class DBCoreModel(BaseModel):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
-                    if bypass_exception:
+                    if bypass_exc:
                         return None
                     raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:

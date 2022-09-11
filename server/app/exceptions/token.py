@@ -24,3 +24,13 @@ class MissingTokenException(base_exceptions.BadRequestException):
 class BearTokenException(base_exceptions.BadRequestException):
     def __init__(self):
         super().__init__(detail="Bearer token is invalid")
+
+
+class NotFoundInviteTokenException(base_exceptions.NotFoundException):
+    def __init__(self):
+        super().__init__(detail="Token invite is not found")
+
+
+class InviteTokenNotAssociatedWithUserException(base_exceptions.ForbiddenException):
+    def __init__(self):
+        super().__init__(detail="Token invite is not associated with user")

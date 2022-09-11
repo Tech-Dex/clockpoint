@@ -81,3 +81,9 @@ class TooManyRequestsException(CustomBaseException):
     status_code = HTTPStatus.TOO_MANY_REQUESTS
     description = HTTPStatus.TOO_MANY_REQUESTS.description
     phrase = HTTPStatus.TOO_MANY_REQUESTS.phrase
+
+
+class NotAllowedException(CustomBaseException):
+    status_code = HTTPStatus.METHOD_NOT_ALLOWED
+    description = HTTPStatus.METHOD_NOT_ALLOWED.description
+    phrase = HTTPStatus.METHOD_NOT_ALLOWED.phrase

@@ -3,20 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from jwt import PyJWTError, decode, encode
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.status import HTTP_403_FORBIDDEN
 
 from app.core.config import settings
+from app.exceptions import token as token_exceptions
 from app.models.enums.token_subject import TokenSubject
 from app.models.token import RedisToken
-from app.exceptions import token as token_exceptions
 
 
 async def create_token(
-        *,
-        data: dict,
-        expire: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-        subject: str = TokenSubject.ACCESS,
+    *,
+    data: dict,
+    expire: int = settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    subject: str = TokenSubject.ACCESS,
 ) -> str:
     to_encode: dict = data.copy()
     expire_date: datetime

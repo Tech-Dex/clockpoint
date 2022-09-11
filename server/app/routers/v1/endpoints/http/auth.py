@@ -12,6 +12,7 @@ from app.exceptions import (
     user as user_exceptions,
 )
 from app.models.enums.token_subject import TokenSubject
+from app.models.exception import CustomBaseException
 from app.models.token import BaseToken
 from app.models.user import DBUser, UserToken
 from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
@@ -20,7 +21,12 @@ from app.services.dependencies import fetch_user_from_token
 
 router: APIRouter = APIRouter()
 
-base_responses = {400: {"description": base_exceptions.BadRequestException.description}}
+base_responses = {
+    400: {
+        "description": base_exceptions.BadRequestException.description,
+        "model": CustomBaseException,
+    }
+}
 
 
 @router.post(
@@ -32,7 +38,8 @@ base_responses = {400: {"description": base_exceptions.BadRequestException.descr
     responses={
         **base_responses,
         409: {
-            "description": auth_exceptions.DuplicateEmailOrUsernameException.description
+            "description": auth_exceptions.DuplicateEmailOrUsernameException.description,
+            "model": CustomBaseException,
         },
     },
 )
@@ -65,11 +72,18 @@ async def register(
     status_code=HTTPStatus.OK,
     name="login",
     responses={
-        400: {"description": base_exceptions.BadRequestException.description},
-        401: {"description": base_exceptions.UnauthorizedException.description},
-        404: {"description": user_exceptions.UserNotFoundException.description},
+        **base_responses,
+        401: {
+            "description": auth_exceptions.PasswordsNotMatchException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
         409: {
-            "description": auth_exceptions.DuplicateEmailOrUsernameException.description
+            "description": auth_exceptions.DuplicateEmailOrUsernameException.description,
+            "model": CustomBaseException,
         },
     },
 )
@@ -106,8 +120,10 @@ async def login(
     name="refresh",
     responses={
         **base_responses,
-        401: {"description": base_exceptions.UnauthorizedException.description},
-        404: {"description": user_exceptions.UserNotFoundException.description},
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def refresh(

@@ -7,14 +7,23 @@ from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token, decode_token
+from app.exceptions import (
+    base as base_exceptions,
+    group as group_exceptions,
+    group_user as group_user_exceptions,
+    permission as permission_exceptions,
+    role as role_exceptions,
+    token as token_exceptions,
+    user as user_exceptions,
+)
 from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
+from app.models.exception import CustomBaseException
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
@@ -52,6 +61,42 @@ from app.services.mailer import send_group_invitation
 
 router: APIRouter = APIRouter()
 
+base_responses = {
+    400: {
+        "description": base_exceptions.BadRequestException.description,
+        "model": CustomBaseException,
+    }
+}
+
+
+@router.get(
+    "/",
+    response_model=PayloadGroupUserRoleResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTP_200_OK,
+    name="get a group details",
+    responses={
+        **base_responses,
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_by_id(
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> PayloadGroupUserRoleResponse:
+    return PayloadGroupUserRoleResponse(
+        payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+            mysql_driver, "groups_id", user_in_group.group.id
+        )
+    )
+
 
 @router.post(
     "/create",
@@ -60,8 +105,15 @@ router: APIRouter = APIRouter()
     status_code=HTTP_200_OK,
     name="create",
     responses={
-        400: {"description": "Invalid input"},
-        409: {"description": "Group already exists"},
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        409: {
+            "description": base_exceptions.DuplicateResourceException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def create(
@@ -85,7 +137,12 @@ async def create(
             name=group_create.name, description=group_create.description
         ).save(mysql_driver)
 
-        await DBRole.save_batch(mysql_driver, group.id, custom_roles)
+        await DBRole.save_batch(
+            mysql_driver,
+            group.id,
+            custom_roles,
+            exc=role_exceptions.DuplicateRoleInGroupException(),
+        )
 
         await DBGroupUser.save_batch(
             mysql_driver,
@@ -98,6 +155,7 @@ async def create(
                     ).id,
                 }
             ],
+            exc=group_user_exceptions.DuplicateUserInGroupException(),
         )
 
         futures = [
@@ -123,45 +181,29 @@ async def create(
 
 
 @router.get(
-    "/",
-    response_model=PayloadGroupUserRoleResponse,
-    response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
-    name="get a group details",
-    responses={
-        400: {"description": "Invalid input"},
-    },
-)
-async def get_by_id(
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
-    mysql_driver: Database = Depends(get_mysql_driver),
-) -> PayloadGroupUserRoleResponse:
-    return PayloadGroupUserRoleResponse(
-        payload=await DBGroupUser.get_group_user_by_reflection_with_id(
-            mysql_driver, "groups_id", user_in_group.group.id
-        )
-    )
-
-
-@router.get(
     "/my_groups",
     response_model_exclude_unset=True,
     response_model=PayloadGroupsUserRoleResponse,
     status_code=HTTP_200_OK,
-    name="get a group details",
+    name="get all groups of a user",
     responses={
-        400: {"description": "Invalid input"},
+        **base_responses,
+        404: {
+            "description": group_user_exceptions.NoGroupsFoundException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def get_user_groups(
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupsUserRoleResponse:
-    groups: list[DBGroupUser] | None = await DBGroupUser.get_all_in(
-        mysql_driver, "users_id", [user_token.id]
+    groups: list[DBGroupUser] = await DBGroupUser.get_all_in(
+        mysql_driver,
+        "users_id",
+        [user_token.id],
+        exc=group_user_exceptions.NoGroupsFoundException(),
     )
-    if not groups:
-        raise StarletteHTTPException(status_code=404, detail="No groups found")
 
     groups_user_role = await DBGroupUser.get_groups_user_by_reflection_with_ids(
         mysql_driver, "groups_id", [group.groups_id for group in groups]
@@ -189,8 +231,19 @@ async def get_user_groups(
     status_code=HTTP_200_OK,
     name="invite",
     responses={
-        400: {"description": "Invalid input"},
-        409: {"description": "User already invited"},
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToInviteUsersInGroupException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def invite(
@@ -204,8 +257,8 @@ async def invite(
     # TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
     # an account and then auto-join him to the group.
     async with mysql_driver.transaction():
-        users_invite: list[DBUser] | None = await DBUser.get_all_in(
-            mysql_driver, "email", group_invite.emails, bypass_exception=True
+        users_invite: list[DBUser] = await DBUser.get_all_in(
+            mysql_driver, "email", group_invite.emails, bypass_exc=True
         )
         invitation_receivers: list[EmailStr] = []
         users_ids_invite: list[int] = [user.id for user in users_invite]
@@ -267,7 +320,11 @@ async def invite(
     status_code=HTTP_200_OK,
     name="user invites",
     responses={
-        400: {"description": "Invalid input"},
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 @cache(expire=300)
@@ -282,14 +339,14 @@ async def get_invites(
     ).all()
 
     if not redis_tokens:
-        raise StarletteHTTPException(status_code=404, detail="No invites found")
+        raise token_exceptions.NotFoundInviteTokenException()
 
-    groups: list[DBGroup] | None = await DBGroup.get_all_in(
-        mysql_driver, "id", [redis_token.groups_id for redis_token in redis_tokens]
+    groups: list[DBGroup] = await DBGroup.get_all_in(
+        mysql_driver,
+        "id",
+        [redis_token.groups_id for redis_token in redis_tokens],
+        exc=group_exceptions.GroupNotFoundException(),
     )
-
-    if not groups:
-        raise StarletteHTTPException(status_code=404, detail="No groups found")
 
     invites: list[GroupInviteResponse] = []
     for db_group in groups:
@@ -311,7 +368,14 @@ async def get_invites(
     status_code=HTTP_200_OK,
     name="join",
     responses={
-        400: {"description": "Invalid input"},
+        **base_exceptions,
+        403: {
+            "description": token_exceptions.InviteTokenNotAssociatedWithUserException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+        },
     },
 )
 async def join(
@@ -321,35 +385,34 @@ async def join(
 ):
     async with mysql_driver.transaction():
         if not invite_token:
-            raise StarletteHTTPException(status_code=400, detail="Invalid input")
+            raise token_exceptions.MissingTokenException()
 
         try:
             redis_token: RedisToken = await RedisToken.find(
                 RedisToken.token == invite_token
             ).first()
         except aredis_om.model.model.NotFoundError:
-            raise StarletteHTTPException(status_code=404, detail="No token found")
+            raise token_exceptions.NotFoundInviteTokenException()
 
         if not redis_token:
-            raise StarletteHTTPException(status_code=404, detail="No token found")
+            raise token_exceptions.NotFoundInviteTokenException()
 
         if redis_token.invite_user_email != user_token.email:
-            raise StarletteHTTPException(
-                status_code=403, detail="This token is not associated with you"
-            )
+            raise token_exceptions.InviteTokenNotAssociatedWithUserException()
 
         decode_token(invite_token)
 
         if await DBGroupUser.is_user_in_group(
-            mysql_driver, user_token.id, redis_token.groups_id, bypass_exception=True
+            mysql_driver, user_token.id, redis_token.groups_id, bypass_exc=True
         ):
-            raise StarletteHTTPException(
-                status_code=403, detail="You are already in this group"
-            )
+            raise group_user_exceptions.DuplicateUserInGroupException()
 
-        group: DBGroup = await DBGroup.get_by(mysql_driver, "id", redis_token.groups_id)
-        if not group:
-            raise StarletteHTTPException(status_code=404, detail="No group found")
+        group: DBGroup = await DBGroup.get_by(
+            mysql_driver,
+            "id",
+            redis_token.groups_id,
+            exc=group_exceptions.GroupNotFoundException(),
+        )
 
         await DBGroupUser.save_batch(
             mysql_driver,
@@ -378,7 +441,15 @@ async def join(
     status_code=HTTP_200_OK,
     name="leave",
     responses={
-        400: {"description": "Invalid input"},
+        **base_exceptions,
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": base_exceptions.UnprocessableEntityException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def leave(
@@ -390,9 +461,7 @@ async def leave(
             mysql_driver, user_in_group.group.id, Roles.OWNER
         )
         if user_in_group.user_token.id in [user["id"] for user in owners]:
-            raise StarletteHTTPException(
-                status_code=403, detail="You can't leave a group you own"
-            )
+            raise group_user_exceptions.OwnerCannotLeaveGroupException()
 
         await user_in_group.group_user.remove_entry(mysql_driver)
 
@@ -406,18 +475,27 @@ async def leave(
     status_code=HTTP_200_OK,
     name="get group roles",
     responses={
-        400: {"description": "Invalid input"},
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": base_exceptions.UnprocessableEntityException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def roles(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> RolesPermissionsResponse:
-    group_roles: list[DBRole] | None = await DBRole.get_all_in(
-        mysql_driver, "groups_id", [user_in_group.group.id]
+    group_roles: list[DBRole] = await DBRole.get_all_in(
+        mysql_driver,
+        "groups_id",
+        [user_in_group.group.id],
+        exc=role_exceptions.RoleNotFoundException(),
     )
-    if not group_roles:
-        raise StarletteHTTPException(status_code=404, detail="No roles found")
 
     return RolesPermissionsResponse(
         roles_permissions=[
@@ -443,7 +521,19 @@ async def roles(
     status_code=HTTP_200_OK,
     name="assign a role to a user",
     responses={
-        400: {"description": "Invalid input"},
+        **base_responses,
+        403: {
+            "description": base_exceptions.ForbiddenException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": base_exceptions.UnprocessableEntityException.description,
+            "model": CustomBaseException,
+        },
     },
 )
 async def assign_role(
@@ -454,26 +544,21 @@ async def assign_role(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUserRoleResponse:
     async with mysql_driver.transaction():
-        role_assign: DBRole = user_in_group_role_assign.role_assign
-        if not role_assign:
-            raise StarletteHTTPException(status_code=404, detail="No role found")
-
         user_to_upgrade: DBUser = await DBUser.get_by(
-            mysql_driver, "username", group_assign_role.username
+            mysql_driver,
+            "username",
+            group_assign_role.username,
+            exc=user_exceptions.UserNotFoundException(),
         )
-        if not user_to_upgrade:
-            raise StarletteHTTPException(status_code=404, detail="No user found")
 
         group_user_to_upgrade: DBGroupUser = await DBGroupUser.is_user_in_group(
-            mysql_driver, user_to_upgrade.id, user_in_group_role_assign.group.id
+            mysql_driver,
+            user_to_upgrade.id,
+            user_in_group_role_assign.group.id,
+            exc=group_user_exceptions.UserNotInGroupException(),
         )
 
-        if not group_user_to_upgrade:
-            raise StarletteHTTPException(
-                status_code=403, detail="User is not in this group"
-            )
-
-        group_user_to_upgrade.roles_id = role_assign.id
+        group_user_to_upgrade.roles_id = user_in_group_role_assign.role_assign.id
 
         await group_user_to_upgrade.update(mysql_driver)
 

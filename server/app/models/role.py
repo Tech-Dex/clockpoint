@@ -9,9 +9,9 @@ from pymysql import Error as MySQLError
 from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.database.mysql_driver import create_batch_insert_query
+from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.enums.roles import Roles
@@ -29,7 +29,12 @@ class DBRole(DBCoreModel, BaseRole):
 
     @classmethod
     async def save_batch(
-        cls, mysql_driver: Database, groups_id: int, group_roles: list
+        cls,
+        mysql_driver: Database,
+        groups_id: int,
+        group_roles: list,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
     ) -> bool:
         async with mysql_driver.transaction():
             group_roles: list[dict] = DBRole.create_roles(group_roles)
@@ -44,19 +49,14 @@ class DBRole(DBCoreModel, BaseRole):
 
             try:
                 await mysql_driver.execute(query)
-
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="Role already exists",
-                    )
+                    if bypass_exc:
+                        return False
+                    raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
             return True
 

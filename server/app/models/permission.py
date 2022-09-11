@@ -4,8 +4,8 @@ from typing import Mapping
 
 from databases import Database
 from pypika import MySQLQuery, Parameter, Table
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.exceptions import base as base_exceptions, permission as permission_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 
@@ -26,8 +26,10 @@ class DBPermission(DBCoreModel, BasePermission):
         )
 
         permissions: list[Mapping] = await mysql_driver.fetch_all(query.get_sql())
-        if permissions:
-            return [DBPermission(**permission) for permission in permissions]
+        if not permissions:
+            raise permission_exceptions.PermissionNotFoundException()
+
+        return [DBPermission(**permission) for permission in permissions]
 
     @classmethod
     async def get_admin_permissions(cls, mysql_driver: Database) -> list[DBPermission]:
@@ -65,14 +67,10 @@ class DBPermission(DBCoreModel, BasePermission):
             query.get_sql(), values
         )
         if not permissions:
-            raise StarletteHTTPException(
-                status_code=404, detail="Permission not available"
-            )
+            raise permission_exceptions.PermissionNotFoundException()
 
         if not isinstance(permissions, list):
-            raise StarletteHTTPException(
-                status_code=505, detail="Unknown exception in permission"
-            )
+            raise base_exceptions.CustomBaseException(detail="Unexpected error")
 
         return [DBPermission(**permission) for permission in permissions]
 

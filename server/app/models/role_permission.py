@@ -10,9 +10,12 @@ from pymysql.constants.ER import DUP_ENTRY
 from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
 from pypika.terms import AggregateFunction
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.database.mysql_driver import create_batch_insert_query
+from app.exceptions import (
+    base as base_exceptions,
+    role_permission as role_permission_exceptions,
+)
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.permission import DBPermission
@@ -30,7 +33,13 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
         table_name: str = "roles_permissions"
 
     @classmethod
-    async def save_batch(cls, mysql_driver: Database, permissions: list[dict]) -> bool:
+    async def save_batch(
+        cls,
+        mysql_driver: Database,
+        permissions: list[dict],
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> bool:
         async with mysql_driver.transaction():
             roles_permissions: str = cls.Meta.table_name
             columns = [
@@ -52,15 +61,11 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
             except IntegrityError as ignoredException:
                 code, msg = ignoredException.args
                 if code == DUP_ENTRY:
-                    raise StarletteHTTPException(
-                        status_code=409,
-                        detail="Role already has permission",
-                    )
+                    if bypass_exc:
+                        return False
+                    raise exc or role_permission_exceptions.DuplicateRolePermissionException()
             except MySQLError as mySQLError:
-                raise StarletteHTTPException(
-                    status_code=500,
-                    detail=f"MySQL error: {mySQLError.args[1]}",
-                )
+                raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
             return True
 
@@ -113,10 +118,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         return {
             "role": json.loads(full_role_permissions[0])["role"],
@@ -176,10 +178,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         formatted_roles_permissions = {}
         for full_role_permissions_dict in full_role_permissions[0]:
@@ -261,10 +260,7 @@ class DBRolePermission(DBCoreModel, BaseRolePermission):
                 query.get_sql(), values
             )
         except MySQLError as mySQLError:
-            raise StarletteHTTPException(
-                status_code=500,
-                detail=f"MySQL error: {mySQLError.args[1]}",
-            )
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         return {
             "roles": [

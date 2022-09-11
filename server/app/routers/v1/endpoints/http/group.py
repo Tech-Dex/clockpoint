@@ -368,13 +368,14 @@ async def get_invites(
     status_code=HTTP_200_OK,
     name="join",
     responses={
-        **base_exceptions,
+        **base_responses,
         403: {
             "description": token_exceptions.InviteTokenNotAssociatedWithUserException.description,
             "model": CustomBaseException,
         },
         404: {
             "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
         },
     },
 )
@@ -441,13 +442,9 @@ async def join(
     status_code=HTTP_200_OK,
     name="leave",
     responses={
-        **base_exceptions,
+        **base_responses,
         404: {
             "description": group_exceptions.GroupNotFoundException.description,
-            "model": CustomBaseException,
-        },
-        422: {
-            "description": base_exceptions.UnprocessableEntityException.description,
             "model": CustomBaseException,
         },
     },

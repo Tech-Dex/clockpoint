@@ -27,10 +27,12 @@ class BearTokenException(base_exceptions.BadRequestException):
 
 
 class NotFoundInviteTokenException(base_exceptions.NotFoundException):
+    description = "Nothing matches the given invite token."
+
     def __init__(self):
-        super().__init__(detail="Token invite is not found")
+        super().__init__(detail="Invite token is not found")
 
 
 class InviteTokenNotAssociatedWithUserException(base_exceptions.ForbiddenException):
     def __init__(self):
-        super().__init__(detail="Token invite is not associated with user")
+        super().__init__(detail="Invite token is not associated with user")

@@ -21,7 +21,7 @@ class UserPermissionsAreHigherException(base_exceptions.ForbiddenException):
 class UserPermissionsAreNotSufficientException(base_exceptions.ForbiddenException):
     def __init__(self):
         super().__init__(
-            detail="Not allowed to assign higher permissions without sufficient permissions"
+            detail="Not allowed to assign higher or equals permissions without sufficient permissions"
         )
 
 

@@ -11,7 +11,7 @@ from pymysql.err import IntegrityError
 from pypika import MySQLQuery, Parameter, Table
 
 from app.core.database.mysql_driver import create_batch_insert_query
-from app.exceptions import base as base_exceptions
+from app.exceptions import base as base_exceptions, role as role_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
 from app.models.enums.roles import Roles
@@ -100,6 +100,8 @@ class DBRole(DBCoreModel, BaseRole):
         values = {"groups_id": groups_id, "role": role}
         role: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
 
+        if not role:
+            raise role_exceptions.RoleNotFoundException()
         return cls(**role)
 
     @staticmethod

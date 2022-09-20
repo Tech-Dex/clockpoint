@@ -182,11 +182,10 @@ async def fetch_user_assign_role_permission_from_token(
         mysql_driver, [group_role.id for group_role in group_roles]
     )
 
-    role_assign: DBRole = await DBRole.get_by(
+    role_assign: DBRole = await DBRole.get_role_type_by_group(
         mysql_driver,
-        "role",
+        user_in_group.group.id,
         group_assign_role.role_name.lower(),
-        exc=role_exceptions.RoleNotFoundException(),
     )
 
     permissions_ids: list[int] = []

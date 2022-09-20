@@ -180,3 +180,21 @@ async def test_exceptions(
     r = await DBUser.get_all(mysql_driver)
 
     return r
+
+
+# TODO: add user route
+# - get user by identifier
+# - edit user
+# - activate user
+# - forgot password
+# - reset password
+# - change password
+# - delete user
+
+
+# TODO: add report route
+# - get report by identifier ( json + csv,excel)
+# - get group reports ( json + csv,excel)
+# - get user reports ( json + csv,excel)
+# - log user into report ( clock in and clock out )
+# - filter by date

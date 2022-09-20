@@ -56,8 +56,30 @@ class PayloadGroupUserRoleResponse(ConfigModel):
     payload: list[PayloadGroupUserRoleWrapper]
 
 
-class PayloadGroupsUserRoleResponse(ConfigModel):
-    payload: list[list[PayloadGroupUserRoleWrapper]]
+class PayloadUserRoleResponse(ConfigModel):
+    user: BaseUser
+    role: BaseRole
+
+
+class PayloadGroupUsersRoleResponse(ConfigModel):
+    group: BaseGroup
+    users_role: list[PayloadUserRoleResponse]
+
+    @classmethod
+    def prepare_response(cls, group_users):
+        return cls(
+            group=group_users[0]["group"],
+            users_role=[
+                PayloadUserRoleResponse(
+                    user=group_user["user"], role=group_user["role"]
+                )
+                for group_user in group_users
+            ],
+        )
+
+
+class PayloadGroupsUsersRoleResponse(ConfigModel):
+    payload: list[PayloadGroupUsersRoleResponse]
 
 
 class PayloadRolePermissionsResponse(ConfigModel):

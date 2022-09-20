@@ -27,7 +27,7 @@ from app.models.exception import CustomBaseException
 from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
-from app.models.role import BaseRoleResponse, DBRole
+from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import InviteGroupToken, RedisToken
 from app.models.user import BaseUser, DBUser, UserToken
@@ -39,14 +39,12 @@ from app.schemas.v1.request import (
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     BaseGroupResponse,
-    BaseUserResponse,
     BypassedInvitesGroupsResponse,
     GenericResponse,
     GroupInviteResponse,
     InvitesGroupsResponse,
-    PayloadGroupsUserRoleResponse,
-    PayloadGroupUserRoleResponse,
-    PayloadGroupUserRoleWrapper,
+    PayloadGroupsUsersRoleResponse,
+    PayloadGroupUsersRoleResponse,
     RolePermissionsResponse,
     RolesPermissionsResponse,
 )
@@ -71,7 +69,7 @@ base_responses = {
 
 @router.get(
     "/",
-    response_model=PayloadGroupUserRoleResponse,
+    response_model=PayloadGroupUsersRoleResponse,
     response_model_exclude_unset=True,
     status_code=HTTP_200_OK,
     name="get a group details",
@@ -90,9 +88,9 @@ base_responses = {
 async def get_by_id(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> PayloadGroupUserRoleResponse:
-    return PayloadGroupUserRoleResponse(
-        payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+) -> PayloadGroupUsersRoleResponse:
+    return PayloadGroupUsersRoleResponse.prepare_response(
+        await DBGroupUser.get_group_user_by_reflection_with_id(
             mysql_driver, "groups_id", user_in_group.group.id
         )
     )
@@ -183,7 +181,7 @@ async def create(
 @router.get(
     "/my_groups",
     response_model_exclude_unset=True,
-    response_model=PayloadGroupsUserRoleResponse,
+    # response_model=PayloadGroupsUserRoleResponse,
     status_code=HTTP_200_OK,
     name="get all groups of a user",
     responses={
@@ -197,7 +195,7 @@ async def create(
 async def get_user_groups(
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> PayloadGroupsUserRoleResponse:
+) -> PayloadGroupsUsersRoleResponse:
     groups: list[DBGroupUser] = await DBGroupUser.get_all_in(
         mysql_driver,
         "users_id",
@@ -209,19 +207,11 @@ async def get_user_groups(
         mysql_driver, "groups_id", [group.groups_id for group in groups]
     )
     payload = []
-    for k, v in groups_user_role.items():
-        wrapper: list[PayloadGroupUserRoleWrapper] = []
-        for group_user_role in v:
-            wrapper.append(
-                PayloadGroupUserRoleWrapper(
-                    **BaseGroupResponse(group=group_user_role["group"]).dict(),
-                    **BaseUserResponse(user=group_user_role["user"]).dict(),
-                    **BaseRoleResponse(role=group_user_role["role"]).dict()
-                )
-            )
-        payload.append(wrapper)
 
-    return PayloadGroupsUserRoleResponse(payload=payload)
+    for k, v in groups_user_role.items():
+        payload.append(PayloadGroupUsersRoleResponse.prepare_response(v))
+
+    return PayloadGroupsUsersRoleResponse(payload=payload)
 
 
 @router.post(
@@ -514,7 +504,7 @@ async def roles(
 @router.post(
     "/role",
     response_model_exclude_unset=True,
-    response_model=PayloadGroupUserRoleResponse,
+    response_model=PayloadGroupUsersRoleResponse,
     status_code=HTTP_200_OK,
     name="assign a role to a user",
     responses={
@@ -539,7 +529,7 @@ async def assign_role(
         fetch_user_assign_role_permission_from_token
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> PayloadGroupUserRoleResponse:
+) -> PayloadGroupUsersRoleResponse:
     async with mysql_driver.transaction():
         user_to_upgrade: DBUser = await DBUser.get_by(
             mysql_driver,
@@ -559,8 +549,8 @@ async def assign_role(
 
         await group_user_to_upgrade.update(mysql_driver)
 
-        return PayloadGroupUserRoleResponse(
-            payload=await DBGroupUser.get_group_user_by_reflection_with_id(
+        return PayloadGroupUsersRoleResponse.prepare_response(
+            await DBGroupUser.get_group_user_by_reflection_with_id(
                 mysql_driver, "groups_id", user_in_group_role_assign.group.id
             )
         )

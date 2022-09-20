@@ -12,6 +12,7 @@ from pydantic.networks import EmailStr
 
 from app.core.config import settings
 
+# TODO: Use JINJA to render the email template. Wait for Marius to help with beautiful HTML & CSS
 
 # TODO: Maybe move to FastAPI-Email library instead of using smtplib
 async def send_email(receiver: EmailStr, subject: str, body: str):

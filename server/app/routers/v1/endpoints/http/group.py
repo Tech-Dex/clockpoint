@@ -24,12 +24,12 @@ from app.exceptions import (
 from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
-from app.models.group import DBGroup
+from app.models.group import BaseGroup, DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
-from app.models.token import InviteGroupToken, RedisToken
+from app.models.token import InviteGroupToken, QRCodeInviteGroupToken, RedisToken
 from app.models.user import BaseUser, DBUser, UserToken
 from app.schemas.v1.request import (
     BaseGroupCreateRequest,
@@ -45,6 +45,7 @@ from app.schemas.v1.response import (
     InvitesGroupsResponse,
     PayloadGroupsUsersRoleResponse,
     PayloadGroupUsersRoleResponse,
+    QRCodeInviteGroupResponse,
     RolePermissionsResponse,
     RolesPermissionsResponse,
 )
@@ -52,8 +53,9 @@ from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroup
 from app.services.dependencies import (
     fetch_user_assign_role_permission_from_token,
     fetch_user_from_token,
-    fetch_user_in_group_from_token_qp_name,
-    fetch_user_invite_permission_from_token,
+    fetch_user_in_group_from_token_qp_id,
+    fetch_user_invite_permission_from_token_br_invite,
+    fetch_user_invite_permission_from_token_qp_id,
 )
 from app.services.mailer import send_group_invitation
 
@@ -86,7 +88,7 @@ base_responses = {
     },
 )
 async def get_by_id(
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> PayloadGroupUsersRoleResponse:
     return PayloadGroupUsersRoleResponse.prepare_response(
@@ -181,7 +183,7 @@ async def create(
 @router.get(
     "/my_groups",
     response_model_exclude_unset=True,
-    # response_model=PayloadGroupsUserRoleResponse,
+    response_model=PayloadGroupsUsersRoleResponse,
     status_code=HTTP_200_OK,
     name="get all groups of a user",
     responses={
@@ -240,12 +242,10 @@ async def invite(
     group_invite: GroupInviteRequest,
     bg_tasks: BackgroundTasks,
     user_in_group: UserInGroupWrapper = Depends(
-        fetch_user_invite_permission_from_token
+        fetch_user_invite_permission_from_token_br_invite
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BypassedInvitesGroupsResponse:
-    # TODO: Refactor it in order to send email even if a a user is not registerd in the application and allow him to create
-    # an account and then auto-join him to the group.
     async with mysql_driver.transaction():
         users_invite: list[DBUser] = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exc=True
@@ -276,7 +276,6 @@ async def invite(
             np.setdiff1d(group_invite.emails, invitation_receivers)
         )
 
-        # TODO: When encode/databases fixes asyncio.gather(*functions) use it below
         tasks = []
         for invitation_receiver in invitation_receivers:
             tasks.append(
@@ -388,7 +387,7 @@ async def join(
         if not redis_token:
             raise token_exceptions.NotFoundInviteTokenException()
 
-        if redis_token.invite_user_email != user_token.email:
+        if redis_token.invite_user_email and redis_token.invite_user_email != user_token.email:
             raise token_exceptions.InviteTokenNotAssociatedWithUserException()
 
         decode_token(invite_token)
@@ -440,7 +439,7 @@ async def join(
     },
 )
 async def leave(
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GenericResponse:
     async with mysql_driver.transaction():
@@ -474,7 +473,7 @@ async def leave(
     },
 )
 async def roles(
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_name),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> RolesPermissionsResponse:
     group_roles: list[DBRole] = await DBRole.get_all_in(
@@ -554,3 +553,45 @@ async def assign_role(
                 mysql_driver, "groups_id", user_in_group_role_assign.group.id
             )
         )
+
+
+@router.post(
+    "/{group_id}/qr/invite",
+    response_model=QRCodeInviteGroupResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTP_200_OK,
+    name="invite by qr code",
+    responses={
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToInviteUsersInGroupException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def qr_code_invite(
+    group_id: int,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_invite_permission_from_token_qp_id
+    ),
+) -> QRCodeInviteGroupResponse:
+    token: str = await create_token(
+        data=QRCodeInviteGroupToken(
+            users_id=user_in_group.user_token.id,
+            groups_id=group_id,
+            subject=TokenSubject.QR_CODE_GROUP_INVITE,
+        ).dict(),
+        expire=settings.QR_CODE_INVITE_TOKEN_EXPIRE_MINUTES,
+    )
+
+    return QRCodeInviteGroupResponse(
+        token=token, group=BaseGroupIdWrapper(**user_in_group.group.dict())
+    )

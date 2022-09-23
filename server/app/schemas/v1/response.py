@@ -62,7 +62,7 @@ class PayloadUserRoleResponse(ConfigModel):
 
 
 class PayloadGroupUsersRoleResponse(ConfigModel):
-    group: BaseGroup
+    group: BaseGroupIdWrapper
     users_role: list[PayloadUserRoleResponse]
 
     @classmethod
@@ -90,7 +90,7 @@ class PayloadRolesPermissionResponse(ConfigModel):
     payload: list[PayloadRolesPermissionWrapper]
 
 
-class GroupInviteResponse(BaseGroup):
+class GroupInviteResponse(BaseGroupIdWrapper):
     token: str
 
 
@@ -110,10 +110,6 @@ class GroupRolesResponse(ConfigModel):
     roles: list[BaseRoleResponse]
 
 
-class RolePermissionsResponse(ConfigModel):
-    role: str
-    permissions: list[str]
-
-
-class RolesPermissionsResponse(ConfigModel):
-    roles_permissions: list[RolePermissionsResponse]
+class QRCodeInviteGroupResponse(ConfigModel):
+    group: BaseGroupIdWrapper
+    token: str

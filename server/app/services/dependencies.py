@@ -59,7 +59,7 @@ async def fetch_user_from_token(
         raise token_exceptions.AccessTokenException()
 
 
-async def fetch_user_in_group_from_token_qp_name(
+async def fetch_user_in_group_from_token_qp_id(
     group_id: int,
     user_token: UserToken = Depends(fetch_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
@@ -137,10 +137,18 @@ async def is_permission_granted(
     return role_permissions
 
 
-async def fetch_user_invite_permission_from_token(
+async def fetch_user_invite_permission_from_token_br_invite(
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_in_group_from_token_br_invite
     ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> UserInGroupWrapper:
+    await is_permission_granted(mysql_driver, user_in_group, "invite_user")
+    return user_in_group
+
+
+async def fetch_user_invite_permission_from_token_qp_id(
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
     await is_permission_granted(mysql_driver, user_in_group, "invite_user")

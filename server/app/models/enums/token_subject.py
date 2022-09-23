@@ -8,6 +8,7 @@ class TokenSubject(str, Enum):
     ACTIVATE: str = "ACTIVATE"
     RESET: str = "RESET"
     GROUP_INVITE: str = "GROUP_INVITE"
+    QR_CODE_GROUP_INVITE: str = "QR_CODE_GROUP_INVITE"
 
     @classmethod
     def has_value(cls, value) -> bool:

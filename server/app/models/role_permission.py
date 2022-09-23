@@ -28,7 +28,6 @@ class BaseRolePermission(ConfigModel):
     permissions_id: int
 
 
-# TODO: Move group details at the top of the entity in order to have a cleaner view
 class DBRolePermission(DBCoreModel, BaseRolePermission):
     class Meta:
         table_name: str = "roles_permissions"

@@ -39,3 +39,7 @@ class RedisToken(HashModel, ConfigModel):
 class InviteGroupToken(BaseToken):
     invite_user_email: str
     groups_id: int
+
+
+class QRCodeInviteGroupToken(BaseToken):
+    groups_id: int

@@ -198,3 +198,5 @@ async def test_exceptions(
 # - get user reports ( json + csv,excel)
 # - log user into report ( clock in and clock out )
 # - filter by date
+
+# TODO: add direct invite via token QR code in Group

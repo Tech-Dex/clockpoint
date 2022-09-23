@@ -6,3 +6,8 @@ class UserNotFoundException(base_exceptions.NotFoundException):
 
     def __init__(self):
         super().__init__(detail="User not found")
+
+
+class DuplicateUsernameException(base_exceptions.DuplicateResourceException):
+    def __init__(self):
+        super().__init__(detail="User with this email or username already exists")

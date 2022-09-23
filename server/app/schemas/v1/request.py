@@ -17,6 +17,19 @@ class UserRegisterRequest(UserLoginRequest):
     username: str
 
 
+class UserUpdateRequest(ConfigModel):
+    first_name: str | None = None
+    second_name: str | None = None
+    last_name: str | None = None
+    username: str | None = None
+
+
+class UserChangePasswordRequest(ConfigModel):
+    password: str
+    new_password: str
+    confirm_new_password: str
+
+
 class BaseGroupCustomRolePermissionCreateRequest(ConfigModel):
     role: str
     permissions: list[str]

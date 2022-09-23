@@ -104,6 +104,34 @@ class DBCoreModel(BaseModel):
 
         return [cls(**result) for result in results]
 
+    @classmethod
+    async def like(cls,
+                   mysql_driver: Database,
+                   column_reflection_name: str,
+                   reflection_value: str | int,
+                   bypass_exc: bool = False,
+                   exc: base_exceptions.CustomBaseException | None = None,
+                   ) -> list[DBCoreModel]:
+        table: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(table)
+            .select("*")
+            .where(getattr(table, column_reflection_name).like(Parameter(f":{column_reflection_name}")))
+        )
+
+        values = {column_reflection_name: reflection_value}
+
+        results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
+
+        if not results:
+            if bypass_exc:
+                return []
+            raise exc or base_exceptions.UnprocessableEntityException(
+                detail=f"No {cls.Meta.table_name} found"
+            )
+
+        return [cls(**result) for result in results]
+
     async def save(
         self,
         mysql_driver: Database,
@@ -207,7 +235,7 @@ class DBCoreModel(BaseModel):
         async with mysql_driver.transaction():
             table: Table = Table(self.Meta.table_name)
             query = (
-                MySQLQuery.update(table).delete().where(table.id == Parameter(f":id"))
+                MySQLQuery.from_(table).delete().where(table.id == Parameter(f":id"))
             )
 
             values = {

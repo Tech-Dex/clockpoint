@@ -6,6 +6,16 @@ class DuplicateEmailOrUsernameException(base_exceptions.DuplicateResourceExcepti
         super().__init__(detail="User with this email or username already exists")
 
 
-class PasswordsNotMatchException(base_exceptions.UnauthorizedException):
+class PasswordEmailNotMatchException(base_exceptions.UnauthorizedException):
     def __init__(self):
         super().__init__(detail="Password or email is incorrect")
+
+
+class PasswordNotMatchException(base_exceptions.UnauthorizedException):
+    def __init__(self):
+        super().__init__(detail="Password is incorrect")
+
+
+class ChangePasswordException(base_exceptions.BadRequestException):
+    def __init__(self):
+        super().__init__(detail="Password and confirm password must be the same")

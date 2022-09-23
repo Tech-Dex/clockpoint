@@ -14,10 +14,10 @@ from app.exceptions import (
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
 from app.models.token import BaseToken
-from app.models.user import DBUser, UserToken
-from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest
-from app.schemas.v1.response import BaseUserResponse
-from app.services.dependencies import fetch_user_from_token
+from app.models.user import DBUser, UserToken, DBUserToken
+from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest, UserChangePasswordRequest
+from app.schemas.v1.response import BaseUserResponse, GenericResponse
+from app.services.dependencies import fetch_user_from_token, fetch_db_user_from_token
 
 router: APIRouter = APIRouter()
 
@@ -27,6 +27,65 @@ base_responses = {
         "model": CustomBaseException,
     }
 }
+
+
+@router.delete(
+    "/",
+    response_model=GenericResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="delete",
+    responses={
+        **base_responses,
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def delete(
+    mysql_driver: Database = Depends(get_mysql_driver),
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+) -> GenericResponse:
+    await db_user_token.delete(mysql_driver)
+
+    return GenericResponse(message="User deleted")
+
+@router.patch(
+    "/",
+    response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="password",
+    responses={
+        **base_responses
+    }
+)
+async def password(
+        change_password: UserChangePasswordRequest,
+        mysql_driver: Database = Depends(get_mysql_driver),
+        db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+) -> BaseUserResponse:
+    db_user_token.verify_password(change_password.password, exc=auth_exceptions.PasswordNotMatchException())
+
+    if change_password.new_password != change_password.confirm_new_password:
+        raise auth_exceptions.ChangePasswordException()
+
+    db_user_token.change_password(change_password.new_password)
+
+    await DBUser(**db_user_token.dict()).update(mysql_driver)
+
+    token: str = await create_token(
+        data=BaseToken(
+            **db_user_token.dict(), users_id=db_user_token.id, subject=TokenSubject.ACCESS
+        ).dict(),
+        expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
+
+    db_user_token.token = token
+
+    return BaseUserResponse(user=UserToken(**db_user_token.dict()))
+
 
 
 @router.post(
@@ -74,7 +133,7 @@ async def register(
     responses={
         **base_responses,
         401: {
-            "description": auth_exceptions.PasswordsNotMatchException.description,
+            "description": auth_exceptions.PasswordEmailNotMatchException.description,
             "model": CustomBaseException,
         },
         404: {
@@ -141,3 +200,4 @@ async def refresh(
 
     user_token.token = token
     return BaseUserResponse(user=UserToken(**user_token.dict()))
+

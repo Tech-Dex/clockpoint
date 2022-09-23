@@ -19,7 +19,7 @@ from app.models.group_user import DBGroupUser
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
-from app.models.user import DBUser, UserToken
+from app.models.user import DBUser, UserToken, DBUserToken
 from app.schemas.v1.request import GroupAssignRoleRequest, GroupInviteRequest
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 
@@ -40,10 +40,10 @@ async def get_authorization_header(
     return None
 
 
-async def fetch_user_from_token(
+async def fetch_db_user_from_token(
     mysql_driver: Database = Depends(get_mysql_driver),
     token: str = Depends(get_authorization_header),
-) -> UserToken:
+) -> DBUserToken:
     payload: dict = decode_token(token)
     token_payload: BaseToken = BaseToken(**payload)
 
@@ -54,10 +54,15 @@ async def fetch_user_from_token(
             token_payload.users_id,
             exc=user_exceptions.UserNotFoundException(),
         )
-        return UserToken(**user.dict(), token=token)
+        return DBUserToken(**user.dict(), token=token)
     else:
         raise token_exceptions.AccessTokenException()
 
+
+async def fetch_user_from_token(
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+) -> UserToken:
+    return UserToken(**db_user_token.dict())
 
 async def fetch_user_in_group_from_token_qp_id(
     group_id: int,

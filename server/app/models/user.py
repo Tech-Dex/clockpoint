@@ -6,6 +6,7 @@ from app.core.security import generate_salt, hash_password, verify_password
 from app.exceptions import auth as auth_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
+from app.exceptions import base as base_exceptions
 
 
 class BaseUser(ConfigModel):
@@ -24,9 +25,9 @@ class DBUser(DBCoreModel, BaseUser):
     class Meta:
         table_name: str = "users"
 
-    def verify_password(self, password: str) -> None:
+    def verify_password(self, password: str, exc: base_exceptions.CustomBaseException | None = None) -> None:
         if not verify_password(self.salt, password, self.hashed_password):
-            raise auth_exceptions.PasswordsNotMatchException()
+            raise auth_exceptions.PasswordEmailNotMatchException() or exc
 
     def change_password(self, password: str) -> None:
         self.salt = generate_salt()
@@ -35,4 +36,8 @@ class DBUser(DBCoreModel, BaseUser):
 
 class UserToken(BaseUser):
     id: int
+    token: str | None = None
+
+
+class DBUserToken(DBUser):
     token: str | None = None

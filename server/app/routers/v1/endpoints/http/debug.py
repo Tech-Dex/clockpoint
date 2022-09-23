@@ -185,12 +185,13 @@ async def test_exceptions(
 # TODO: add user route
 # - get user by identifier
 # - edit user
+# - delete user
+
+# TODO: auth
 # - activate user
 # - forgot password
 # - reset password
 # - change password
-# - delete user
-
 
 # TODO: add report route
 # - get report by identifier ( json + csv,excel)

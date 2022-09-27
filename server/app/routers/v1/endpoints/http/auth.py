@@ -15,12 +15,12 @@ from app.exceptions import (
 )
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
-from app.models.token import ActivateUserToken, BaseToken, RedisToken
+from app.models.token import BaseToken, RedisToken
 from app.models.user import DBUser, DBUserToken, UserToken
 from app.schemas.v1.request import (
     UserChangePasswordRequest,
     UserLoginRequest,
-    UserRegisterRequest,
+    UserRegisterRequest, UserResetPasswordRequest,
 )
 from app.schemas.v1.response import BaseUserResponse, GenericResponse
 from app.services.dependencies import fetch_db_user_from_token, fetch_user_from_token
@@ -132,9 +132,7 @@ async def register(
     )
 
     activate_account_token: str = await create_token(
-        data=ActivateUserToken(
-            users_id=user.id, subject=TokenSubject.ACTIVATE_ACCOUNT
-        ).dict(),
+        data=BaseToken(users_id=user.id, subject=TokenSubject.ACTIVATE_ACCOUNT).dict(),
         expire=settings.ACTIVATE_ACCOUNT_TOKEN_EXPIRE_MINUTES,
     )
     # TODO send this token in email
@@ -227,8 +225,12 @@ async def refresh(
     name="activate",
     responses={
         **base_responses,
+        403: {
+            "description": token_exceptions.ActivateAccountTokenNotAssociatedWithUserException.description,
+            "model": CustomBaseException,
+        },
         404: {
-            "description": user_exceptions.UserNotFoundException.description,
+            "description": base_exceptions.NotFoundException.description,
             "model": CustomBaseException,
         },
     },
@@ -238,7 +240,6 @@ async def activate(
     db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUserResponse:
-    print(activate_account_token)
     async with mysql_driver.transaction():
         if not activate_account_token:
             raise token_exceptions.MissingTokenException()
@@ -273,3 +274,95 @@ async def activate(
         )
 
         return BaseUserResponse(user=UserToken(**db_user_token.dict(), token=token))
+
+
+@router.get(
+    "/forgot",
+    response_model=GenericResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="send forgot password email",
+    responses={
+        **base_responses,
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def forgot(
+    email: str,
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> GenericResponse:
+    user: DBUser = await DBUser.get_by(mysql_driver, "email", email, bypass_exc=True)
+
+    if user:
+        forgot_password_token: str = await create_token(
+            data=BaseToken(
+                users_id=user.id, subject=TokenSubject.FORGOT_PASSWORD
+            ).dict(),
+            expire=settings.FORGOT_PASSWORD_TOKEN_EXPIRE_MINUTES,
+        )
+        # TODO send this token in email
+
+    return GenericResponse(
+        message="If the email exists, you will receive an email with instructions to reset your password."
+    )
+
+
+@router.patch(
+    "/reset",
+    response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="reset password with token",
+    responses={
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def reset(
+    reset_password_token: str,
+    user_reset_password: UserResetPasswordRequest,
+    mysql_driver: Database = Depends(get_mysql_driver)
+) -> BaseUserResponse:
+    if user_reset_password.password != user_reset_password.confirm_password:
+        raise auth_exceptions.ChangePasswordException()
+
+    async with mysql_driver.transaction():
+        if not reset_password_token:
+            raise token_exceptions.MissingTokenException()
+
+        try:
+            redis_token: RedisToken = await RedisToken.find(
+                RedisToken.token == reset_password_token,
+            ).first()
+        except aredis_om.model.model.NotFoundError:
+            raise token_exceptions.NotFoundActivateAccountTokenException()
+
+        if not redis_token:
+            raise token_exceptions.NotFoundActivateAccountTokenException()
+
+        decode_token(reset_password_token)
+
+        user: DBUser = await DBUser.get_by(
+            mysql_driver,
+            "id",
+            redis_token.users_id,
+            exc=user_exceptions.UserNotFoundException(),
+        )
+
+        user.change_password(user_reset_password.password)
+        await user.update(mysql_driver)
+
+        token: str = await create_token(
+            data=BaseToken(
+                **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
+            ).dict(),
+            expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+
+        return BaseUserResponse(user=UserToken(**user.dict(), token=token))

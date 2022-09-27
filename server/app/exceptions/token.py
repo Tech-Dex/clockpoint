@@ -50,3 +50,17 @@ class ActivateAccountTokenNotAssociatedWithUserException(
 ):
     def __init__(self):
         super().__init__(detail="Activate account token is not associated with user")
+
+
+class NotFoundResetPasswordTokenException(base_exceptions.NotFoundException):
+    description = "Nothing matches the given reset password token."
+
+    def __init__(self):
+        super().__init__(detail="Reset password token is not found")
+
+
+class ResetPasswordTokenNotAssociatedWithUserException(
+    base_exceptions.ForbiddenException
+):
+    def __init__(self):
+        super().__init__(detail="Reset password token is not associated with user")

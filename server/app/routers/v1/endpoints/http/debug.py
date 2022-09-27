@@ -184,7 +184,6 @@ async def test_exceptions(
 
 # TODO: auth
 # - I need email template
-# - activate user
 # - forgot password
 # - reset password
 

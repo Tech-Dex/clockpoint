@@ -24,6 +24,11 @@ class UserUpdateRequest(ConfigModel):
     username: str | None = None
 
 
+class UserResetPasswordRequest(ConfigModel):
+    password: str
+    confirm_password: str
+
+
 class UserChangePasswordRequest(ConfigModel):
     password: str
     new_password: str

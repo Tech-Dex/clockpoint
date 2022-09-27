@@ -43,3 +43,8 @@ class InviteGroupToken(BaseToken):
 
 class QRCodeInviteGroupToken(BaseToken):
     groups_id: int
+
+
+class ActivateUserToken(BaseToken):
+    users_id: str
+    subject: str

@@ -1,23 +1,29 @@
 from http import HTTPStatus
 
+import aredis_om
 from databases import Database
 from fastapi import APIRouter, Depends
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import create_token
+from app.core.jwt import create_token, decode_token
 from app.exceptions import (
     auth as auth_exceptions,
     base as base_exceptions,
+    token as token_exceptions,
     user as user_exceptions,
 )
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
-from app.models.token import BaseToken
-from app.models.user import DBUser, UserToken, DBUserToken
-from app.schemas.v1.request import UserLoginRequest, UserRegisterRequest, UserChangePasswordRequest
+from app.models.token import ActivateUserToken, BaseToken, RedisToken
+from app.models.user import DBUser, DBUserToken, UserToken
+from app.schemas.v1.request import (
+    UserChangePasswordRequest,
+    UserLoginRequest,
+    UserRegisterRequest,
+)
 from app.schemas.v1.response import BaseUserResponse, GenericResponse
-from app.services.dependencies import fetch_user_from_token, fetch_db_user_from_token
+from app.services.dependencies import fetch_db_user_from_token, fetch_user_from_token
 
 router: APIRouter = APIRouter()
 
@@ -51,33 +57,37 @@ async def delete(
 
     return GenericResponse(message="User deleted")
 
+
 @router.patch(
     "/",
     response_model=BaseUserResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="password",
-    responses={
-        **base_responses
-    }
+    responses={**base_responses},
 )
 async def password(
-        change_password: UserChangePasswordRequest,
-        mysql_driver: Database = Depends(get_mysql_driver),
-        db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+    change_password: UserChangePasswordRequest,
+    mysql_driver: Database = Depends(get_mysql_driver),
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
 ) -> BaseUserResponse:
-    db_user_token.verify_password(change_password.password, exc=auth_exceptions.PasswordNotMatchException())
+    db_user_token.verify_password(
+        change_password.password, exc=auth_exceptions.PasswordNotMatchException()
+    )
 
     if change_password.new_password != change_password.confirm_new_password:
         raise auth_exceptions.ChangePasswordException()
 
     db_user_token.change_password(change_password.new_password)
 
-    await DBUser(**db_user_token.dict()).update(mysql_driver)
+    delattr(db_user_token, "token")
+    await db_user_token.update(mysql_driver)
 
     token: str = await create_token(
         data=BaseToken(
-            **db_user_token.dict(), users_id=db_user_token.id, subject=TokenSubject.ACCESS
+            **db_user_token.dict(),
+            users_id=db_user_token.id,
+            subject=TokenSubject.ACCESS
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
@@ -85,7 +95,6 @@ async def password(
     db_user_token.token = token
 
     return BaseUserResponse(user=UserToken(**db_user_token.dict()))
-
 
 
 @router.post(
@@ -121,6 +130,14 @@ async def register(
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
+
+    activate_account_token: str = await create_token(
+        data=ActivateUserToken(
+            users_id=user.id, subject=TokenSubject.ACTIVATE_ACCOUNT
+        ).dict(),
+        expire=settings.ACTIVATE_ACCOUNT_TOKEN_EXPIRE_MINUTES,
+    )
+    # TODO send this token in email
     return BaseUserResponse(user=UserToken(**user.dict(), token=token))
 
 
@@ -201,3 +218,58 @@ async def refresh(
     user_token.token = token
     return BaseUserResponse(user=UserToken(**user_token.dict()))
 
+
+@router.patch(
+    "/activate",
+    response_model=BaseUserResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="activate",
+    responses={
+        **base_responses,
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def activate(
+    activate_account_token: str,
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> BaseUserResponse:
+    print(activate_account_token)
+    async with mysql_driver.transaction():
+        if not activate_account_token:
+            raise token_exceptions.MissingTokenException()
+
+        try:
+            redis_token: RedisToken = await RedisToken.find(
+                RedisToken.token == activate_account_token,
+            ).first()
+        except aredis_om.model.model.NotFoundError:
+            raise token_exceptions.NotFoundActivateAccountTokenException()
+
+        if not redis_token:
+            raise token_exceptions.NotFoundActivateAccountTokenException()
+
+        if redis_token.users_id != db_user_token.id:
+            raise token_exceptions.ActivateAccountTokenNotAssociatedWithUserException()
+
+        decode_token(activate_account_token)
+
+        db_user_token.is_active = True
+
+        delattr(db_user_token, "token")
+        await db_user_token.update(mysql_driver)
+
+        token: str = await create_token(
+            data=BaseToken(
+                **db_user_token.dict(),
+                users_id=db_user_token.id,
+                subject=TokenSubject.ACCESS
+            ).dict(),
+            expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+
+        return BaseUserResponse(user=UserToken(**db_user_token.dict(), token=token))

@@ -182,16 +182,24 @@ async def test_exceptions(
     return r
 
 
-# TODO: add user route
-# - get user by identifier
-# - edit user
-# - delete user
-
 # TODO: auth
+# - I need email template
 # - activate user
 # - forgot password
 # - reset password
-# - change password
+
+# TODO: brainstorming user preferences
+# no push notification
+# no friend requests
+# no whatever
+
+# TODO: WSS push notification:
+# invites
+# updates
+# friend request
+# messages
+# etc
+
 
 # TODO: add report route
 # - get report by identifier ( json + csv,excel)
@@ -200,4 +208,5 @@ async def test_exceptions(
 # - log user into report ( clock in and clock out )
 # - filter by date
 
-# TODO: add direct invite via token QR code in Group
+# - entires -> group_entires: id_entry, id_group
+# entires: id, user_id, dateteme, type[in,out]

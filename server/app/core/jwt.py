@@ -33,7 +33,7 @@ async def create_token(
     jwt = encode(to_encode, str(settings.SECRET_KEY), algorithm=settings.ALGORITHM)
 
     redis_token: RedisToken = await RedisToken(**data, token=jwt).save()
-    await redis_token.expire(expire)
+    await redis_token.expire(expire * 60)
 
     return jwt
 

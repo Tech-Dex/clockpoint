@@ -19,7 +19,7 @@ from app.models.group_user import DBGroupUser
 from app.models.role import DBRole
 from app.models.role_permission import DBRolePermission
 from app.models.token import BaseToken
-from app.models.user import DBUser, UserToken, DBUserToken
+from app.models.user import DBUser, DBUserToken, UserToken
 from app.schemas.v1.request import GroupAssignRoleRequest, GroupInviteRequest
 from app.schemas.v1.wrapper import UserInGroupWithRoleAssignWrapper, UserInGroupWrapper
 
@@ -63,6 +63,7 @@ async def fetch_user_from_token(
     db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
 ) -> UserToken:
     return UserToken(**db_user_token.dict())
+
 
 async def fetch_user_in_group_from_token_qp_id(
     group_id: int,

@@ -105,18 +105,23 @@ class DBCoreModel(BaseModel):
         return [cls(**result) for result in results]
 
     @classmethod
-    async def like(cls,
-                   mysql_driver: Database,
-                   column_reflection_name: str,
-                   reflection_value: str | int,
-                   bypass_exc: bool = False,
-                   exc: base_exceptions.CustomBaseException | None = None,
-                   ) -> list[DBCoreModel]:
+    async def like(
+        cls,
+        mysql_driver: Database,
+        column_reflection_name: str,
+        reflection_value: str | int,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> list[DBCoreModel]:
         table: Table = Table(cls.Meta.table_name)
         query = (
             MySQLQuery.from_(table)
             .select("*")
-            .where(getattr(table, column_reflection_name).like(Parameter(f":{column_reflection_name}")))
+            .where(
+                getattr(table, column_reflection_name).like(
+                    Parameter(f":{column_reflection_name}")
+                )
+            )
         )
 
         values = {column_reflection_name: reflection_value}

@@ -114,11 +114,14 @@ class QRCodeInviteGroupResponse(ConfigModel):
     group: BaseGroupIdWrapper
     token: str
 
+
 class BaseUserSearchResponse(BaseUser):
     pass
 
+
 class BaseUsersSearchResponse(ConfigModel):
     users: list[BaseUserSearchResponse]
+
 
 class RolePermissionsResponse(ConfigModel):
     role: str

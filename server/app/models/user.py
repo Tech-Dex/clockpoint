@@ -3,10 +3,9 @@ from __future__ import annotations
 from pydantic.networks import EmailStr
 
 from app.core.security import generate_salt, hash_password, verify_password
-from app.exceptions import auth as auth_exceptions
+from app.exceptions import auth as auth_exceptions, base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from app.exceptions import base as base_exceptions
 
 
 class BaseUser(ConfigModel):
@@ -15,7 +14,7 @@ class BaseUser(ConfigModel):
     second_name: str | None = None
     last_name: str
     username: str
-    is_active: bool = True
+    is_active: bool = False
 
 
 class DBUser(DBCoreModel, BaseUser):
@@ -25,9 +24,11 @@ class DBUser(DBCoreModel, BaseUser):
     class Meta:
         table_name: str = "users"
 
-    def verify_password(self, password: str, exc: base_exceptions.CustomBaseException | None = None) -> None:
+    def verify_password(
+        self, password: str, exc: base_exceptions.CustomBaseException | None = None
+    ) -> None:
         if not verify_password(self.salt, password, self.hashed_password):
-            raise auth_exceptions.PasswordEmailNotMatchException() or exc
+            raise exc or auth_exceptions.PasswordEmailNotMatchException()
 
     def change_password(self, password: str) -> None:
         self.salt = generate_salt()

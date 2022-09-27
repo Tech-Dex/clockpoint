@@ -36,3 +36,17 @@ class NotFoundInviteTokenException(base_exceptions.NotFoundException):
 class InviteTokenNotAssociatedWithUserException(base_exceptions.ForbiddenException):
     def __init__(self):
         super().__init__(detail="Invite token is not associated with user")
+
+
+class NotFoundActivateAccountTokenException(base_exceptions.NotFoundException):
+    description = "Nothing matches the given activate account token."
+
+    def __init__(self):
+        super().__init__(detail="Activate account token is not found")
+
+
+class ActivateAccountTokenNotAssociatedWithUserException(
+    base_exceptions.ForbiddenException
+):
+    def __init__(self):
+        super().__init__(detail="Activate account token is not associated with user")

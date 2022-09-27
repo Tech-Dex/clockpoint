@@ -24,7 +24,7 @@ from app.exceptions import (
 from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
-from app.models.group import BaseGroup, DBGroup
+from app.models.group import DBGroup
 from app.models.group_user import DBGroupUser
 from app.models.permission import DBPermission
 from app.models.role import DBRole
@@ -387,7 +387,10 @@ async def join(
         if not redis_token:
             raise token_exceptions.NotFoundInviteTokenException()
 
-        if redis_token.invite_user_email and redis_token.invite_user_email != user_token.email:
+        if (
+            redis_token.invite_user_email
+            and redis_token.invite_user_email != user_token.email
+        ):
             raise token_exceptions.InviteTokenNotAssociatedWithUserException()
 
         decode_token(invite_token)

@@ -1,19 +1,22 @@
+from databases import Database
 from fastapi import APIRouter, Depends
+from starlette.status import HTTP_200_OK
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
-from databases import Database
-
 from app.core.jwt import create_token
-from app.exceptions import ( base as base_exceptions, user as user_exceptions, )
+from app.exceptions import base as base_exceptions, user as user_exceptions
 from app.models.enums.token_subject import TokenSubject
-from app.models.token import BaseToken
-from app.models.user import DBUser, BaseUser, UserToken, DBUserToken
-from app.schemas.v1.request import UserUpdateRequest
-from app.schemas.v1.response import BaseUserResponse, BaseUserSearchResponse, BaseUsersSearchResponse, GenericResponse
-from starlette.status import HTTP_200_OK
 from app.models.exception import CustomBaseException
-from app.services.dependencies import fetch_user_from_token, fetch_db_user_from_token
+from app.models.token import BaseToken
+from app.models.user import BaseUser, DBUser, DBUserToken, UserToken
+from app.schemas.v1.request import UserUpdateRequest
+from app.schemas.v1.response import (
+    BaseUserResponse,
+    BaseUserSearchResponse,
+    BaseUsersSearchResponse,
+)
+from app.services.dependencies import fetch_db_user_from_token
 
 router: APIRouter = APIRouter()
 
@@ -41,9 +44,9 @@ base_responses = {
     },
 )
 async def update(
-        user_update: UserUpdateRequest,
-        mysql_driver: Database = Depends(get_mysql_driver),
-        db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+    user_update: UserUpdateRequest,
+    mysql_driver: Database = Depends(get_mysql_driver),
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
 ) -> BaseUserResponse:
     if user_update.username:
         if DBUser.get_by(mysql_driver, "username", user_update.username):
@@ -53,11 +56,14 @@ async def update(
     db_user_token.second_name = user_update.second_name or db_user_token.second_name
     db_user_token.last_name = user_update.last_name or db_user_token.last_name
 
-    await DBUser(**db_user_token.dict()).update(mysql_driver)
+    delattr(db_user_token, "token")
+    await db_user_token.update(mysql_driver)
 
     token: str = await create_token(
         data=BaseToken(
-            **db_user_token.dict(), users_id=db_user_token.id, subject=TokenSubject.ACCESS
+            **db_user_token.dict(),
+            users_id=db_user_token.id,
+            subject=TokenSubject.ACCESS,
         ).dict(),
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
@@ -83,11 +89,20 @@ async def search(
 ) -> BaseUserSearchResponse:
     user: DBUser | None = None
     if isinstance(identifier, str):
-        user = await DBUser.get_by(mysql_driver, "username", identifier, bypass_exc=True)
+        user = await DBUser.get_by(
+            mysql_driver, "username", identifier, bypass_exc=True
+        )
         if not user:
-            user = await DBUser.get_by(mysql_driver, "email", identifier, exc=user_exceptions.UserNotFoundException())
+            user = await DBUser.get_by(
+                mysql_driver,
+                "email",
+                identifier,
+                exc=user_exceptions.UserNotFoundException(),
+            )
     elif isinstance(identifier, int):
-        user = await DBUser.get_by(mysql_driver, "id", identifier, exc=user_exceptions.UserNotFoundException())
+        user = await DBUser.get_by(
+            mysql_driver, "id", identifier, exc=user_exceptions.UserNotFoundException()
+        )
 
     if not user:
         raise base_exceptions.BadRequestException(detail="Invalid identifier")
@@ -109,12 +124,15 @@ async def filter_users(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUsersSearchResponse:
     users: list[DBUser]
-    users = await DBUser.like(mysql_driver, "username", f"%{identifier}%", bypass_exc=True)
+    users = await DBUser.like(
+        mysql_driver, "username", f"%{identifier}%", bypass_exc=True
+    )
     if not users:
-        users = await DBUser.like(mysql_driver, "email", f"%{identifier}%", bypass_exc=True)
+        users = await DBUser.like(
+            mysql_driver, "email", f"%{identifier}%", bypass_exc=True
+        )
 
     if not users:
         raise base_exceptions.BadRequestException(detail="Invalid identifier")
 
     return BaseUsersSearchResponse(users=[BaseUser(**user.dict()) for user in users])
-

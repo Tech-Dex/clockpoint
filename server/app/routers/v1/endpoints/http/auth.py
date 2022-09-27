@@ -26,9 +26,6 @@ from app.schemas.v1.request import (
 from app.schemas.v1.response import BaseUserResponse, GenericResponse
 from app.services.dependencies import fetch_db_user_from_token, fetch_user_from_token
 
-from phonenumbers import parse as parse_phone_number, PhoneNumberFormat, format_number
-from phonenumbers.phonenumberutil import NumberParseException
-
 router: APIRouter = APIRouter()
 
 base_responses = {

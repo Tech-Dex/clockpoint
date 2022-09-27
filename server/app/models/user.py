@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from phonenumbers import PhoneNumberFormat, format_number, parse as parse_phone_number
+from phonenumbers.phonenumberutil import NumberParseException
 from pydantic.networks import EmailStr
 
 from app.core.security import (
@@ -8,11 +10,13 @@ from app.core.security import (
     validate_password,
     verify_password,
 )
-from app.exceptions import auth as auth_exceptions, base as base_exceptions, user as user_exceptions
+from app.exceptions import (
+    auth as auth_exceptions,
+    base as base_exceptions,
+    user as user_exceptions,
+)
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from phonenumbers import parse as parse_phone_number, PhoneNumberFormat, format_number
-from phonenumbers.phonenumberutil import NumberParseException
 
 
 class BaseUser(ConfigModel):
@@ -47,8 +51,12 @@ class DBUser(DBCoreModel, BaseUser):
 
     def parse_phone_number(self, phone_number_country_name: str | None):
         try:
-            parsed_phone_number = parse_phone_number(self.phone_number, phone_number_country_name)
-            self.phone_number = format_number(parsed_phone_number, PhoneNumberFormat.E164)
+            parsed_phone_number = parse_phone_number(
+                self.phone_number, phone_number_country_name
+            )
+            self.phone_number = format_number(
+                parsed_phone_number, PhoneNumberFormat.E164
+            )
         except NumberParseException:
             raise user_exceptions.PhoneNumberFormatException()
 

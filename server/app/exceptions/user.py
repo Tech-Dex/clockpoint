@@ -15,4 +15,6 @@ class DuplicateUsernameException(base_exceptions.DuplicateResourceException):
 
 class PhoneNumberFormatException(base_exceptions.BadRequestException):
     def __init__(self):
-        super().__init__(detail="Phone number must be valid. Example: +1 123 456 7890 or send a country name")
+        super().__init__(
+            detail="Phone number must be valid. Example: +1 123 456 7890 or send a country name"
+        )

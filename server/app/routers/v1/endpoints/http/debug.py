@@ -204,3 +204,18 @@ async def test_exceptions(
 
 # - entires -> group_entires: id_entry, id_group
 # entires: id, user_id, dateteme, type[in,out]
+
+"""
+clock_entries= {
+    id: 1,
+    datetime: 2020-01-01 00:00:00,
+    type: in,
+}
+
+clock_group_entries = {
+    id: 1,
+    clock_entry_id: 1,
+    groups_id: 1,
+    users_id: 1,
+}
+"""

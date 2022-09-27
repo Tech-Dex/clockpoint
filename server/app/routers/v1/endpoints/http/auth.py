@@ -20,10 +20,14 @@ from app.models.user import DBUser, DBUserToken, UserToken
 from app.schemas.v1.request import (
     UserChangePasswordRequest,
     UserLoginRequest,
-    UserRegisterRequest, UserResetPasswordRequest,
+    UserRegisterRequest,
+    UserResetPasswordRequest,
 )
 from app.schemas.v1.response import BaseUserResponse, GenericResponse
 from app.services.dependencies import fetch_db_user_from_token, fetch_user_from_token
+
+from phonenumbers import parse as parse_phone_number, PhoneNumberFormat, format_number
+from phonenumbers.phonenumberutil import NumberParseException
 
 router: APIRouter = APIRouter()
 
@@ -118,8 +122,9 @@ async def register(
     """
     Register a new user.
     """
-
+    print(user_register.phone_number)
     user: DBUser = DBUser(**user_register.dict())
+    user.parse_phone_number(user_register.phone_number_country_name)
     user.change_password(user_register.password)
     await user.save(
         mysql_driver, exc=auth_exceptions.DuplicateEmailOrUsernameException()
@@ -328,7 +333,7 @@ async def forgot(
 async def reset(
     reset_password_token: str,
     user_reset_password: UserResetPasswordRequest,
-    mysql_driver: Database = Depends(get_mysql_driver)
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUserResponse:
     if user_reset_password.password != user_reset_password.confirm_password:
         raise auth_exceptions.ChangePasswordException()

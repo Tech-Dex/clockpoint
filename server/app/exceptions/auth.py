@@ -23,4 +23,6 @@ class ChangePasswordException(base_exceptions.BadRequestException):
 
 class UnsecurePasswordException(base_exceptions.BadRequestException):
     def __init__(self, warnings: list[str]):
-        super().__init__(detail=f"The following security validations failed: [{', '.join(warnings)}]")
+        super().__init__(
+            detail=f"The following security validations failed: [{', '.join(warnings)}]"
+        )

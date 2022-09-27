@@ -182,7 +182,6 @@ async def test_exceptions(
     return r
 
 
-
 # TODO: brainstorming user preferences
 # no push notification
 # no friend requests

@@ -55,6 +55,9 @@ async def update(
     db_user_token.first_name = user_update.first_name or db_user_token.first_name
     db_user_token.second_name = user_update.second_name or db_user_token.second_name
     db_user_token.last_name = user_update.last_name or db_user_token.last_name
+    db_user_token.phone_number = user_update.phone_number or db_user_token.phone_number
+
+    await db_user_token.parse_phone_number(user_update.phone_number_country_name)
 
     delattr(db_user_token, "token")
     await db_user_token.update(mysql_driver)

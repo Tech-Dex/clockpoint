@@ -15,6 +15,8 @@ class UserRegisterRequest(UserLoginRequest):
     second_name: str | None = None
     last_name: str
     username: str
+    phone_number: str | None = None
+    phone_number_country_name: str | None = None
 
 
 class UserUpdateRequest(ConfigModel):
@@ -22,6 +24,8 @@ class UserUpdateRequest(ConfigModel):
     second_name: str | None = None
     last_name: str | None = None
     username: str | None = None
+    phone_number: str | None = None
+    phone_number_country_name: str | None = None
 
 
 class UserResetPasswordRequest(ConfigModel):

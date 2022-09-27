@@ -15,6 +15,7 @@ def hash_password(salt: str, password: str) -> str:
 def verify_password(salt: str, password: str, hashed_password: str) -> bool:
     return crypt_context.verify(salt + password, hashed_password)
 
+
 def validate_password(password: str) -> list[str]:
     validations = {
         "has_min_length_8": lambda string: len(string) >= 8,

@@ -182,10 +182,6 @@ async def test_exceptions(
     return r
 
 
-# TODO: auth
-# - I need email template
-# - forgot password
-# - reset password
 
 # TODO: brainstorming user preferences
 # no push notification

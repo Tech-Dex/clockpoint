@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pydantic.networks import EmailStr
 
-from app.core.security import generate_salt, hash_password, verify_password
+from app.core.security import generate_salt, hash_password, verify_password, validate_password
 from app.exceptions import auth as auth_exceptions, base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
@@ -31,6 +31,9 @@ class DBUser(DBCoreModel, BaseUser):
             raise exc or auth_exceptions.PasswordEmailNotMatchException()
 
     def change_password(self, password: str) -> None:
+        if warnings := validate_password(password):
+            raise auth_exceptions.UnsecurePasswordException(warnings=warnings)
+
         self.salt = generate_salt()
         self.hashed_password = hash_password(self.salt, password)
 

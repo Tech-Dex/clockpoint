@@ -19,3 +19,8 @@ class PasswordNotMatchException(base_exceptions.UnauthorizedException):
 class ChangePasswordException(base_exceptions.BadRequestException):
     def __init__(self):
         super().__init__(detail="Password and confirm password must be the same")
+
+
+class UnsecurePasswordException(base_exceptions.BadRequestException):
+    def __init__(self, warnings: list[str]):
+        super().__init__(detail=f"The following security validations failed: [{', '.join(warnings)}]")

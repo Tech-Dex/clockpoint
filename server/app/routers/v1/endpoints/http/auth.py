@@ -264,6 +264,7 @@ async def activate(
         delattr(db_user_token, "token")
         await db_user_token.update(mysql_driver)
 
+        await RedisToken.delete(redis_token.pk)
         token: str = await create_token(
             data=BaseToken(
                 **db_user_token.dict(),
@@ -357,6 +358,8 @@ async def reset(
 
         user.change_password(user_reset_password.password)
         await user.update(mysql_driver)
+
+        await RedisToken.delete(redis_token.pk)
 
         token: str = await create_token(
             data=BaseToken(

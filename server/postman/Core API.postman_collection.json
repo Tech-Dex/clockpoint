@@ -30,7 +30,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"defaultPassword1!\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"secondName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"username\": \"{{$randomUserName}}\"\n}",
+							"raw": "{\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"defaultPassword!\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"secondName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"username\": \"{{$randomUserName}}\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -71,7 +71,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"Charlie1@yahoo.com\",\n    \"password\": \"defaultPassword1!\"\n}",
+							"raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"Password2\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -129,6 +129,262 @@
 							"path": [
 								"{{path_auth}}",
 								"refresh"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Password",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"defaultPassword2!\",\n    \"new_password\": \"defaultPassword1!\",\n    \"confirm_new_password\" : \"defaultPassword1!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activate",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/activate?activate_account_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6IjExIiwic3ViamVjdCI6IkFDVElWQVRFX0FDQ09VTlQiLCJleHBpcmUiOiIyMDIyLTA5LTMwVDE3OjE4OjQwLjY1MjE3NyJ9.3Vr5p-hcrO_VLtl1JYFT-G7O-tIDIPGeB9EQhw138_g\n\n\n",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"activate"
+							],
+							"query": [
+								{
+									"key": "activate_account_token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6IjExIiwic3ViamVjdCI6IkFDVElWQVRFX0FDQ09VTlQiLCJleHBpcmUiOiIyMDIyLTA5LTMwVDE3OjE4OjQwLjY1MjE3NyJ9.3Vr5p-hcrO_VLtl1JYFT-G7O-tIDIPGeB9EQhw138_g\n\n\n"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/forgot?email=Bobbie54@gmail.com",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"forgot"
+							],
+							"query": [
+								{
+									"key": "email",
+									"value": "Bobbie54@gmail.com"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"Password1!\",\n    \"confirm_password\": \"Password1!\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_auth}}/reset?reset_password_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6MTEsInN1YmplY3QiOiJGT1JHT1RfUEFTU1dPUkQiLCJleHBpcmUiOiIyMDIyLTA5LTI4VDE3OjQ3OjM4LjQ1MDg5NCJ9.rBMR7rMB0npqbZi_JNUK7MWPPlud_qiR6eb1Nr0h4vY\n\n\n",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_auth}}",
+								"reset"
+							],
+							"query": [
+								{
+									"key": "reset_password_token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6MTEsInN1YmplY3QiOiJGT1JHT1RfUEFTU1dPUkQiLCJleHBpcmUiOiIyMDIyLTA5LTI4VDE3OjQ3OjM4LjQ1MDg5NCJ9.rBMR7rMB0npqbZi_JNUK7MWPPlud_qiR6eb1Nr0h4vY\n\n\n"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "Search",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_user}}/search/Cale48@gmail.cm/",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_user}}",
+								"search",
+								"Cale48@gmail.cm",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Filter",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_user}}/filter/com/",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_user}}",
+								"filter",
+								"com",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Dexter2\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_user}}/",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_user}}",
+								""
 							]
 						}
 					},
@@ -194,7 +450,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"groupId\": 1,\n    \"emails\": [\n        \"sample@domain.com\"\n    ]\n}",
+							"raw": "{\n    \"groupId\": 3,\n    \"emails\": [\n        \"Cale48@gmail.com\",\n        \"test@outside.com\"\n    ]\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -202,13 +458,13 @@
 							}
 						},
 						"url": {
-							"raw": "{{domain}}:{{port}}/{{path_auth}}/invite",
+							"raw": "{{domain}}:{{port}}/{{path_group}}/invite",
 							"host": [
 								"{{domain}}"
 							],
 							"port": "{{port}}",
 							"path": [
-								"{{path_auth}}",
+								"{{path_group}}",
 								"invite"
 							]
 						}
@@ -231,7 +487,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{domain}}:{{port}}/{{path_group}}/join?invite_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0LCJzdWJqZWN0IjoiR1JPVVBfSU5WSVRFIiwiaW52aXRlX3VzZXJfZW1haWwiOiJKYWJhcmlfRW1hcmQ2MUB5YWhvby5jb20iLCJncm91cF9pZCI6MywiZXhwaXJlIjoiMjAyMi0wNy0yMlQxNzoyNToyNC42MDgzMDEifQ.iFIPWVG2H9Q1JV2HRAhj5A4snxmASgCiMGwwEdCRv0c",
+							"raw": "{{domain}}:{{port}}/{{path_group}}/join?invite_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6NCwic3ViamVjdCI6IkdST1VQX0lOVklURSIsImludml0ZV91c2VyX2VtYWlsIjoiQ2FsZTQ4QGdtYWlsLmNvbSIsImdyb3Vwc19pZCI6MywiZXhwaXJlIjoiMjAyMi0wOS0yNVQxNzoxNjozOC4zMDAyMDcifQ.iaw4yzLl7PPFkiYeD9QzMBF6JYni2mWZPjxqG1IlCuI",
 							"host": [
 								"{{domain}}"
 							],
@@ -243,8 +499,39 @@
 							"query": [
 								{
 									"key": "invite_token",
-									"value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjo0LCJzdWJqZWN0IjoiR1JPVVBfSU5WSVRFIiwiaW52aXRlX3VzZXJfZW1haWwiOiJKYWJhcmlfRW1hcmQ2MUB5YWhvby5jb20iLCJncm91cF9pZCI6MywiZXhwaXJlIjoiMjAyMi0wNy0yMlQxNzoyNToyNC42MDgzMDEifQ.iFIPWVG2H9Q1JV2HRAhj5A4snxmASgCiMGwwEdCRv0c"
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6NCwic3ViamVjdCI6IkdST1VQX0lOVklURSIsImludml0ZV91c2VyX2VtYWlsIjoiQ2FsZTQ4QGdtYWlsLmNvbSIsImdyb3Vwc19pZCI6MywiZXhwaXJlIjoiMjAyMi0wOS0yNVQxNzoxNjozOC4zMDAyMDcifQ.iaw4yzLl7PPFkiYeD9QzMBF6JYni2mWZPjxqG1IlCuI"
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "QR Direct Invite",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_group}}/3/qr/invite",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_group}}",
+								"3",
+								"qr",
+								"invite"
 							]
 						}
 					},
@@ -267,7 +554,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"groupId\": \"1\",\n    \"username\": \"Miles.Jast\",\n    \"roleName\": \"admin\"\n}",
+							"raw": "{\n    \"groupId\": \"3\",\n    \"username\": \"Bethel_Dickens\",\n    \"roleName\": \"admin\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -340,7 +627,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{domain}}:{{port}}/{{path_group}}?group_id=1",
+							"raw": "{{domain}}:{{port}}/{{path_group}}?group_id=3",
 							"host": [
 								"{{domain}}"
 							],
@@ -351,7 +638,7 @@
 							"query": [
 								{
 									"key": "group_id",
-									"value": "1"
+									"value": "3"
 								}
 							]
 						}
@@ -403,7 +690,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{domain}}:{{port}}/{{path_group}}/roles?group_id=1",
+							"raw": "{{domain}}:{{port}}/{{path_group}}/roles?group_id=3",
 							"host": [
 								"{{domain}}"
 							],
@@ -415,7 +702,7 @@
 							"query": [
 								{
 									"key": "group_id",
-									"value": "1"
+									"value": "3"
 								}
 							]
 						}
@@ -489,6 +776,11 @@
 		{
 			"key": "path_group",
 			"value": "api/v1/group",
+			"type": "string"
+		},
+		{
+			"key": "path_user",
+			"value": "api/v1/user",
 			"type": "string"
 		},
 		{

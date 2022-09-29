@@ -592,7 +592,7 @@ async def qr_code_invite(
             groups_id=group_id,
             subject=TokenSubject.QR_CODE_GROUP_INVITE,
         ).dict(),
-        expire=settings.QR_CODE_INVITE_TOKEN_EXPIRE_MINUTES,
+        expire=settings.QR_CODE_GROUP_INVITE_TOKEN_EXPIRE_MINUTES,
     )
 
     return QRCodeInviteGroupResponse(

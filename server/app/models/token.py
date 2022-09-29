@@ -7,6 +7,7 @@ from aredis_om import Field, HashModel, get_redis_connection
 from app.core.config import settings
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
+from app.models.enums.clock_entry_type import ClockEntryType
 
 
 class BaseToken(ConfigModel):
@@ -28,6 +29,7 @@ class RedisToken(HashModel, ConfigModel):
     token: str = Field(index=True)
     groups_id: int | None = Field(index=True, default=0)
     invite_user_email: str | None = Field(index=True, default=None)
+    type: str | None = Field(index=True, default=None)
 
     class Meta:
         global_key_prefix = "clockpoint"
@@ -43,3 +45,8 @@ class InviteGroupToken(BaseToken):
 
 class QRCodeInviteGroupToken(BaseToken):
     groups_id: int
+
+
+class QRCodeClockEntryToken(BaseToken):
+    groups_id: int
+    type: ClockEntryType

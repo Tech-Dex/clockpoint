@@ -30,6 +30,9 @@ def upgrade():
         sa.Column(
             "type", sa.Enum("in", "out", name="clock_entry_type"), nullable=False
         ),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+        sa.Column("updated_at", sa.DateTime, nullable=False),
+        sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
 

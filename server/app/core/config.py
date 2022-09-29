@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     FORGOT_PASSWORD_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1  # 1 day
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 2  # 2 days
-    QR_CODE_INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 10  # 10 minutes
+    QR_CODE_GROUP_INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 10  # 10 minutes
+    QR_CODE_CLOCK_ENTRY_TOKEN_EXPIRE_MINUTES: int = 60 * 5  # 5 minutes
     MYSQL_HOST: str
     MYSQL_PORT: int
     MYSQL_USER: str

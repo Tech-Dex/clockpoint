@@ -130,3 +130,8 @@ class RolePermissionsResponse(ConfigModel):
 
 class RolesPermissionsResponse(ConfigModel):
     roles_permissions: list[RolePermissionsResponse]
+
+
+class QRCodeClockEntryResponse(ConfigModel):
+    token: str
+    group: BaseGroupIdWrapper

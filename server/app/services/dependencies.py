@@ -6,6 +6,7 @@ from fastapi import Depends, Header
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import decode_token
 from app.exceptions import (
+    base as base_exceptions,
     group as group_exceptions,
     group_user as group_user_exceptions,
     permission as permission_exceptions,
@@ -128,17 +129,22 @@ async def fetch_user_in_group_from_token(
 
 
 async def is_permission_granted(
-    mysql_driver: Database, user_in_group: UserInGroupWrapper, permission: str
+    mysql_driver: Database,
+    user_in_group: UserInGroupWrapper,
+    required_permission: str,
+    exc: base_exceptions.CustomBaseException | None = None,
 ) -> dict[str, list[dict[str, any]] | any]:
     role_permissions = await DBRolePermission.get_role_permissions(
         mysql_driver, user_in_group.group_user.roles_id
     )
 
-    if permission not in [
+    if required_permission not in [
         permission["permission"]["permission"]
         for permission in role_permissions["permissions"]
     ]:
-        raise permission_exceptions.NotAllowedToInviteUsersInGroupException()
+        raise exc or permission_exceptions.PermissionException(
+            permission=required_permission
+        )
 
     return role_permissions
 
@@ -149,7 +155,12 @@ async def fetch_user_invite_permission_from_token_br_invite(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
-    await is_permission_granted(mysql_driver, user_in_group, "invite_user")
+    await is_permission_granted(
+        mysql_driver,
+        user_in_group,
+        "invite_user",
+        exc=permission_exceptions.NotAllowedToInviteUsersInGroupException(),
+    )
     return user_in_group
 
 
@@ -157,7 +168,23 @@ async def fetch_user_invite_permission_from_token_qp_id(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> UserInGroupWrapper:
-    await is_permission_granted(mysql_driver, user_in_group, "invite_user")
+    await is_permission_granted(
+        mysql_driver,
+        user_in_group,
+        "invite_user",
+        exc=permission_exceptions.NotAllowedToInviteUsersInGroupException(),
+    )
+    return user_in_group
+
+
+async def fetch_user_generate_report_permission_from_token_qp_id(
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> UserInGroupWrapper:
+    """
+    A user that is able to generate a report is also able to generate qr codes entries for the group
+    """
+    await is_permission_granted(mysql_driver, user_in_group, "generate_report")
     return user_in_group
 
 

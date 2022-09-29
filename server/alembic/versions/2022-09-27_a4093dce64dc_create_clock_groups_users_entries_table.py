@@ -28,6 +28,9 @@ def upgrade():
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("groups_users_id", sa.Integer, nullable=False),
         sa.Column("clock_entries_id", sa.Integer, nullable=False),
+        sa.Column("created_at", sa.DateTime, nullable=False),
+        sa.Column("updated_at", sa.DateTime, nullable=False),
+        sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
     op.create_foreign_key(

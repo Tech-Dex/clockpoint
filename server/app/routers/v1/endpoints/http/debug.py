@@ -199,7 +199,8 @@ async def test_exceptions(
 # - get report by identifier ( json + csv,excel)
 # - get group reports ( json + csv,excel)
 # - get user reports ( json + csv,excel)
-# - log user into report ( clock in and clock out )
+# - let the admin end a day session and clock OUT everyone that has an IN
+
 # - filter by date
 
 # - entires -> group_entires: id_entry, id_group

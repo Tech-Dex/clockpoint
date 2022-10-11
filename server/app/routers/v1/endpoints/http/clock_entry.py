@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Mapping
@@ -103,7 +102,7 @@ async def start_clock_session(
     response_model=ClockEntriesReportResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
-    name="Save clock entry",
+    name="Get user entries in group report",
     responses={
         **base_responses,
         404: {
@@ -123,6 +122,57 @@ async def report(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> ClockEntriesReportResponse:
     filters = {"users_id": [user_in_group.user_token.id]}
+    if start:
+        filters.update({"start": start})
+    if end:
+        filters.update({"end": end})
+
+    clock_entries: list[Mapping] = await DBClockGroupUserEntry.filter(
+        mysql_driver,
+        user_in_group.group.id,
+        filters,
+        exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+    )
+
+    return ClockEntriesReportResponse(
+        group=BaseGroupIdWrapper(**user_in_group.group.dict()),
+        clock_entries=[
+            ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
+            for clock_entry in clock_entries
+        ],
+    )
+
+
+@router.get(
+    "/{group_id}/all",
+    response_model=ClockEntriesReportResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Get all entries in group report",
+    responses={
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def report_all(
+    user: list[int] | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> ClockEntriesReportResponse:
+    filters = {}
+    if user:
+        filters.update({"users_id": user})
     if start:
         filters.update({"start": start})
     if end:

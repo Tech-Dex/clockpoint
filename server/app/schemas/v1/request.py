@@ -59,3 +59,7 @@ class GroupAssignRoleRequest(ConfigModel):
     group_id: int
     username: str
     role_name: str
+
+
+class StartClockSessionRequest(ConfigModel):
+    duration: int  # in minutes

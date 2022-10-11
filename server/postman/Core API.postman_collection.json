@@ -30,7 +30,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"defaultPassword!\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"secondName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"username\": \"{{$randomUserName}}\"\n}",
+							"raw": "{\n    \"email\": \"{{$randomEmail}}\",\n    \"password\": \"defaultPassword!\",\n    \"firstName\": \"{{$randomFirstName}}\",\n    \"secondName\": \"{{$randomFirstName}}\",\n    \"lastName\": \"{{$randomLastName}}\",\n    \"username\": \"{{$randomUserName}}\",\n    \"phoneNumber\": \"{{$randomPhoneNumberExt}}\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -71,7 +71,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"Password2\"\n}",
+							"raw": "{\n    \"email\": \"{{email}}\",\n    \"password\": \"defaultPassword1!\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -745,6 +745,151 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Clock Entry",
+			"item": [
+				{
+					"name": "Group Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_clock_entry}}/2",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_clock_entry}}",
+								"2"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Start Session",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"duration\": 120\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_clock_entry}}/2",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_clock_entry}}",
+								"2"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Generate QR Code",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_clock_entry}}/1/entry/qr?entry_type=in",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_clock_entry}}",
+								"1",
+								"entry",
+								"qr"
+							],
+							"query": [
+								{
+									"key": "entry_type",
+									"value": "in"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Clock Entry",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{domain}}:{{port}}/{{path_clock_entry}}/1/entry?clock_entry_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6Miwic3ViamVjdCI6IlFSX0NPREVfRU5UUlkiLCJncm91cHNfaWQiOjEsInR5cGUiOiJpbiIsImV4cGlyZSI6IjIwMjItMDktMjlUMjI6MjU6MjcuMzc5MzQ3In0.umPnOD8fZH72OVpxrXroXBdiAtiXPvOr8Cs3AxCD9Ks",
+							"host": [
+								"{{domain}}"
+							],
+							"port": "{{port}}",
+							"path": [
+								"{{path_clock_entry}}",
+								"1",
+								"entry"
+							],
+							"query": [
+								{
+									"key": "clock_entry_token",
+									"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2Vyc19pZCI6Miwic3ViamVjdCI6IlFSX0NPREVfRU5UUlkiLCJncm91cHNfaWQiOjEsInR5cGUiOiJpbiIsImV4cGlyZSI6IjIwMjItMDktMjlUMjI6MjU6MjcuMzc5MzQ3In0.umPnOD8fZH72OVpxrXroXBdiAtiXPvOr8Cs3AxCD9Ks"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [
@@ -776,6 +921,11 @@
 		{
 			"key": "path_group",
 			"value": "api/v1/group",
+			"type": "string"
+		},
+		{
+			"key": "path_clock_entry",
+			"value": "api/v1/entry",
 			"type": "string"
 		},
 		{

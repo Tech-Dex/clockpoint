@@ -12,6 +12,9 @@ from pypika import Field, MySQLQuery, Parameter, Table
 
 from app.exceptions import base as base_exceptions
 
+# TODO:
+# Create a batch_insert method
+
 
 class DBCoreModel(BaseModel):
     id: int | None = None

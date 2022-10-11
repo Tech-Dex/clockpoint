@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic.networks import EmailStr
 
 from app.models.config_model import ConfigModel
 from app.models.group import BaseGroup
 from app.models.permission import BasePermission, BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
-from app.models.user import BaseUser
+from app.models.user import BaseUser, UserId
 
 
 class GenericResponse(ConfigModel):
@@ -135,3 +137,14 @@ class RolesPermissionsResponse(ConfigModel):
 class QRCodeClockEntryResponse(ConfigModel):
     token: str
     group: BaseGroupIdWrapper
+
+
+class ClockEntryWrapper(ConfigModel):
+    user: UserId
+    datetime: datetime
+    type: str
+
+
+class ClockEntriesReportResponse(ConfigModel):
+    group: BaseGroupIdWrapper
+    clock_entries: list[ClockEntryWrapper]

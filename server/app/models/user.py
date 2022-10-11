@@ -61,8 +61,11 @@ class DBUser(DBCoreModel, BaseUser):
             raise user_exceptions.PhoneNumberFormatException()
 
 
-class UserToken(BaseUser):
+class UserId(BaseUser):
     id: int
+
+
+class UserToken(UserId):
     token: str | None = None
 
 

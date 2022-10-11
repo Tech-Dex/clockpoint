@@ -28,7 +28,9 @@ def upgrade():
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("datetime", sa.DateTime, nullable=False),
         sa.Column(
-            "type", sa.Enum("in", "out", name="clock_entry_type"), nullable=False
+            "type",
+            sa.Enum("start", "stop", "in", "out", name="clock_entry_type"),
+            nullable=False,
         ),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),

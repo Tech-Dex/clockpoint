@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic.networks import EmailStr
 
 from app.models.config_model import ConfigModel
@@ -139,7 +141,7 @@ class QRCodeClockEntryResponse(ConfigModel):
 
 class ClockEntryWrapper(ConfigModel):
     user: UserId
-    datetime: datetime
+    entry_datetime: datetime
     type: str
 
 

@@ -43,7 +43,7 @@ class DBClockGroupUserEntry(DBCoreModel, BaseClockGroupUserEntry):
                 users.last_name,
                 users.is_active,
                 clock_entries.type,
-                clock_entries.datetime,
+                clock_entries.datetime.as_("entry_datetime"),
             )
             .join(clock_entries)
             .on(clock_groups_users_entries.clock_entries_id == clock_entries.id)

@@ -220,3 +220,5 @@ clock_group_entries = {
     users_id: 1,
 }
 """
+# TODO: cron -> remove inactive account older than 8 days
+# TODO: refactorize naming

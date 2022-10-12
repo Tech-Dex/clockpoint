@@ -23,12 +23,15 @@ from app.models.clock_group_user_entry import DBClockGroupUserEntry
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
+from app.models.group import DBGroup
+from app.models.group_user import DBGroupUser
 from app.models.token import QRCodeClockEntryToken, RedisToken
 from app.models.user import UserId
 from app.schemas.v1.request import StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     ClockEntriesReportResponse,
+    ClockEntriesSmartReportResponse,
     ClockEntryWrapper,
     GenericResponse,
     QRCodeClockEntryResponse,
@@ -97,9 +100,14 @@ async def start_clock_session(
         return GenericResponse(message="Clock session started")
 
 
+# TODO: Create chunked report endpoint
+# Response like this: start, in, out, stop (if out exists), out = out
+# Reponse like this: start, in, out, stop ( if out doesn't exists) out=stop
+
+
 @router.get(
     "/{group_id}",
-    response_model=ClockEntriesReportResponse,
+    # response_model=ClockEntriesReportResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get user entries in group report",
@@ -120,7 +128,8 @@ async def report(
     end: datetime | None = None,
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> ClockEntriesReportResponse:
+) -> any:
+    #TODO: Fetch session start and stop times
     filters = {"users_id": [user_in_group.user_token.id]}
     if start:
         filters.update({"start": start})
@@ -134,18 +143,25 @@ async def report(
         exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
     )
 
-    return ClockEntriesReportResponse(
+    entries_report: ClockEntriesReportResponse =  ClockEntriesReportResponse(
         group=BaseGroupIdWrapper(**user_in_group.group.dict()),
         clock_entries=[
             ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
             for clock_entry in clock_entries
         ],
     )
+    return entries_report
+    # if (
+    #     entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
+    #     or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
+    # ):
+    #     raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
+    # return ClockEntriesSmartReportResponse.prepare_response(entries_report)
 
 
 @router.get(
     "/{group_id}/all",
-    response_model=ClockEntriesReportResponse,
+    response_model=ClockEntriesSmartReportResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get all entries in group report",
@@ -169,7 +185,7 @@ async def report_all(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> ClockEntriesReportResponse:
+) -> ClockEntriesSmartReportResponse:
     filters = {}
     if user:
         filters.update({"users_id": user})
@@ -184,14 +200,19 @@ async def report_all(
         filters,
         exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
     )
-
-    return ClockEntriesReportResponse(
+    entries_report: ClockEntriesReportResponse = ClockEntriesReportResponse(
         group=BaseGroupIdWrapper(**user_in_group.group.dict()),
         clock_entries=[
             ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
             for clock_entry in clock_entries
         ],
     )
+    if (
+        entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
+        or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
+    ):
+        raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
+    return ClockEntriesSmartReportResponse.prepare_response(entries_report)
 
 
 @router.post(

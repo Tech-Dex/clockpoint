@@ -1,7 +1,7 @@
 from typing import Mapping
 
 from databases import Database
-from pypika import MySQLQuery, Parameter, Table
+from pypika import MySQLQuery, Order, Parameter, Table
 
 from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
@@ -26,7 +26,6 @@ class DBClockGroupUserEntry(DBCoreModel, BaseClockGroupUserEntry):
         bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> list[Mapping]:
-        print(groups_id)
         clock_groups_users_entries: Table = Table(cls.Meta.table_name)
         clock_entries: Table = Table("clock_entries")
         groups_users: Table = Table("groups_users")
@@ -52,6 +51,8 @@ class DBClockGroupUserEntry(DBCoreModel, BaseClockGroupUserEntry):
             .join(users)
             .on(groups_users.users_id == users.id)
             .where(groups_users.groups_id == Parameter(":groups_id"))
+            .orderby(clock_entries.datetime, order=Order.asc)
+            .orderby(users.id, order=Order.asc)
         )
 
         values = {"groups_id": groups_id}

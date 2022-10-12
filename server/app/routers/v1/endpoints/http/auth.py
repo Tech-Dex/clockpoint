@@ -119,7 +119,6 @@ async def register(
     """
     Register a new user.
     """
-    print(user_register.phone_number)
     user: DBUser = DBUser(**user_register.dict())
     user.parse_phone_number(user_register.phone_number_country_name)
     user.change_password(user_register.password)

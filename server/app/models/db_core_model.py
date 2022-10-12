@@ -176,7 +176,6 @@ class DBCoreModel(BaseModel):
                         return None
                     raise exc or base_exceptions.DuplicateResourceException(detail=msg)
             except MySQLError as mySQLError:
-                print("here")
                 raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
     async def update(

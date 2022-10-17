@@ -34,7 +34,7 @@ from app.schemas.v1.response import (
     ClockEntriesSmartReportResponse,
     ClockEntryWrapper,
     GenericResponse,
-    QRCodeClockEntryResponse,
+    QRCodeClockEntryResponse, ClockEntriesSmartReportsResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
 from app.services.dependencies import (
@@ -129,7 +129,6 @@ async def report(
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> any:
-    #TODO: Fetch session start and stop times
     filters = {"users_id": [user_in_group.user_token.id]}
     if start:
         filters.update({"start": start})
@@ -143,7 +142,7 @@ async def report(
         exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
     )
 
-    entries_report: ClockEntriesReportResponse =  ClockEntriesReportResponse(
+    entries_report: ClockEntriesReportResponse = ClockEntriesReportResponse(
         group=BaseGroupIdWrapper(**user_in_group.group.dict()),
         clock_entries=[
             ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
@@ -151,17 +150,18 @@ async def report(
         ],
     )
     return entries_report
-    # if (
-    #     entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
-    #     or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
-    # ):
-    #     raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
-    # return ClockEntriesSmartReportResponse.prepare_response(entries_report)
+    if (
+        entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
+        or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
+    ):
+        raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
+
+    return ClockEntriesSmartReportsResponse.prepare_response(entries_report)
 
 
 @router.get(
     "/{group_id}/all",
-    response_model=ClockEntriesSmartReportResponse,
+    # response_model=ClockEntriesSmartReportsResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get all entries in group report",
@@ -185,7 +185,7 @@ async def report_all(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> ClockEntriesSmartReportResponse:
+) -> any:
     filters = {}
     if user:
         filters.update({"users_id": user})
@@ -212,7 +212,8 @@ async def report_all(
         or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
     ):
         raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
-    return ClockEntriesSmartReportResponse.prepare_response(entries_report)
+
+    return ClockEntriesSmartReportsResponse.prepare_response(entries_report)
 
 
 @router.post(

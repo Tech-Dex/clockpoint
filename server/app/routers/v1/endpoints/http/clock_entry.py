@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import Mapping
 
-import aredis_om.model.model
+import aredis_om
 from databases import Database
 from fastapi import APIRouter, Depends
 
@@ -12,29 +11,26 @@ from app.core.jwt import create_token, decode_token
 from app.exceptions import (
     base as base_exceptions,
     clock_entry as clock_entry_exceptions,
-    clock_group_user_entry as clock_group_user_entry_exceptions,
+    clock_session as clock_session_exceptions,
     group as group_exceptions,
     group_user as group_user_exceptions,
     permission as permission_exceptions,
     token as token_exceptions,
 )
 from app.models.clock_entry import DBClockEntry
-from app.models.clock_group_user_entry import DBClockGroupUserEntry
+from app.models.clock_group_user_entry import DBClockGroupUserSessionEntry
+from app.models.clock_session import DBClockSession
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
-from app.models.group import DBGroup
-from app.models.group_user import DBGroupUser
 from app.models.token import QRCodeClockEntryToken, RedisToken
-from app.models.user import UserId
+from app.models.user import BaseUser
 from app.schemas.v1.request import StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
-    ClockEntriesReportResponse,
-    ClockEntriesSmartReportResponse,
-    ClockEntryWrapper,
     GenericResponse,
-    QRCodeClockEntryResponse, ClockEntriesSmartReportsResponse,
+    QRCodeClockEntryResponse,
+    StartClockSessionResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
 from app.services.dependencies import (
@@ -53,10 +49,10 @@ router: APIRouter = APIRouter()
 
 @router.post(
     "/{group_id}",
-    response_model=GenericResponse,
+    response_model=StartClockSessionResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
-    name="Start a clock session",
+    name="Start a session",
     responses={
         **base_responses,
         404: {
@@ -69,159 +65,38 @@ router: APIRouter = APIRouter()
         },
     },
 )
-async def start_clock_session(
+async def start_session(
     clock_session: StartClockSessionRequest,
     user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> GenericResponse:
+) -> StartClockSessionResponse:
     async with mysql_driver.transaction():
-        # TODO: Afer you'll create the generic batch insert edit here.
-
-        db_clock_entry_start: DBClockEntry = await DBClockEntry(
-            datetime=datetime.utcnow(),
-            type=ClockEntryType.entry_start.value,
+        start_at = datetime.utcnow()
+        stop_at = start_at + timedelta(minutes=clock_session.duration)
+        db_clock_session: DBClockSession = await DBClockSession(
+            users_id=user_in_group.user_token.id,
+            start_at=start_at,
+            stop_at=stop_at,
         ).save(mysql_driver)
 
-        db_clock_entry_stop: DBClockEntry = await DBClockEntry(
-            datetime=datetime.utcnow() + timedelta(minutes=clock_session.duration),
-            type=ClockEntryType.entry_stop.value,
+        await DBClockGroupUserSessionEntry(
+            clock_sessions_id=db_clock_session.id,
+            groups_users_id=user_in_group.group_user.id,
         ).save(mysql_driver)
 
-        await DBClockGroupUserEntry(
-            clock_entries_id=db_clock_entry_start.id,
-            groups_users_id=user_in_group.group_user.id,
-        ).save(mysql_driver),
-
-        await DBClockGroupUserEntry(
-            clock_entries_id=db_clock_entry_stop.id,
-            groups_users_id=user_in_group.group_user.id,
-        ).save(mysql_driver),
-
-        return GenericResponse(message="Clock session started")
-
-
-# TODO: Create chunked report endpoint
-# Response like this: start, in, out, stop (if out exists), out = out
-# Reponse like this: start, in, out, stop ( if out doesn't exists) out=stop
-
-
-@router.get(
-    "/{group_id}",
-    # response_model=ClockEntriesReportResponse,
-    response_model_exclude_unset=True,
-    status_code=HTTPStatus.OK,
-    name="Get user entries in group report",
-    responses={
-        **base_responses,
-        404: {
-            "description": base_exceptions.NotFoundException.description,
-            "model": CustomBaseException,
-        },
-        422: {
-            "description": group_user_exceptions.UserNotInGroupException.description,
-            "model": CustomBaseException,
-        },
-    },
-)
-async def report(
-    start: datetime | None = None,
-    end: datetime | None = None,
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
-    mysql_driver: Database = Depends(get_mysql_driver),
-) -> any:
-    filters = {"users_id": [user_in_group.user_token.id]}
-    if start:
-        filters.update({"start": start})
-    if end:
-        filters.update({"end": end})
-
-    clock_entries: list[Mapping] = await DBClockGroupUserEntry.filter(
-        mysql_driver,
-        user_in_group.group.id,
-        filters,
-        exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
-    )
-
-    entries_report: ClockEntriesReportResponse = ClockEntriesReportResponse(
-        group=BaseGroupIdWrapper(**user_in_group.group.dict()),
-        clock_entries=[
-            ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
-            for clock_entry in clock_entries
-        ],
-    )
-    return entries_report
-    if (
-        entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
-        or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
-    ):
-        raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
-
-    return ClockEntriesSmartReportsResponse.prepare_response(entries_report)
-
-
-@router.get(
-    "/{group_id}/all",
-    # response_model=ClockEntriesSmartReportsResponse,
-    response_model_exclude_unset=True,
-    status_code=HTTPStatus.OK,
-    name="Get all entries in group report",
-    responses={
-        **base_responses,
-        404: {
-            "description": base_exceptions.NotFoundException.description,
-            "model": CustomBaseException,
-        },
-        422: {
-            "description": group_user_exceptions.UserNotInGroupException.description,
-            "model": CustomBaseException,
-        },
-    },
-)
-async def report_all(
-    user: list[int] | None = None,
-    start: datetime | None = None,
-    end: datetime | None = None,
-    user_in_group: UserInGroupWrapper = Depends(
-        fetch_user_generate_report_permission_from_token_qp_id
-    ),
-    mysql_driver: Database = Depends(get_mysql_driver),
-) -> any:
-    filters = {}
-    if user:
-        filters.update({"users_id": user})
-    if start:
-        filters.update({"start": start})
-    if end:
-        filters.update({"end": end})
-
-    clock_entries: list[Mapping] = await DBClockGroupUserEntry.filter(
-        mysql_driver,
-        user_in_group.group.id,
-        filters,
-        exc=clock_group_user_entry_exceptions.ClockGroupUserEntryNotFoundException(),
-    )
-    entries_report: ClockEntriesReportResponse = ClockEntriesReportResponse(
-        group=BaseGroupIdWrapper(**user_in_group.group.dict()),
-        clock_entries=[
-            ClockEntryWrapper(user=UserId(**clock_entry), **clock_entry)
-            for clock_entry in clock_entries
-        ],
-    )
-    if (
-        entries_report.clock_entries[0].type != ClockEntryType.entry_start.value
-        or entries_report.clock_entries[-1].type != ClockEntryType.entry_stop.value
-    ):
-        raise clock_group_user_entry_exceptions.ClockGroupUserReportTimeFilterException()
-
-    return ClockEntriesSmartReportsResponse.prepare_response(entries_report)
+        return StartClockSessionResponse(
+            user=BaseUser(**user_in_group.user_token.dict()),
+            group=BaseGroupIdWrapper(**user_in_group.group.dict()),
+            **db_clock_session.dict(),
+        )
 
 
 @router.post(
-    "/{group_id}/entry",
+    "/{group_id}/clock",
     response_model=GenericResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
-    name="Save clock entry",
+    name="Clock in/out",
     responses={
         **base_responses,
         404: {
@@ -254,24 +129,39 @@ async def save_clock_entry(
 
     decode_token(clock_entry_token)
 
+    db_session: DBClockSession = await DBClockSession.get_by(
+        mysql_driver,
+        "id",
+        redis_token.clock_sessions_id,
+        exc=clock_session_exceptions.ClockSessionNotFoundException(),
+    )
+    if datetime.utcnow() > db_session.stop_at:
+        raise clock_session_exceptions.ClockSessionExpiredException()
+
+    # Check if he tries to clock in again, when he already clocked in
+    # Check if he tries to clock out again, when he already clocked out
+    # Check if he is clocked in, when he tries to clock out
+    # Check if he is clocked out, when he tries to clock in
+
     async with mysql_driver.transaction():
         db_clock_entry: DBClockEntry = await DBClockEntry(
-            datetime=datetime.utcnow(),
+            clock_at=datetime.utcnow(),
             type=redis_token.type,
         ).save(mysql_driver)
 
-        await DBClockGroupUserEntry(
-            clock_entries_id=db_clock_entry.id,
+        await DBClockGroupUserSessionEntry(
+            clock_sessions_id=db_session.id,
             groups_users_id=user_in_group.group_user.id,
+            clock_entries_id=db_clock_entry.id,
         ).save(mysql_driver)
 
         await RedisToken.delete(redis_token.pk)
 
-        return GenericResponse(message="Clock entry saved")
+        return GenericResponse(message=f"Clock {redis_token.type} entry saved")
 
 
 @router.get(
-    "/{group_id}/entry/qr",
+    "/{group_id}/{session_id}/clock/qr",
     response_model=QRCodeClockEntryResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
@@ -294,15 +184,27 @@ async def save_clock_entry(
 )
 async def generate_qr_code_clock_entry(
     entry_type: ClockEntryType,
+    session_id: int,
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
+    mysql_driver: Database = Depends(get_mysql_driver),
 ) -> QRCodeClockEntryResponse:
+    db_session: DBClockSession = await DBClockSession.get_by(
+        mysql_driver,
+        "id",
+        session_id,
+        exc=clock_session_exceptions.ClockSessionNotFoundException(),
+    )
+    if datetime.utcnow() > db_session.stop_at:
+        raise clock_session_exceptions.ClockSessionExpiredException()
+
     token: str = await create_token(
         data=QRCodeClockEntryToken(
             users_id=user_in_group.user_token.id,
             subject=TokenSubject.QR_CODE_ENTRY,
             groups_id=user_in_group.group.id,
+            clock_sessions_id=session_id,
             type=entry_type,
         ).dict(),
         expire=settings.QR_CODE_CLOCK_ENTRY_TOKEN_EXPIRE_MINUTES,

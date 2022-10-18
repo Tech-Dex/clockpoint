@@ -4,10 +4,8 @@ from enum import Enum
 
 
 class ClockEntryType(str, Enum):
-    entry_in: str = "in"
-    entry_out: str = "out"
-    entry_start: str = "start"
-    entry_stop: str = "stop"
+    clock_in: str = "in"
+    clock_out: str = "out"
 
     @classmethod
     def has_value(cls, value) -> bool:

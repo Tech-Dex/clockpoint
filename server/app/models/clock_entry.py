@@ -6,7 +6,7 @@ from app.models.enums.clock_entry_type import ClockEntryType
 
 
 class BaseClockEntry(ConfigModel):
-    datetime: datetime
+    clock_at: datetime
     type: ClockEntryType
 
 

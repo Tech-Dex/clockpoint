@@ -7,7 +7,7 @@ from pydantic.networks import EmailStr
 from app.models.config_model import ConfigModel
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.group import BaseGroup
-from app.models.permission import BasePermission, BasePermissionResponse
+from app.models.permission import BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
 from app.models.user import BaseUser, UserId
 
@@ -265,7 +265,9 @@ class ClockEntriesSmartReportsResponse(ConfigModel):
                     start=ClockEntriesSmartReportStartStopWrapper(
                         **smart_report["start"].dict()
                     ),
-                    stop=ClockEntriesSmartReportStartStopWrapper(**smart_report["stop"].dict()),
+                    stop=ClockEntriesSmartReportStartStopWrapper(
+                        **smart_report["stop"].dict()
+                    ),
                     clock_users_entries=(
                         ClockEntriesSmartReportUserEntriesWrapper(
                             user=UserId(**user_entry["user"].dict()),
@@ -277,6 +279,16 @@ class ClockEntriesSmartReportsResponse(ConfigModel):
                         for user_entry in users_entries
                     ),
                 )
-                for smart_report, users_entries in zip(smart_reports, users_entries_reports)
+                for smart_report, users_entries in zip(
+                    smart_reports, users_entries_reports
+                )
             ]
         )
+
+
+class StartClockSessionResponse(ConfigModel):
+    user: BaseUser
+    group: BaseGroupIdWrapper
+    id: int
+    start_at: datetime
+    stop_at: datetime

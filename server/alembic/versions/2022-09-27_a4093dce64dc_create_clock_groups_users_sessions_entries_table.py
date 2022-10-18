@@ -1,4 +1,4 @@
-"""create clock_groups_users_entries table
+"""create clock_groups_users_sessions_entries table
 
 Revision ID: a4093dce64dc
 Revises: 633238cc5cd5
@@ -24,18 +24,18 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        "clock_groups_users_entries",
+        "clock_groups_users_sessions_entries",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
         sa.Column("groups_users_id", sa.Integer, nullable=False),
-        sa.Column("clock_entries_id", sa.Integer, nullable=False),
+        sa.Column("clock_entries_id", sa.Integer, nullable=True),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
     op.create_foreign_key(
-        "fk_clock_groups_users_entries_groups_users_id_groups_users",
-        "clock_groups_users_entries",
+        "fk_clock_g_u_s_entries_groups_users_id_groups_users",
+        "clock_groups_users_sessions_entries",
         "groups_users",
         ["groups_users_id"],
         ["id"],
@@ -43,8 +43,8 @@ def upgrade():
     )
 
     op.create_foreign_key(
-        "fk_clock_groups_users_entries_clock_entries_id_clock_entries",
-        "clock_groups_users_entries",
+        "fk_clock_g_u_s_entries_clock_entries_id_clock_entries",
+        "clock_groups_users_sessions_entries",
         "clock_entries",
         ["clock_entries_id"],
         ["id"],
@@ -53,11 +53,11 @@ def upgrade():
 
     op.create_index(
         "ix_groups_users_id_clock_entries_id",
-        "clock_groups_users_entries",
+        "clock_groups_users_sessions_entries",
         ["groups_users_id", "clock_entries_id"],
         unique=True,
     )
 
 
 def downgrade():
-    op.drop_table("clock_groups_users_entries")
+    op.drop_table("clock_groups_users_sessions_entries")

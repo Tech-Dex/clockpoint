@@ -28,6 +28,7 @@ class RedisToken(HashModel, ConfigModel):
     subject: str = Field(index=True)
     token: str = Field(index=True)
     groups_id: int | None = Field(index=True, default=0)
+    clock_sessions_id: int | None = Field(index=True, default=0)
     invite_user_email: str | None = Field(index=True, default=None)
     type: str | None = Field(index=True, default=None)
 
@@ -49,4 +50,5 @@ class QRCodeInviteGroupToken(BaseToken):
 
 class QRCodeClockEntryToken(BaseToken):
     groups_id: int
+    clock_sessions_id: int
     type: ClockEntryType

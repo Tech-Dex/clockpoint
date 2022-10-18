@@ -1,8 +1,8 @@
-"""create clock_entries table
+"""create sessions table
 
-Revision ID: 633238cc5cd5
-Revises: 3933c5e87101
-Create Date: 2022-09-27 22:12:07.246924
+Revision ID: 9cc0a08f5c15
+Revises: a4093dce64dc
+Create Date: 2022-10-18 18:56:51.206859
 
 """
 import sqlalchemy as sa
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "633238cc5cd5"
-down_revision = "3933c5e87101"
+revision = "9cc0a08f5c15"
+down_revision = "a4093dce64dc"
 branch_labels = None
 depends_on = None
 
@@ -24,14 +24,10 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        "clock_entries",
+        "clock_sessions",
         sa.Column("id", sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column("clock_at", sa.DateTime, nullable=False),
-        sa.Column(
-            "type",
-            sa.Enum("in", "out", name="clock_entry_type"),
-            nullable=False,
-        ),
+        sa.Column("start_at", sa.DateTime, nullable=False),
+        sa.Column("stop_at", sa.DateTime, nullable=False),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
         sa.Column("deleted_at", sa.DateTime, nullable=True),
@@ -39,4 +35,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("clock_entries")
+    op.drop_table("clock_sessions")

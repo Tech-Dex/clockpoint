@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from http import HTTPStatus
+from typing import Mapping
 
 import aredis_om
 from databases import Database
@@ -18,7 +19,7 @@ from app.exceptions import (
     token as token_exceptions,
 )
 from app.models.clock_entry import DBClockEntry
-from app.models.clock_group_user_entry import DBClockGroupUserSessionEntry
+from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
 from app.models.clock_session import DBClockSession
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.token_subject import TokenSubject
@@ -67,7 +68,7 @@ router: APIRouter = APIRouter()
 )
 async def start_session(
     clock_session: StartClockSessionRequest,
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
+    user_in_group: UserInGroupWrapper = Depends(fetch_user_generate_report_permission_from_token_qp_id),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> StartClockSessionResponse:
     async with mysql_driver.transaction():
@@ -138,10 +139,27 @@ async def save_clock_entry(
     if datetime.utcnow() > db_session.stop_at:
         raise clock_session_exceptions.ClockSessionExpiredException()
 
-    # Check if he tries to clock in again, when he already clocked in
-    # Check if he tries to clock out again, when he already clocked out
-    # Check if he is clocked in, when he tries to clock out
-    # Check if he is clocked out, when he tries to clock in
+    last_clock_entry: Mapping = await DBClockGroupUserSessionEntry.last_clock_entry(
+        mysql_driver, user_in_group.group_user.id, db_session.id, bypass_exc=True
+    )
+
+    # If the above checks are passed, we can now save the clock entry
+    # The user will be able to clock out only if he has clocked in for that session
+    # The user will be able to clock in only if he has clocked out for that session
+    if not last_clock_entry and redis_token.type == ClockEntryType.clock_out:
+        raise clock_entry_exceptions.ClockOutWithoutClockInException()
+
+    if last_clock_entry:
+        if redis_token.type == ClockEntryType.clock_in and last_clock_entry[
+            "type"
+        ] == ClockEntryType.clock_in:
+            raise clock_entry_exceptions.UserAlreadyClockedInException()
+
+        if redis_token.type == ClockEntryType.clock_out and last_clock_entry[
+            "type"
+        ] == ClockEntryType.clock_out:
+            raise clock_entry_exceptions.UserAlreadyClockedOutException()
+
 
     async with mysql_driver.transaction():
         db_clock_entry: DBClockEntry = await DBClockEntry(

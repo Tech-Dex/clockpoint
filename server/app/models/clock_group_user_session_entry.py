@@ -1,15 +1,13 @@
 from typing import Mapping
 
 from databases import Database
+from pymysql import Error as MySQLError
 from pypika import MySQLQuery, Order, Parameter, Table
 
 from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from app.models.enums.clock_entry_type import ClockEntryType
-from pymysql import Error as MySQLError
-from pymysql.constants.ER import DUP_ENTRY
-from pymysql.err import IntegrityError
+
 
 class BaseClockGroupUserSessionEntry(ConfigModel):
     groups_users_id: int
@@ -22,23 +20,34 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
         table_name: str = "clock_groups_users_sessions_entries"
 
     @classmethod
-    async def last_clock_entry(cls, mysql_driver: Database,
-                               groups_users_id: int, clock_sessions_id: int,
-                               bypass_exc: bool = False,
-                               exc: base_exceptions.CustomBaseException | None = None,
-                               ) -> Mapping:
+    async def last_clock_entry(
+        cls,
+        mysql_driver: Database,
+        groups_users_id: int,
+        clock_sessions_id: int,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> Mapping:
         clock_groups_users_entries: Table = Table(cls.Meta.table_name)
         clock_entries: Table = Table("clock_entries")
         query = (
             MySQLQuery.from_(clock_groups_users_entries)
-            .select(clock_groups_users_entries.groups_users_id,
-                    clock_groups_users_entries.clock_entries_id,
-                    clock_entries.clock_at,
-                    clock_entries.type)
+            .select(
+                clock_groups_users_entries.groups_users_id,
+                clock_groups_users_entries.clock_entries_id,
+                clock_entries.clock_at,
+                clock_entries.type,
+            )
             .join(clock_entries)
             .on(clock_groups_users_entries.clock_entries_id == clock_entries.id)
-            .where(clock_groups_users_entries.groups_users_id == Parameter(":groups_users_id"))
-            .where(clock_groups_users_entries.clock_sessions_id == Parameter(":clock_sessions_id"))
+            .where(
+                clock_groups_users_entries.groups_users_id
+                == Parameter(":groups_users_id")
+            )
+            .where(
+                clock_groups_users_entries.clock_sessions_id
+                == Parameter(":clock_sessions_id")
+            )
             .where(clock_groups_users_entries.deleted_at.isnull())
             .orderby(clock_entries.clock_at, order=Order.desc)
             .limit(1)
@@ -122,4 +131,3 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
             )
 
         return results
-

@@ -25,7 +25,7 @@ from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
 from app.models.token import QRCodeClockEntryToken, RedisToken
-from app.models.user import BaseUser
+from app.models.user import BaseUser, DBUserToken, UserToken
 from app.schemas.v1.request import StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
@@ -35,8 +35,9 @@ from app.schemas.v1.response import (
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
 from app.services.dependencies import (
+    fetch_db_user_from_token,
     fetch_user_generate_report_permission_from_token_qp_id,
-    fetch_user_in_group_from_token_qp_id,
+    fetch_user_in_group_from_token,
 )
 
 base_responses = {
@@ -46,6 +47,99 @@ base_responses = {
     }
 }
 router: APIRouter = APIRouter()
+
+
+@router.post(
+    "/entry",
+    response_model=GenericResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Clock in/out",
+    responses={
+        **base_responses,
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def save_clock_entry(
+    clock_entry_token: str,
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> GenericResponse:
+    try:
+        redis_token: RedisToken = await RedisToken.find(
+            RedisToken.token == clock_entry_token
+        ).first()
+    except aredis_om.model.model.NotFoundError:
+        raise token_exceptions.NotFoundInviteTokenException()
+
+    if not redis_token:
+        raise token_exceptions.NotFoundInviteTokenException()
+
+    if redis_token.users_id == db_user_token.id:
+        raise clock_entry_exceptions.SelfClockEntryException()
+
+    decode_token(clock_entry_token)
+
+    user_in_group: UserInGroupWrapper = await fetch_user_in_group_from_token(
+        group_id=redis_token.groups_id,
+        user_token=UserToken(**db_user_token.dict()),
+        mysql_driver=mysql_driver,
+    )
+
+    db_session: DBClockSession = await DBClockSession.get_by(
+        mysql_driver,
+        "id",
+        redis_token.clock_sessions_id,
+        exc=clock_session_exceptions.ClockSessionNotFoundException(),
+    )
+    if datetime.utcnow() > db_session.stop_at:
+        raise clock_session_exceptions.ClockSessionExpiredException()
+
+    last_clock_entry: Mapping = await DBClockGroupUserSessionEntry.last_clock_entry(
+        mysql_driver, user_in_group.group_user.id, db_session.id, bypass_exc=True
+    )
+
+    # If the above checks are passed, we can now save the clock entry
+    # The user will be able to clock out only if he has clocked in for that session
+    # The user will be able to clock in only if he has clocked out for that session
+    if not last_clock_entry and redis_token.type == ClockEntryType.clock_out:
+        raise clock_entry_exceptions.ClockOutWithoutClockInException()
+
+    if last_clock_entry:
+        if (
+            redis_token.type == ClockEntryType.clock_in
+            and last_clock_entry["type"] == ClockEntryType.clock_in
+        ):
+            raise clock_entry_exceptions.UserAlreadyClockedInException()
+
+        if (
+            redis_token.type == ClockEntryType.clock_out
+            and last_clock_entry["type"] == ClockEntryType.clock_out
+        ):
+            raise clock_entry_exceptions.UserAlreadyClockedOutException()
+
+    async with mysql_driver.transaction():
+        db_clock_entry: DBClockEntry = await DBClockEntry(
+            clock_at=datetime.utcnow(),
+            type=redis_token.type,
+        ).save(mysql_driver)
+
+        await DBClockGroupUserSessionEntry(
+            clock_sessions_id=db_session.id,
+            groups_users_id=user_in_group.group_user.id,
+            clock_entries_id=db_clock_entry.id,
+        ).save(mysql_driver)
+
+        await RedisToken.delete(redis_token.pk)
+
+        return GenericResponse(message=f"Clock {redis_token.type} entry saved")
 
 
 @router.post(
@@ -68,7 +162,9 @@ router: APIRouter = APIRouter()
 )
 async def start_session(
     clock_session: StartClockSessionRequest,
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_generate_report_permission_from_token_qp_id),
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> StartClockSessionResponse:
     async with mysql_driver.transaction():
@@ -92,94 +188,8 @@ async def start_session(
         )
 
 
-@router.post(
-    "/{group_id}/clock",
-    response_model=GenericResponse,
-    response_model_exclude_unset=True,
-    status_code=HTTPStatus.OK,
-    name="Clock in/out",
-    responses={
-        **base_responses,
-        404: {
-            "description": group_exceptions.GroupNotFoundException.description,
-            "model": CustomBaseException,
-        },
-        422: {
-            "description": group_user_exceptions.UserNotInGroupException.description,
-            "model": CustomBaseException,
-        },
-    },
-)
-async def save_clock_entry(
-    clock_entry_token: str,
-    user_in_group: UserInGroupWrapper = Depends(fetch_user_in_group_from_token_qp_id),
-    mysql_driver: Database = Depends(get_mysql_driver),
-) -> GenericResponse:
-    try:
-        redis_token: RedisToken = await RedisToken.find(
-            RedisToken.token == clock_entry_token
-        ).first()
-    except aredis_om.model.model.NotFoundError:
-        raise token_exceptions.NotFoundInviteTokenException()
-
-    if not redis_token:
-        raise token_exceptions.NotFoundInviteTokenException()
-
-    if redis_token.users_id == user_in_group.user_token.id:
-        raise clock_entry_exceptions.SelfClockEntryException()
-
-    decode_token(clock_entry_token)
-
-    db_session: DBClockSession = await DBClockSession.get_by(
-        mysql_driver,
-        "id",
-        redis_token.clock_sessions_id,
-        exc=clock_session_exceptions.ClockSessionNotFoundException(),
-    )
-    if datetime.utcnow() > db_session.stop_at:
-        raise clock_session_exceptions.ClockSessionExpiredException()
-
-    last_clock_entry: Mapping = await DBClockGroupUserSessionEntry.last_clock_entry(
-        mysql_driver, user_in_group.group_user.id, db_session.id, bypass_exc=True
-    )
-
-    # If the above checks are passed, we can now save the clock entry
-    # The user will be able to clock out only if he has clocked in for that session
-    # The user will be able to clock in only if he has clocked out for that session
-    if not last_clock_entry and redis_token.type == ClockEntryType.clock_out:
-        raise clock_entry_exceptions.ClockOutWithoutClockInException()
-
-    if last_clock_entry:
-        if redis_token.type == ClockEntryType.clock_in and last_clock_entry[
-            "type"
-        ] == ClockEntryType.clock_in:
-            raise clock_entry_exceptions.UserAlreadyClockedInException()
-
-        if redis_token.type == ClockEntryType.clock_out and last_clock_entry[
-            "type"
-        ] == ClockEntryType.clock_out:
-            raise clock_entry_exceptions.UserAlreadyClockedOutException()
-
-
-    async with mysql_driver.transaction():
-        db_clock_entry: DBClockEntry = await DBClockEntry(
-            clock_at=datetime.utcnow(),
-            type=redis_token.type,
-        ).save(mysql_driver)
-
-        await DBClockGroupUserSessionEntry(
-            clock_sessions_id=db_session.id,
-            groups_users_id=user_in_group.group_user.id,
-            clock_entries_id=db_clock_entry.id,
-        ).save(mysql_driver)
-
-        await RedisToken.delete(redis_token.pk)
-
-        return GenericResponse(message=f"Clock {redis_token.type} entry saved")
-
-
 @router.get(
-    "/{group_id}/{session_id}/clock/qr",
+    "/{group_id}/{session_id}/qr",
     response_model=QRCodeClockEntryResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,

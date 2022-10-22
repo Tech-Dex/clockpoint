@@ -18,3 +18,8 @@ class ClockGroupUserReportTimeFilterException(base_exceptions.BadRequestExceptio
 class InvalidStartAtAndStopAtException(base_exceptions.BadRequestException):
     def __init__(self):
         super().__init__(detail="The start_at must be before the stop_at")
+
+
+class UsersNotFoundForReportException(base_exceptions.NotFoundException):
+    def __init__(self):
+        super().__init__(detail="No users found for report")

@@ -4,7 +4,7 @@ from typing import Mapping
 
 import aredis_om
 from databases import Database
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -18,6 +18,7 @@ from app.exceptions import (
     group_user as group_user_exceptions,
     permission as permission_exceptions,
     token as token_exceptions,
+    user as user_exceptions,
 )
 from app.models.clock_entry import DBClockEntry
 from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
@@ -275,7 +276,7 @@ async def get_group_sessions(
 )
 async def get_group_sessions_report(
     session_id: int | None = None,
-    users: list[int] | list[str] = None,
+    users: list | None = Query(default=None),
     start_at: datetime | None = None,
     stop_at: datetime | None = None,
     smart_entries: bool = False,
@@ -285,26 +286,9 @@ async def get_group_sessions_report(
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> SessionsReportResponse | SessionsSmartReportResponse:
     filters = {}
-    users_ids: list[int] = []
+    # If session_id is not None, then it means we want a specific session report
+    # No reason to check for other filters, those where used in /{group_id}/sessions/report
     if not session_id:
-        if users:
-            await DBGroupUser.get_users_in_group_with_generate_report_permission(
-                mysql_driver,
-                user_in_group.group.id,
-                exc=base_exceptions.BadRequestException(
-                    detail="This one should not appear in any case. This is a bug. Please report it."
-                ),
-            )
-            if isinstance(users[0], str):
-                db_users: list[DBUser] = await DBUser.get_all_in(
-                    mysql_driver, "email", users, bypass_exc=True
-                )
-                users_ids.extend([db_user.id for db_user in db_users])
-            if isinstance(users[0], int):
-                users_ids.extend(users)
-
-            filters["users_id"] = users_ids
-
         if start_at:
             filters["start_at"] = start_at
 
@@ -316,6 +300,27 @@ async def get_group_sessions_report(
     else:
         filters["clock_sessions_id"] = session_id
 
+    if users:
+        users_ids: list[int] = []
+        await DBGroupUser.get_users_in_group_with_generate_report_permission(
+            mysql_driver,
+            user_in_group.group.id,
+            exc=base_exceptions.BadRequestException(
+                detail="This one should not appear in any case. This is a bug. Please report it."
+            ),
+        )
+        if isinstance(users[0], str):
+            db_users: list[DBUser] = await DBUser.get_all_in(
+                mysql_driver,
+                "email",
+                users,
+                exc=user_exceptions.UserNotFoundException(),
+            )
+            users_ids.extend([db_user.id for db_user in db_users])
+        if isinstance(users[0], int):
+            users_ids.extend(users)
+        print(users)
+        filters["users_id"] = users_ids
     entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
         mysql_driver,
         user_in_group.group_user.id,

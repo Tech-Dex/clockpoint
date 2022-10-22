@@ -379,6 +379,7 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
         users: Table = Table("users")
         roles: Table = Table("roles")
         permissions: Table = Table("permissions")
+        roles_permissions: Table = Table("roles_permissions")
         query = (
             MySQLQuery.select(
                 users.id,
@@ -392,8 +393,10 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             .on(groups_users.users_id == users.id)
             .join(roles)
             .on(groups_users.roles_id == roles.id)
+            .join(roles_permissions)
+            .on(roles_permissions.roles_id == roles.id)
             .join(permissions)
-            .on(roles.permissions_id == permissions.id)
+            .on(roles_permissions.permissions_id == permissions.id)
             .where(groups_users.groups_id == Parameter(":groups_id"))
             .where(permissions.permission == "generate_report")
             .where(groups_users.deleted_at.isnull())

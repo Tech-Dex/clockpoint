@@ -12,6 +12,7 @@ from app.core.jwt import create_token, decode_token
 from app.exceptions import (
     base as base_exceptions,
     clock_entry as clock_entry_exceptions,
+    clock_group_user_session_entry as clock_group_user_session_entry_exceptions,
     clock_session as clock_session_exceptions,
     group as group_exceptions,
     group_user as group_user_exceptions,
@@ -24,13 +25,18 @@ from app.models.clock_session import DBClockSession
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
+from app.models.group_user import DBGroupUser
 from app.models.token import QRCodeClockEntryToken, RedisToken
-from app.models.user import BaseUser, DBUserToken, UserToken
+from app.models.user import BaseUser, DBUser, DBUserToken, UserToken
 from app.schemas.v1.request import StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     GenericResponse,
     QRCodeClockEntryResponse,
+    SessionEntriesResponse,
+    SessionEntryResponse,
+    SessionsResponse,
+    SessionsSmartResponse,
     StartClockSessionResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
@@ -186,6 +192,112 @@ async def start_session(
             group=BaseGroupIdWrapper(**user_in_group.group.dict()),
             **db_clock_session.dict(),
         )
+
+
+@router.get(
+    "/{group_id}/sessions",
+    response_model=SessionsResponse | SessionsSmartResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Get all sessions for a group",
+    responses={
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToGenerateQRCodeEntryAndGenerateReportException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_group_sessions(
+    users: list[int] | list[str] = None,
+    start_at: datetime | None = None,
+    stop_at: datetime | None = None,
+    smart_entries: bool = False,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> SessionsResponse | SessionsSmartResponse:
+    filters = {}
+    users_ids: list[int] = []
+    if users:
+        await DBGroupUser.get_users_in_group_with_generate_report_permission(
+            mysql_driver,
+            user_in_group.group.id,
+            exc=base_exceptions.BadRequestException(
+                detail="This one should not appear in any case. This is a bug. Please report it."
+            ),
+        )
+        if isinstance(users[0], str):
+            db_users: list[DBUser] = await DBUser.get_all_in(
+                mysql_driver, "email", users, bypass_exc=True
+            )
+            users_ids.extend([db_user.id for db_user in db_users])
+        if isinstance(users[0], int):
+            users_ids.extend(users)
+
+        filters["users_id"] = users_ids
+
+    if start_at:
+        filters["start_at"] = start_at
+
+    if stop_at:
+        filters["stop_at"] = stop_at
+
+    if start_at and stop_at and start_at > stop_at:
+        raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
+
+    entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
+        mysql_driver,
+        user_in_group.group_user.id,
+        filters,
+        exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+    )
+
+    sessions = []
+    is_first_session = True
+    session = {}
+    entries_in_session = []
+    for entry in entries:
+        if not entry["clock_entries_id"]:
+            # If the entry doesn't have a clock entry, it means that this entry in indeed a session entry
+            if not is_first_session:
+                session.update({"entries": entries_in_session})
+                sessions.append(session)
+                entries_in_session = []
+                session = {}
+
+            if is_first_session:
+                is_first_session = False
+
+            session.update({"details": entry})
+        if entry["clock_entries_id"]:
+            entries_in_session.append(entry)
+
+    # In case that the last entry is not a new session, we need to append previous session to the payload
+    session.update({"entries": entries_in_session})
+    sessions.append(session)
+
+    if smart_entries:
+        return SessionsSmartResponse.prepare_response(sessions)
+
+    return SessionsResponse(
+        sessions=[
+            SessionEntriesResponse(
+                details=SessionEntryResponse(**session["details"]),
+                entries=[SessionEntryResponse(**entry) for entry in session["entries"]],
+            )
+            for session in sessions
+        ]
+    )
 
 
 @router.get(

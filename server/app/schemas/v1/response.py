@@ -9,7 +9,7 @@ from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.group import BaseGroup
 from app.models.permission import BasePermissionResponse
 from app.models.role import BaseRole, BaseRoleResponse
-from app.models.user import BaseUser, UserId
+from app.models.user import BaseUser
 
 
 class GenericResponse(ConfigModel):
@@ -131,164 +131,100 @@ class QRCodeClockEntryResponse(ConfigModel):
     group: BaseGroupIdWrapper
 
 
-class ClockEntryWrapper(ConfigModel):
-    user: UserId
-    entry_datetime: datetime
-    type: str
-
-
-class ClockEntriesReportResponse(ConfigModel):
-    group: BaseGroupIdWrapper
-    clock_entries: list[ClockEntryWrapper]
-
-
-class ClockEntriesSmartReportStartStopWrapper(ConfigModel):
-    user: UserId
-    entry_datetime: datetime
-    type: str
-
-
-class ClockEntriesSmartResponseEntriesWrapper(ConfigModel):
-    entry_datetime: datetime
-    type: str
-
-
-class ClockEntriesSmartReportUserEntriesWrapper(ConfigModel):
-    user: UserId
-    entries: list[ClockEntriesSmartResponseEntriesWrapper]
-
-
-class ClockEntriesSmartReportResponse(ConfigModel):
-    start: ClockEntriesSmartReportStartStopWrapper
-    stop: ClockEntriesSmartReportStartStopWrapper
-    clock_users_entries: list[ClockEntriesSmartReportUserEntriesWrapper]
-
-
-class ClockEntriesSmartReportsResponse(ConfigModel):
-    payload: list[ClockEntriesSmartReportResponse]
-
-    @staticmethod
-    def group_clock_entries_by_user(entries_report):
-        sessions = []
-        is_session_open = True
-        session = {"entry": []}
-
-        for clock_entry in entries_report.clock_entries:
-            if is_session_open:
-                if clock_entry.type == ClockEntryType.entry_start.value:
-                    session.update({"start": clock_entry})
-                    is_session_open = False
-            else:
-                if clock_entry.type == ClockEntryType.entry_stop.value:
-                    session.update({"stop": clock_entry})
-                    is_session_open = True
-                    sessions.append(session)
-                    session = {"entry": []}
-                elif clock_entry.type in [
-                    ClockEntryType.entry_in,
-                    ClockEntryType.entry_out,
-                ]:
-                    session["entry"].append(clock_entry)
-
-        return sessions
-
-    @staticmethod
-    def build_smart_reports(sessions):
-        smart_reports = []
-
-        for idx, session in enumerate(sessions):
-            smart_report = {
-                "start": session["start"],
-                "stop": session["stop"],
-            }
-            for entry in session["entry"]:
-                if smart_report.get(entry.user.id):
-                    smart_report[entry.user.id]["entries"].append(
-                        {"type": entry.type, "entry_datetime": entry.entry_datetime}
-                    )
-                else:
-                    smart_report[entry.user.id] = {
-                        "user": entry.user,
-                        "entries": [
-                            {"type": entry.type, "entry_datetime": entry.entry_datetime}
-                        ],
-                    }
-            smart_reports.append(smart_report)
-
-        return smart_reports
-
-    @staticmethod
-    def process_users_entries(smart_reports):
-        """
-        Check if a user forgot to clock out.
-        """
-        users_entries_reports = []
-        for smart_report in smart_reports:
-            users_entries_report = []
-            for k, v in smart_report.items():
-                if k not in ["start", "stop"]:
-                    in_count = out_count = 0
-                    for entry in v["entries"]:
-                        if entry["type"] == ClockEntryType.entry_in.value:
-                            in_count += 1
-                        elif entry["type"] == ClockEntryType.entry_out.value:
-                            out_count += 1
-                    if in_count > out_count:
-                        v["entries"].append(
-                            {
-                                "type": ClockEntryType.entry_out.value,
-                                "entry_datetime": smart_report["stop"].entry_datetime,
-                            }
-                        )
-                    elif in_count < out_count:
-                        v["entries"].insert(
-                            0,
-                            {
-                                "type": ClockEntryType.entry_in.value,
-                                "entry_datetime": smart_report["start"].entry_datetime,
-                            },
-                        )
-                    users_entries_report.append(v)
-            users_entries_reports.append(users_entries_report)
-
-        return users_entries_reports
-
-    @classmethod
-    def prepare_response(cls, entries_report) -> ClockEntriesSmartReportsResponse:
-        sessions = cls.group_clock_entries_by_user(entries_report)
-        smart_reports = cls.build_smart_reports(sessions)
-        users_entries_reports = cls.process_users_entries(smart_reports)
-
-        return cls(
-            payload=[
-                ClockEntriesSmartReportResponse(
-                    start=ClockEntriesSmartReportStartStopWrapper(
-                        **smart_report["start"].dict()
-                    ),
-                    stop=ClockEntriesSmartReportStartStopWrapper(
-                        **smart_report["stop"].dict()
-                    ),
-                    clock_users_entries=(
-                        ClockEntriesSmartReportUserEntriesWrapper(
-                            user=UserId(**user_entry["user"].dict()),
-                            entries=[
-                                ClockEntriesSmartResponseEntriesWrapper(**entry)
-                                for entry in user_entry["entries"]
-                            ],
-                        )
-                        for user_entry in users_entries
-                    ),
-                )
-                for smart_report, users_entries in zip(
-                    smart_reports, users_entries_reports
-                )
-            ]
-        )
-
-
 class StartClockSessionResponse(ConfigModel):
     user: BaseUser
     group: BaseGroupIdWrapper
     id: int
     start_at: datetime
     stop_at: datetime
+
+
+class SessionEntryResponse(ConfigModel):
+    username: str
+    email: EmailStr
+    first_name: str
+    last_name: str
+    groups_id: int
+    groups_name: str
+    clock_at: datetime | None
+    type: ClockEntryType | None
+    start_at: datetime
+    stop_at: datetime
+
+
+class SessionEntriesResponse(ConfigModel):
+    details: SessionEntryResponse
+    entries: list[SessionEntryResponse]
+
+
+class SessionsResponse(ConfigModel):
+    sessions: list[SessionEntriesResponse]
+
+
+class SessionSmartEntryResponse(ConfigModel):
+    username: str
+    email: EmailStr
+    first_name: str
+    last_name: str
+    groups_id: int
+    groups_name: str
+    clock_in: datetime
+    clock_out: datetime
+
+
+class SessionSmartEntriesResponse(ConfigModel):
+    details: SessionEntryResponse
+    smart_entries: list[SessionSmartEntryResponse]
+
+
+class SessionsSmartResponse(ConfigModel):
+    sessions: list[SessionSmartEntriesResponse]
+
+    @classmethod
+    def prepare_response(cls, sessions):
+        for session in sessions:
+            in_out = {}
+            session.update({"smart_entries": []})
+            for entry in session["entries"]:
+                if not in_out.get(entry["username"]):
+                    in_out.update({entry["username"]: []})
+
+                in_out[entry["username"]].append(entry)
+
+            for k, v in in_out.items():
+                if len(v) == 1:
+                    out = dict(v[0])
+                    out.update(
+                        {
+                            "type": ClockEntryType.clock_out.value,
+                            "clock_at": out["stop_at"],
+                        }
+                    )
+                    v.append(out)
+
+                session["smart_entries"].append(
+                    {
+                        "username": v[0]["username"],
+                        "email": v[0]["email"],
+                        "first_name": v[0]["first_name"],
+                        "last_name": v[0]["last_name"],
+                        "groups_id": v[0]["groups_id"],
+                        "groups_name": v[0]["groups_name"],
+                        "clock_in": v[0]["clock_at"],
+                        "clock_out": v[1]["clock_at"],
+                    }
+                )
+                del session["entries"]
+
+        return SessionsSmartResponse(
+            sessions=[
+                SessionSmartEntriesResponse(
+                    details=SessionEntryResponse(**session["details"]),
+                    smart_entries=[
+                        SessionSmartEntryResponse(**smart_entry)
+                        for smart_entry in session["smart_entries"]
+                    ],
+                )
+                for session in sessions
+            ]
+        )

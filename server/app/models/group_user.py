@@ -366,3 +366,49 @@ class DBGroupUser(DBCoreModel, BaseGroupUser):
             return []
 
         return [cls(**group_users) for group_users in groups_users]
+
+    @classmethod
+    async def get_users_in_group_with_generate_report_permission(
+        cls,
+        mysql_driver: Database,
+        groups_id: int,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> list[Mapping]:
+        groups_users: Table = Table(cls.Meta.table_name)
+        users: Table = Table("users")
+        roles: Table = Table("roles")
+        permissions: Table = Table("permissions")
+        query = (
+            MySQLQuery.select(
+                users.id,
+                users.email,
+                users.username,
+                users.first_name,
+                users.last_name,
+            )
+            .from_(groups_users)
+            .join(users)
+            .on(groups_users.users_id == users.id)
+            .join(roles)
+            .on(groups_users.roles_id == roles.id)
+            .join(permissions)
+            .on(roles.permissions_id == permissions.id)
+            .where(groups_users.groups_id == Parameter(":groups_id"))
+            .where(permissions.permission == "generate_report")
+            .where(groups_users.deleted_at.isnull())
+        )
+        values = {"groups_id": groups_id}
+
+        try:
+            results: list[Mapping] = await mysql_driver.fetch_all(
+                query.get_sql(), values
+            )
+            if not results:
+                if bypass_exc:
+                    return []
+                raise exc or group_user_exceptions.UserNotInGroupException()
+
+            return results
+        except MySQLError as mySQLError:
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])

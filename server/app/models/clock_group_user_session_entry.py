@@ -2,7 +2,7 @@ from typing import Mapping
 
 from databases import Database
 from pymysql import Error as MySQLError
-from pypika import MySQLQuery, Order, Parameter, Table
+from pypika import JoinType, MySQLQuery, Order, Parameter, Table
 
 from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
@@ -28,27 +28,29 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
         bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> Mapping:
-        clock_groups_users_entries: Table = Table(cls.Meta.table_name)
+        clock_groups_users_sessions_entries: Table = Table(cls.Meta.table_name)
         clock_entries: Table = Table("clock_entries")
         query = (
-            MySQLQuery.from_(clock_groups_users_entries)
+            MySQLQuery.from_(clock_groups_users_sessions_entries)
             .select(
-                clock_groups_users_entries.groups_users_id,
-                clock_groups_users_entries.clock_entries_id,
+                clock_groups_users_sessions_entries.groups_users_id,
+                clock_groups_users_sessions_entries.clock_entries_id,
                 clock_entries.clock_at,
                 clock_entries.type,
             )
             .join(clock_entries)
-            .on(clock_groups_users_entries.clock_entries_id == clock_entries.id)
+            .on(
+                clock_groups_users_sessions_entries.clock_entries_id == clock_entries.id
+            )
             .where(
-                clock_groups_users_entries.groups_users_id
+                clock_groups_users_sessions_entries.groups_users_id
                 == Parameter(":groups_users_id")
             )
             .where(
-                clock_groups_users_entries.clock_sessions_id
+                clock_groups_users_sessions_entries.clock_sessions_id
                 == Parameter(":clock_sessions_id")
             )
-            .where(clock_groups_users_entries.deleted_at.isnull())
+            .where(clock_groups_users_sessions_entries.deleted_at.isnull())
             .orderby(clock_entries.clock_at, order=Order.desc)
             .limit(1)
         )
@@ -80,48 +82,88 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
         bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
     ) -> list[Mapping]:
-        clock_groups_users_entries: Table = Table(cls.Meta.table_name)
+        """
+        Filter entries, the start and stop are applied on sessions, not on entries.
+        Returns list order by:
+        clock_groups_users_sessions_entries.clock_sessions_id
+        clock_sessions.start_at
+        clock_entries.clock_at
+
+        We know that entries are grouped by the first order by, so we don't need to do a check
+        when we process it.
+        """
+        clock_groups_users_sessions_entries: Table = Table(cls.Meta.table_name)
         clock_entries: Table = Table("clock_entries")
+        clock_sessions: Table = Table("clock_sessions")
         groups_users: Table = Table("groups_users")
+        groups: Table = Table("groups")
         users: Table = Table("users")
 
         query = (
-            MySQLQuery.from_(clock_groups_users_entries)
+            MySQLQuery.from_(clock_groups_users_sessions_entries)
             .select(
-                users.id,
                 users.username,
                 users.email,
                 users.first_name,
-                users.second_name,
                 users.last_name,
-                users.is_active,
+                groups.id.as_("groups_id"),
+                groups.name.as_("groups_name"),
+                clock_groups_users_sessions_entries.groups_users_id,
+                clock_groups_users_sessions_entries.clock_entries_id,
+                clock_groups_users_sessions_entries.clock_sessions_id,
+                clock_entries.clock_at,
                 clock_entries.type,
-                clock_entries.datetime.as_("entry_datetime"),
+                clock_sessions.start_at,
+                clock_sessions.stop_at,
             )
-            .join(clock_entries)
-            .on(clock_groups_users_entries.clock_entries_id == clock_entries.id)
-            .join(groups_users)
-            .on(clock_groups_users_entries.groups_users_id == groups_users.id)
-            .join(users)
+            .join(clock_entries, JoinType.left)
+            .on(
+                clock_groups_users_sessions_entries.clock_entries_id == clock_entries.id
+            )
+            .join(clock_sessions, JoinType.left)
+            .on(
+                clock_groups_users_sessions_entries.clock_sessions_id
+                == clock_sessions.id
+            )
+            .join(groups_users, JoinType.left)
+            .on(clock_groups_users_sessions_entries.groups_users_id == groups_users.id)
+            .join(groups, JoinType.left)
+            .on(groups_users.groups_id == groups.id)
+            .join(users, JoinType.left)
             .on(groups_users.users_id == users.id)
-            .where(groups_users.groups_id == Parameter(":groups_id"))
-            .orderby(clock_entries.datetime, order=Order.asc)
-            .orderby(users.id, order=Order.asc)
+            .where(groups.id == Parameter(":groups_id"))
+            .orderby(clock_groups_users_sessions_entries.clock_sessions_id)
+            .orderby(clock_sessions.start_at)
+            .orderby(clock_entries.clock_at)
         )
 
-        values = {"groups_id": groups_id}
+        values = {
+            "groups_id": groups_id,
+        }
 
-        if filters.get("users_id"):
-            query = query.where(groups_users.users_id.isin(Parameter(":users_id")))
-            values.update({"users_id": filters.get("users_id")})
-        if filters.get("start"):
-            query = query.where(clock_entries.datetime >= Parameter(":start"))
-            values.update({"start": filters.get("start")})
-        if filters.get("end"):
-            query = query.where(clock_entries.datetime <= Parameter(":end"))
-            values.update({"end": filters.get("end")})
+        if filters.get("start_at"):
+            query = query.where(clock_sessions.start_at >= Parameter(":start_at"))
+            values["start_at"] = filters["start_at"]
 
-        results: list[Mapping] = await mysql_driver.fetch_all(query.get_sql(), values)
+        if filters.get("stop_at"):
+            query = query.where(clock_sessions.stop_at <= Parameter(":stop_at"))
+            values["stop_at"] = filters["stop_at"]
+
+        if filters.get("users_ids"):
+            query = query.where(users.id.isin(Parameter(":users_ids")))
+            values["users_ids"] = filters["users_ids"]
+
+        if filters.get("emails"):
+            query = query.where(users.email.isin(Parameter(":emails")))
+            values["emails"] = filters["emails"]
+
+        try:
+            results: list[Mapping] = await mysql_driver.fetch_all(
+                query.get_sql(), values
+            )
+
+        except MySQLError as mySQLError:
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
         if not results:
             if bypass_exc:

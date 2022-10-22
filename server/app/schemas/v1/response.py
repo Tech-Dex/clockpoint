@@ -157,7 +157,7 @@ class SessionEntriesResponse(ConfigModel):
     entries: list[SessionEntryResponse]
 
 
-class SessionsResponse(ConfigModel):
+class SessionsReportResponse(ConfigModel):
     sessions: list[SessionEntriesResponse]
 
 
@@ -177,7 +177,7 @@ class SessionSmartEntriesResponse(ConfigModel):
     smart_entries: list[SessionSmartEntryResponse]
 
 
-class SessionsSmartResponse(ConfigModel):
+class SessionsSmartReportResponse(ConfigModel):
     sessions: list[SessionSmartEntriesResponse]
 
     @classmethod
@@ -216,7 +216,7 @@ class SessionsSmartResponse(ConfigModel):
                 )
                 del session["entries"]
 
-        return SessionsSmartResponse(
+        return SessionsSmartReportResponse(
             sessions=[
                 SessionSmartEntriesResponse(
                     details=SessionEntryResponse(**session["details"]),
@@ -228,3 +228,19 @@ class SessionsSmartResponse(ConfigModel):
                 for session in sessions
             ]
         )
+
+
+class GroupSessionResponse(ConfigModel):
+    username: str
+    email: EmailStr
+    first_name: str
+    last_name: str
+    groups_id: int
+    groups_name: str
+    clock_sessions_id: int
+    start_at: datetime
+    stop_at: datetime
+
+
+class GroupSessionsResponse(ConfigModel):
+    sessions: list[GroupSessionResponse]

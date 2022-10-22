@@ -32,11 +32,13 @@ from app.schemas.v1.request import StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     GenericResponse,
+    GroupSessionResponse,
+    GroupSessionsResponse,
     QRCodeClockEntryResponse,
     SessionEntriesResponse,
     SessionEntryResponse,
-    SessionsResponse,
-    SessionsSmartResponse,
+    SessionsReportResponse,
+    SessionsSmartReportResponse,
     StartClockSessionResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
@@ -196,7 +198,7 @@ async def start_session(
 
 @router.get(
     "/{group_id}/sessions",
-    response_model=SessionsResponse | SessionsSmartResponse,
+    response_model=GroupSessionsResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get all sessions for a group",
@@ -217,34 +219,16 @@ async def start_session(
     },
 )
 async def get_group_sessions(
-    users: list[int] | list[str] = None,
     start_at: datetime | None = None,
     stop_at: datetime | None = None,
-    smart_entries: bool = False,
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> SessionsResponse | SessionsSmartResponse:
-    filters = {}
-    users_ids: list[int] = []
-    if users:
-        await DBGroupUser.get_users_in_group_with_generate_report_permission(
-            mysql_driver,
-            user_in_group.group.id,
-            exc=base_exceptions.BadRequestException(
-                detail="This one should not appear in any case. This is a bug. Please report it."
-            ),
-        )
-        if isinstance(users[0], str):
-            db_users: list[DBUser] = await DBUser.get_all_in(
-                mysql_driver, "email", users, bypass_exc=True
-            )
-            users_ids.extend([db_user.id for db_user in db_users])
-        if isinstance(users[0], int):
-            users_ids.extend(users)
-
-        filters["users_id"] = users_ids
+) -> GroupSessionsResponse:
+    filters = {
+        "only_sessions": True,
+    }
 
     if start_at:
         filters["start_at"] = start_at
@@ -255,6 +239,83 @@ async def get_group_sessions(
     if start_at and stop_at and start_at > stop_at:
         raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
 
+    sessions: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
+        mysql_driver,
+        user_in_group.group_user.id,
+        filters,
+        exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+    )
+
+    return GroupSessionsResponse(
+        sessions=[GroupSessionResponse(**session) for session in sessions]
+    )
+
+
+@router.get(
+    "/{group_id}/sessions/report",
+    response_model=SessionsReportResponse | SessionsSmartReportResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Get report for sessions in a group",
+    responses={
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToGenerateQRCodeEntryAndGenerateReportException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_group_sessions_report(
+    session_id: int | None = None,
+    users: list[int] | list[str] = None,
+    start_at: datetime | None = None,
+    stop_at: datetime | None = None,
+    smart_entries: bool = False,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> SessionsReportResponse | SessionsSmartReportResponse:
+    filters = {}
+    users_ids: list[int] = []
+    if not session_id:
+        if users:
+            await DBGroupUser.get_users_in_group_with_generate_report_permission(
+                mysql_driver,
+                user_in_group.group.id,
+                exc=base_exceptions.BadRequestException(
+                    detail="This one should not appear in any case. This is a bug. Please report it."
+                ),
+            )
+            if isinstance(users[0], str):
+                db_users: list[DBUser] = await DBUser.get_all_in(
+                    mysql_driver, "email", users, bypass_exc=True
+                )
+                users_ids.extend([db_user.id for db_user in db_users])
+            if isinstance(users[0], int):
+                users_ids.extend(users)
+
+            filters["users_id"] = users_ids
+
+        if start_at:
+            filters["start_at"] = start_at
+
+        if stop_at:
+            filters["stop_at"] = stop_at
+
+        if start_at and stop_at and start_at > stop_at:
+            raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
+
+    else:
+        filters["clock_sessions_id"] = session_id
     entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
         mysql_driver,
         user_in_group.group_user.id,
@@ -287,9 +348,13 @@ async def get_group_sessions(
     sessions.append(session)
 
     if smart_entries:
-        return SessionsSmartResponse.prepare_response(sessions)
+        # If a user forgot to clock out, we need to add the session stop_at as the stop_at for entry
+        # This is done to make the report more accurate
+        # Instead of returning 2 entries, one for clock in and one for clock out, we return only one entry
+        # In that entry we have the clock in and clock out time for entry & details
+        return SessionsSmartReportResponse.prepare_response(sessions)
 
-    return SessionsResponse(
+    return SessionsReportResponse(
         sessions=[
             SessionEntriesResponse(
                 details=SessionEntryResponse(**session["details"]),

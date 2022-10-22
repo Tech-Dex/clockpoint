@@ -157,6 +157,23 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
             query = query.where(users.email.isin(Parameter(":emails")))
             values["emails"] = filters["emails"]
 
+        if filters.get("only_sessions"):
+            query = query.where(
+                clock_groups_users_sessions_entries.clock_entries_id.isnull()
+            )
+
+        if filters.get("only_entries"):
+            query = query.where(
+                clock_groups_users_sessions_entries.clock_entries_id.isnotnull()
+            )
+
+        if filters.get("clock_sessions_id"):
+            query = query.where(
+                clock_groups_users_sessions_entries.clock_sessions_id
+                == Parameter(":clock_sessions_id")
+            )
+            values["clock_sessions_id"] = filters["clock_sessions_id"]
+
         try:
             results: list[Mapping] = await mysql_driver.fetch_all(
                 query.get_sql(), values

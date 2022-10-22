@@ -313,9 +313,9 @@ async def get_group_sessions_report(
 
         if start_at and stop_at and start_at > stop_at:
             raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
-
     else:
         filters["clock_sessions_id"] = session_id
+
     entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
         mysql_driver,
         user_in_group.group_user.id,

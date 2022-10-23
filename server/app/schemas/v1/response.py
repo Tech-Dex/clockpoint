@@ -146,6 +146,7 @@ class SessionEntryResponse(ConfigModel):
     last_name: str
     groups_id: int
     groups_name: str
+    clock_sessions_id: int
     clock_at: datetime | None
     type: ClockEntryType | None
     start_at: datetime

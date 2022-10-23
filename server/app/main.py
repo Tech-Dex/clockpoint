@@ -33,17 +33,11 @@ rootLogger.setLevel(logging.DEBUG)
 app: FastAPI = FastAPI(title=settings.APP_NAME, openapi_url="/api/v1/openapi.json")
 
 # CORS - Set all CORS enabled origins
-origins = []
 logging.info("Set all CORS enabled origins")
 if settings.BACKEND_CORS_ORIGINS:
-    origins_raw = settings.BACKEND_CORS_ORIGINS.split(",")
-    for origin in origins_raw:
-        use_origin = origin.strip()
-        origins.append(use_origin)
-
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=[origin for origin in settings.BACKEND_CORS_ORIGINS],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -9,11 +9,19 @@ from pydantic.networks import EmailStr
 
 class Settings(BaseSettings):
     APP_NAME: str
-    BACKEND_CORS_ORIGINS: str = (
-        '["http://localhost", "http://localhost:4200", "http://localhost:3000", '
-        '"http://localhost:8080", "https://localhost", "https://localhost:4200", '
-        '"https://localhost:3000", "https://localhost:8080"] '
-    )
+    BACKEND_CORS_ORIGINS: list[str] = [
+        "http://localhost",
+        "http://localhost:8000",
+        "http://localhost:4200",
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "https://localhost",
+        "https://localhost:8000",
+        "https://localhost:4200",
+        "https://localhost:3000",
+        "https://localhost:8080",
+    ]
+
     JWT_TOKEN_PREFIX: str
     SECRET_KEY: bytes | None = None
     ALGORITHM: str

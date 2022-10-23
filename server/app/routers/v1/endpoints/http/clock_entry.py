@@ -1,3 +1,4 @@
+import io
 from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import Mapping
@@ -5,6 +6,7 @@ from typing import Mapping
 import aredis_om
 from databases import Database
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -24,6 +26,7 @@ from app.models.clock_entry import DBClockEntry
 from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
 from app.models.clock_session import DBClockSession
 from app.models.enums.clock_entry_type import ClockEntryType
+from app.models.enums.smart_entries_format import SmartEntriesFormat
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
 from app.models.group_user import DBGroupUser
@@ -48,6 +51,7 @@ from app.services.dependencies import (
     fetch_user_generate_report_permission_from_token_qp_id,
     fetch_user_in_group_from_token,
 )
+from app.services.exceler import build_in_memory_file
 
 base_responses = {
     400: {
@@ -255,6 +259,7 @@ async def get_group_sessions(
 @router.get(
     "/{group_id}/sessions/report",
     response_model=SessionsReportResponse | SessionsSmartReportResponse,
+    response_class=StreamingResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get report for sessions in a group",
@@ -280,11 +285,12 @@ async def get_group_sessions_report(
     start_at: datetime | None = None,
     stop_at: datetime | None = None,
     smart_entries: bool = False,
+    smart_entries_format: SmartEntriesFormat = SmartEntriesFormat.JSON,
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> SessionsReportResponse | SessionsSmartReportResponse:
+) -> SessionsReportResponse | SessionsSmartReportResponse | StreamingResponse:
     filters = {}
     # If session_id is not None, then it means we want a specific session report
     # No reason to check for other filters, those where used in /{group_id}/sessions/report
@@ -357,7 +363,22 @@ async def get_group_sessions_report(
         # This is done to make the report more accurate
         # Instead of returning 2 entries, one for clock in and one for clock out, we return only one entry
         # In that entry we have the clock in and clock out time for entry & details
-        return SessionsSmartReportResponse.prepare_response(sessions)
+        sessions_smart_report: SessionsSmartReportResponse = (
+            SessionsSmartReportResponse.prepare_response(sessions)
+        )
+
+        if smart_entries_format == SmartEntriesFormat.JSON:
+            return sessions_smart_report
+        elif smart_entries_format == SmartEntriesFormat.EXCEL:
+            filename: str = f'Group "test" Sessions Report.xlsx'
+            bytes_file = await build_in_memory_file(
+                data=sessions_smart_report,
+            )
+            return StreamingResponse(
+                io.BytesIO(bytes_file),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
 
     return SessionsReportResponse(
         sessions=[
@@ -423,3 +444,6 @@ async def generate_qr_code_clock_entry(
     return QRCodeClockEntryResponse(
         token=token, group=BaseGroupIdWrapper(**user_in_group.group.dict())
     )
+
+
+# CSV, EXCEL report

@@ -27,7 +27,7 @@ class DBClockGroupUserSessionEntry(DBCoreModel, BaseClockGroupUserSessionEntry):
         clock_sessions_id: int,
         bypass_exc: bool = False,
         exc: base_exceptions.CustomBaseException | None = None,
-    ) -> Mapping:
+    ) -> Mapping | None:
         clock_groups_users_sessions_entries: Table = Table(cls.Meta.table_name)
         clock_entries: Table = Table("clock_entries")
         query = (

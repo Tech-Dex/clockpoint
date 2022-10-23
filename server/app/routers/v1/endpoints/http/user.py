@@ -1,6 +1,6 @@
 from databases import Database
 from fastapi import APIRouter, Depends
-from starlette.status import HTTP_200_OK
+from http import HTTPStatus
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -33,7 +33,7 @@ base_responses = {
     "/",
     response_model=BaseUserResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="update",
     responses={
         **base_responses,
@@ -80,7 +80,7 @@ async def update(
     "/search/{identifier}",
     response_model=BaseUserSearchResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="search",
     responses={
         **base_responses,
@@ -116,7 +116,7 @@ async def search(
     "/filter/{identifier}",
     response_model=BaseUsersSearchResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="search",
     responses={
         **base_responses,

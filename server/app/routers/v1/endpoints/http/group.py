@@ -7,7 +7,7 @@ from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
-from starlette.status import HTTP_200_OK
+from http import HTTPStatus
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -73,7 +73,7 @@ base_responses = {
     "/",
     response_model=PayloadGroupUsersRoleResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="get a group details",
     responses={
         **base_responses,
@@ -102,7 +102,7 @@ async def get_by_id(
     "/create",
     response_model=BaseGroupResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="create",
     responses={
         **base_responses,
@@ -184,7 +184,7 @@ async def create(
     "/my_groups",
     response_model_exclude_unset=True,
     response_model=PayloadGroupsUsersRoleResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="get all groups of a user",
     responses={
         **base_responses,
@@ -220,7 +220,7 @@ async def get_user_groups(
     "/invite",
     response_model=BypassedInvitesGroupsResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="invite",
     responses={
         **base_responses,
@@ -306,7 +306,7 @@ async def invite(
     "/invites",
     response_model_exclude_unset=True,
     response_model=InvitesGroupsResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="user invites",
     responses={
         **base_responses,
@@ -354,7 +354,7 @@ async def get_invites(
     "/join",
     response_model_exclude_unset=True,
     response_model=BaseGroupResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="join",
     responses={
         **base_responses,
@@ -431,7 +431,7 @@ async def join(
     "/leave",
     response_model_exclude_unset=True,
     response_model=GenericResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="leave",
     responses={
         **base_responses,
@@ -461,7 +461,7 @@ async def leave(
     "/roles",
     response_model_exclude_unset=True,
     response_model=RolesPermissionsResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="get group roles",
     responses={
         **base_responses,
@@ -507,7 +507,7 @@ async def roles(
     "/role",
     response_model_exclude_unset=True,
     response_model=PayloadGroupUsersRoleResponse,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="assign a role to a user",
     responses={
         **base_responses,
@@ -562,7 +562,7 @@ async def assign_role(
     "/{group_id}/qr/invite",
     response_model=QRCodeInviteGroupResponse,
     response_model_exclude_unset=True,
-    status_code=HTTP_200_OK,
+    status_code=HTTPStatus.OK,
     name="invite by qr code",
     responses={
         **base_responses,

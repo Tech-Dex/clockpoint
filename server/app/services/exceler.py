@@ -2,8 +2,7 @@ import asyncio
 import io
 
 import pandas as pd
-import gzip
-from app.models.enums.smart_entries_format import SmartEntriesFormat
+
 from app.schemas.v1.response import SessionsSmartReportResponse
 
 

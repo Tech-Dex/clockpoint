@@ -1,4 +1,5 @@
 import asyncio
+from http import HTTPStatus
 from typing import Mapping
 
 import aredis_om.model.model
@@ -7,7 +8,6 @@ from databases import Database
 from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
-from http import HTTPStatus
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver

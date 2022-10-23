@@ -1,6 +1,7 @@
+from http import HTTPStatus
+
 from databases import Database
 from fastapi import APIRouter, Depends
-from http import HTTPStatus
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver

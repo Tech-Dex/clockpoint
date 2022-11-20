@@ -11,6 +11,7 @@ from pydantic.networks import EmailStr
 
 from app.core.config import settings
 
+
 async def send_email(receiver: EmailStr, subject: str, body: str):
     with smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT) as server:
         msg = MIMEMultipart("alternative")

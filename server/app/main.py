@@ -22,6 +22,8 @@ from app.core.errors import (
     validation_exception_handler,
 )
 from app.routers.v1.router import HTTP_API_V1, router_http as api_v1_router_http
+from app.services.cleaner import remove_inactive_users
+from app.services.tasks import repeat_every
 
 rootLogger = logging.getLogger()
 consoleHandler = logging.StreamHandler()
@@ -64,6 +66,14 @@ async def app_shutdown():
 # App Events
 app.add_event_handler("startup", app_startup)
 app.add_event_handler("shutdown", app_shutdown)
+
+
+# Cron Jobs
+@app.on_event("startup")
+@repeat_every(seconds=settings.DB_CLEANER_CRON_JOB_EVERY_MINUTES, logger=rootLogger)
+async def db_cleaner():
+    await remove_inactive_users()
+
 
 # Exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

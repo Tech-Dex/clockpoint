@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+from databases import Database
 from phonenumbers import PhoneNumberFormat, format_number, parse as parse_phone_number
 from phonenumbers.phonenumberutil import NumberParseException
 from pydantic.networks import EmailStr
+from pymysql import Error as MySQLError
+from pypika import MySQLQuery, Table
 
 from app.core.security import (
     generate_salt,
@@ -35,6 +40,7 @@ class DBUser(DBCoreModel, BaseUser):
 
     class Meta:
         table_name: str = "users"
+        inactive_user_lifetime: int = 8  # days
 
     def verify_password(
         self, password: str, exc: base_exceptions.CustomBaseException | None = None
@@ -59,6 +65,24 @@ class DBUser(DBCoreModel, BaseUser):
             )
         except NumberParseException:
             raise user_exceptions.PhoneNumberFormatException()
+
+    @classmethod
+    async def remove_inactive_users(cls, mysql_driver: Database) -> None:
+        now: datetime = datetime.utcnow()
+        users: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(users)
+            .delete()
+            .where(users.is_active == False)
+            .where(
+                users.created_at < now - timedelta(days=cls.Meta.inactive_user_lifetime)
+            )
+        )
+
+        try:
+            await mysql_driver.execute(query.get_sql())
+        except MySQLError as mySQLError:
+            raise base_exceptions.CustomBaseException(detail=mySQLError.args[1])
 
 
 class UserId(BaseUser):

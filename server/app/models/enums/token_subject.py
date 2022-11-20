@@ -5,8 +5,8 @@ from enum import Enum
 
 class TokenSubject(str, Enum):
     ACCESS: str = "ACCESS"
-    ACTIVATE_ACCOUNT: str = "ACTIVATE_ACCOUNT"
-    FORGOT_PASSWORD: str = "FORGOT_PASSWORD"
+    VERIFY_ACCOUNT: str = "VERIFY_ACCOUNT"
+    RESET_PASSWORD: str = "RESET_PASSWORD"
     GROUP_INVITE: str = "GROUP_INVITE"
     QR_CODE_GROUP_INVITE: str = "QR_CODE_GROUP_INVITE"
     QR_CODE_ENTRY: str = "QR_CODE_ENTRY"

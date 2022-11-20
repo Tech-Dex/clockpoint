@@ -195,30 +195,5 @@ async def test_exceptions(
 # etc
 
 
-# TODO: add report route
-# - get report by identifier ( json + csv,excel)
-# - get group reports ( json + csv,excel)
-# - get user reports ( json + csv,excel)
-# - let the admin end a day session and clock OUT everyone that has an IN
-
-# - filter by date
-
-# - entires -> group_entires: id_entry, id_group
-# entires: id, user_id, dateteme, type[in,out]
-
-"""
-clock_entries= {
-    id: 1,
-    datetime: 2020-01-01 00:00:00,
-    type: in,
-}
-
-clock_group_entries = {
-    id: 1,
-    clock_entry_id: 1,
-    groups_id: 1,
-    users_id: 1,
-}
-"""
 # TODO: cron -> remove inactive account older than 8 days
 # TODO: refactorize naming

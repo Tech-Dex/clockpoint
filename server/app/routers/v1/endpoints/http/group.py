@@ -57,7 +57,6 @@ from app.services.dependencies import (
     fetch_user_invite_permission_from_token_br_invite,
     fetch_user_invite_permission_from_token_qp_id,
 )
-from app.services.mailer import send_group_invitation
 
 router: APIRouter = APIRouter()
 
@@ -290,14 +289,7 @@ async def invite(
                 )
             )
 
-        tokens = await asyncio.gather(*tasks)
-
-        bg_tasks.add_task(
-            send_group_invitation,
-            invitation_receivers,
-            user_in_group.group.name,
-            tokens,
-        )
+        await asyncio.gather(*tasks)
 
         return BypassedInvitesGroupsResponse(bypassed_invites=user_emails_bypassed)
 

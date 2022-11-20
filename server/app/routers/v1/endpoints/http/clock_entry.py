@@ -446,4 +446,6 @@ async def generate_qr_code_clock_entry(
     )
 
 
-# CSV, EXCEL report
+# TODO: Automate session creation with a cron job
+# A user should be able to select a time to start the session, duration of the sessions and the days of the week
+# Or daily, weekly, monthly

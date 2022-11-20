@@ -1,0 +1,33 @@
+<mjml>
+    <mj-head>
+        <mj-preview>
+            We're happy to have you on board! We'll help you to verify your email address.
+        </mj-preview>
+    </mj-head>
+    <mj-body background-color="#FFFFFF">
+        <mj-section>
+            <mj-column>
+                <mj-divider border-color="#FFA73B"/>
+                <mj-text font-size="20px" color="#000000" font-family="helvetica">Welcome</mj-text>
+                <mj-text font-size="16px" color="#000000" font-family="helvetica">Hi {{ username }},</mj-text>
+                <mj-text font-size="16px" color="#000000" font-family="helvetica">Welcome to {{ project_name }}.
+                </mj-text>
+                <mj-text font-size="16px" color="#000000" font-family="helvetica">We're excited to have you get started.
+                    First, you need to confirm your
+                    account. Just press the button below.
+                    <strong>This account confirmation is only valid for
+                        the next 7 days, otherwise the account will be deleted.
+                    </strong>
+                </mj-text>
+                <mj-button background-color="#FFA73B" href="{{ verification_link }}">Verify Email</mj-button>
+                <mj-text font-size="16px" color="#000000" font-family="helvetica">Cheers,<br/>{{ project_name }} Team
+                </mj-text>
+                <mj-text font-size="12px" color="#808080" font-family="helvetica">
+                    If you're having trouble clicking the "Verify Email" button, copy and paste the URL below into your
+                    web browser: {{ verification_link }}
+                </mj-text>
+                <mj-divider border-color="#FFA73B" border-width="2px"/>
+            </mj-column>
+        </mj-section>
+    </mj-body>
+</mjml>

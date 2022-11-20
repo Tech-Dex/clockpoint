@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     SECRET_KEY: bytes | None = None
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    ACTIVATE_ACCOUNT_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 3  # 3 days
-    FORGOT_PASSWORD_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1  # 1 day
+    VERIFY_ACCOUNT_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 3  # 3 days
+    RESET_PASSWORD_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 1  # 1 day
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 2  # 2 days
     QR_CODE_GROUP_INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 10  # 10 minutes
@@ -50,8 +50,11 @@ class Settings(BaseSettings):
     MAIL_USER: str
     MAIL_PASSWORD: str
     MAIL_SENDER: EmailStr
+    EMAIL_TEMPLATES_DIR: str = "app/email-templates/build"
     MAIL_FRONTEND_DNS: str
-    MAIL_FRONTEND_GROUP_INVITE_PATH: str
+    MAIL_FRONTEND_VERIFY_ACCOUNT_PATH: str
+    MAIL_FRONTEND_RESET_PASSWORD_PATH: str
+    MAIL_CONTACT_PATH: str
 
     def __init__(self, **values: any):
         super().__init__(**values)

@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 import aredis_om
 from databases import Database
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
@@ -25,6 +25,7 @@ from app.schemas.v1.request import (
 )
 from app.schemas.v1.response import BaseUserResponse, GenericResponse
 from app.services.dependencies import fetch_db_user_from_token, fetch_user_from_token
+from app.services.mailer import send_recover_account_email, send_register_email
 
 router: APIRouter = APIRouter()
 
@@ -113,6 +114,7 @@ async def password(
     },
 )
 async def register(
+    bg_tasks: BackgroundTasks,
     user_register: UserRegisterRequest,
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> BaseUserResponse:
@@ -132,11 +134,15 @@ async def register(
         expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     )
 
-    activate_account_token: str = await create_token(
-        data=BaseToken(users_id=user.id, subject=TokenSubject.ACTIVATE_ACCOUNT).dict(),
-        expire=settings.ACTIVATE_ACCOUNT_TOKEN_EXPIRE_MINUTES,
+    verify_account_token: str = await create_token(
+        data=BaseToken(users_id=user.id, subject=TokenSubject.VERIFY_ACCOUNT).dict(),
+        expire=settings.VERIFY_ACCOUNT_TOKEN_EXPIRE_MINUTES,
     )
-    # TODO send this token in email
+
+    bg_tasks.add_task(
+        send_register_email, user.email, verify_account_token, user.username
+    )
+
     return BaseUserResponse(user=UserToken(**user.dict(), token=token))
 
 
@@ -293,19 +299,23 @@ async def activate(
     },
 )
 async def forgot(
+    bg_tasks: BackgroundTasks,
     email: str,
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> GenericResponse:
     user: DBUser = await DBUser.get_by(mysql_driver, "email", email, bypass_exc=True)
 
     if user:
-        forgot_password_token: str = await create_token(
+        reset_password_token: str = await create_token(
             data=BaseToken(
-                users_id=user.id, subject=TokenSubject.FORGOT_PASSWORD
+                users_id=user.id, subject=TokenSubject.RESET_PASSWORD
             ).dict(),
-            expire=settings.FORGOT_PASSWORD_TOKEN_EXPIRE_MINUTES,
+            expire=settings.RESET_PASSWORD_TOKEN_EXPIRE_MINUTES,
         )
-        # TODO send this token in email
+
+        bg_tasks.add_task(
+            send_recover_account_email, user.email, reset_password_token, user.username
+        )
 
     return GenericResponse(
         message="If the email exists, you will receive an email with instructions to reset your password."

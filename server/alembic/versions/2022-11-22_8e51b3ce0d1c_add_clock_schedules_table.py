@@ -41,6 +41,22 @@ def upgrade():
         sa.Column("deleted_at", sa.DateTime, nullable=True),
     )
 
+    op.create_foreign_key(
+        "fk_clock_schedules_groups_users_id_groups_users",
+        "clock_schedules",
+        "groups_users",
+        ["groups_users_id"],
+        ["id"],
+        ondelete="CASCADE",
+    )
+
+    op.create_index(
+        "ix_groups_users_id_start_at_stop_at",
+        "clock_schedules",
+        ["groups_users_id", "start_at", "stop_at"],
+        unique=True,
+    )
+
 
 def downgrade():
     op.drop_table("clock_schedules")

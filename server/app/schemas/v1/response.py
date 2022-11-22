@@ -139,6 +139,20 @@ class StartClockSessionResponse(ConfigModel):
     stop_at: datetime
 
 
+class ScheduleClockSessionResponse(ConfigModel):
+    user: BaseUser
+    group: BaseGroupIdWrapper
+    start_at: datetime
+    stop_at: datetime
+    monday: bool
+    tuesday: bool
+    wednesday: bool
+    thursday: bool
+    friday: bool
+    saturday: bool
+    sunday: bool
+
+
 class SessionEntryResponse(ConfigModel):
     username: str
     email: EmailStr

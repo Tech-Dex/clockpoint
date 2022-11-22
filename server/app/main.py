@@ -23,6 +23,7 @@ from app.core.errors import (
 )
 from app.routers.v1.router import HTTP_API_V1, router_http as api_v1_router_http
 from app.services.cleaner import remove_inactive_users
+from app.services.scheduler import start_clock_session
 from app.services.tasks import repeat_every
 
 rootLogger = logging.getLogger()
@@ -73,6 +74,14 @@ app.add_event_handler("shutdown", app_shutdown)
 @repeat_every(seconds=settings.DB_CLEANER_CRON_JOB_EVERY_MINUTES, logger=rootLogger)
 async def db_cleaner():
     await remove_inactive_users()
+
+
+@app.on_event("startup")
+@repeat_every(
+    seconds=settings.CLOCK_SCHEDULER_CRON_JOB_EVERY_MINUTES, logger=rootLogger
+)
+async def clock_scheduler():
+    await start_clock_session()
 
 
 # Exception handlers

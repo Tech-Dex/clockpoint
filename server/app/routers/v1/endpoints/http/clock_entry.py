@@ -24,6 +24,7 @@ from app.exceptions import (
 )
 from app.models.clock_entry import DBClockEntry
 from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
+from app.models.clock_schedule import DBClockSchedule
 from app.models.clock_session import DBClockSession
 from app.models.enums.clock_entry_type import ClockEntryType
 from app.models.enums.smart_entries_format import SmartEntriesFormat
@@ -32,13 +33,14 @@ from app.models.exception import CustomBaseException
 from app.models.group_user import DBGroupUser
 from app.models.token import QRCodeClockEntryToken, RedisToken
 from app.models.user import BaseUser, DBUser, DBUserToken, UserToken
-from app.schemas.v1.request import StartClockSessionRequest
+from app.schemas.v1.request import ScheduleClockSessionRequest, StartClockSessionRequest
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     GenericResponse,
     GroupSessionResponse,
     GroupSessionsResponse,
     QRCodeClockEntryResponse,
+    ScheduleClockSessionResponse,
     SessionEntriesResponse,
     SessionEntryResponse,
     SessionsReportResponse,
@@ -180,6 +182,8 @@ async def start_session(
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
 ) -> StartClockSessionResponse:
+    if clock_session.duration > 16 * 60:
+        raise clock_session_exceptions.ClockSessionDurationTooLongException()
     async with mysql_driver.transaction():
         start_at = datetime.utcnow()
         stop_at = start_at + timedelta(minutes=clock_session.duration)
@@ -198,6 +202,57 @@ async def start_session(
             user=BaseUser(**user_in_group.user_token.dict()),
             group=BaseGroupIdWrapper(**user_in_group.group.dict()),
             **db_clock_session.dict(),
+        )
+
+
+@router.post(
+    "/{group_id}/schedule",
+    response_model=ScheduleClockSessionResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Schedule a session",
+    responses={
+        **base_responses,
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def schedule_session(
+    schedule_clock_session: ScheduleClockSessionRequest,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> ScheduleClockSessionResponse:
+    if schedule_clock_session.duration > 16 * 60:
+        raise clock_session_exceptions.ClockSessionDurationTooLongException()
+    async with mysql_driver.transaction():
+        stop_at = schedule_clock_session.start_at + timedelta(
+            minutes=schedule_clock_session.duration
+        )
+        db_clock_schedule: DBClockSchedule = await DBClockSchedule(
+            groups_users_id=user_in_group.group_user.id,
+            start_at=schedule_clock_session.start_at,
+            stop_at=stop_at,
+            monday=schedule_clock_session.monday,
+            tuesday=schedule_clock_session.tuesday,
+            wednesday=schedule_clock_session.wednesday,
+            thursday=schedule_clock_session.thursday,
+            friday=schedule_clock_session.friday,
+            saturday=schedule_clock_session.saturday,
+            sunday=schedule_clock_session.sunday,
+        ).save(mysql_driver)
+
+        return ScheduleClockSessionResponse(
+            user=BaseUser(**user_in_group.user_token.dict()),
+            group=BaseGroupIdWrapper(**user_in_group.group.dict()),
+            **db_clock_schedule.dict(),
         )
 
 
@@ -449,3 +504,9 @@ async def generate_qr_code_clock_entry(
 # TODO: Automate session creation with a cron job
 # A user should be able to select a time to start the session, duration of the sessions and the days of the week
 # Or daily, weekly, monthly
+
+# db: clock_sessions_schedule    - id, start_at, duration, days_of_week ( column for every day ), groups_users_id ( of the creator )
+# !Long term plan maybe, add a cronjob option to schedule a session for the user
+# Every minute check if a session should be created. If we create a session with the logic from start_session
+# store in redis that the session was created, so we don't create it again and add expiration to the key in redis to delete it "duration" minutes later
+# If the user is not in the group, we don't create the session

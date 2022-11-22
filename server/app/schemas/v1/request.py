@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import EmailStr
 
 from app.models.config_model import ConfigModel
@@ -63,3 +65,15 @@ class GroupAssignRoleRequest(ConfigModel):
 
 class StartClockSessionRequest(ConfigModel):
     duration: int  # in minutes
+
+
+class ScheduleClockSessionRequest(ConfigModel):
+    start_at: datetime
+    duration: int  # in minutes
+    monday: bool = False
+    tuesday: bool = False
+    wednesday: bool = False
+    thursday: bool = False
+    friday: bool = False
+    saturday: bool = False
+    sunday: bool = False

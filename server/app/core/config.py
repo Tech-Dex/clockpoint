@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     QR_CODE_GROUP_INVITE_TOKEN_EXPIRE_MINUTES: int = 60 * 10  # 10 minutes
     QR_CODE_CLOCK_ENTRY_TOKEN_EXPIRE_MINUTES: int = 60 * 5  # 5 minutes
     DB_CLEANER_CRON_JOB_EVERY_MINUTES: int = 60 * 24 * 1  # 1 day
+    CLOCK_SCHEDULER_CRON_JOB_EVERY_MINUTES: int = 60  # 1 minute
     MYSQL_HOST: str
     MYSQL_PORT: int
     MYSQL_USER: str

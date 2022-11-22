@@ -66,7 +66,7 @@ phonenumbers==8.13.0
 platformdirs==2.5.4
 portend==3.1.0
 pptree==3.1
-protobuf==3.20.1
+protobuf==3.20.1 #Wait for mysql-connector-python to update
 pycparser==2.21
 pydantic==1.10.2
 pyflakes==2.5.0

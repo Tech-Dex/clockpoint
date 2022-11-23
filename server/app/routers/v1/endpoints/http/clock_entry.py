@@ -1,5 +1,6 @@
 import io
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, time
 from http import HTTPStatus
 from typing import Mapping
 
@@ -21,6 +22,7 @@ from app.exceptions import (
     permission as permission_exceptions,
     token as token_exceptions,
     user as user_exceptions,
+    clock_schedule as clock_schedule_exceptions,
 )
 from app.models.clock_entry import DBClockEntry
 from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
@@ -188,7 +190,6 @@ async def start_session(
         start_at = datetime.utcnow()
         stop_at = start_at + timedelta(minutes=clock_session.duration)
         db_clock_session: DBClockSession = await DBClockSession(
-            users_id=user_in_group.user_token.id,
             start_at=start_at,
             stop_at=stop_at,
         ).save(mysql_driver)
@@ -233,12 +234,17 @@ async def schedule_session(
     if schedule_clock_session.duration > 16 * 60:
         raise clock_session_exceptions.ClockSessionDurationTooLongException()
     async with mysql_driver.transaction():
-        stop_at = schedule_clock_session.start_at + timedelta(
+        start_at: time = schedule_clock_session.start_at.time()
+
+        stop_at = (schedule_clock_session.start_at + timedelta(
             minutes=schedule_clock_session.duration
-        )
+        )).time()
+
+        logging.info(f"start_at: {start_at}")
+        logging.info(f"stop_at: {stop_at}")
         db_clock_schedule: DBClockSchedule = await DBClockSchedule(
             groups_users_id=user_in_group.group_user.id,
-            start_at=schedule_clock_session.start_at,
+            start_at=start_at,
             stop_at=stop_at,
             monday=schedule_clock_session.monday,
             tuesday=schedule_clock_session.tuesday,
@@ -247,7 +253,7 @@ async def schedule_session(
             friday=schedule_clock_session.friday,
             saturday=schedule_clock_session.saturday,
             sunday=schedule_clock_session.sunday,
-        ).save(mysql_driver)
+        ).save(mysql_driver, exc=clock_schedule_exceptions.DuplicateCaseScheduleException())
 
         return ScheduleClockSessionResponse(
             user=BaseUser(**user_in_group.user_token.dict()),
@@ -510,3 +516,5 @@ async def generate_qr_code_clock_entry(
 # Every minute check if a session should be created. If we create a session with the logic from start_session
 # store in redis that the session was created, so we don't create it again and add expiration to the key in redis to delete it "duration" minutes later
 # If the user is not in the group, we don't create the session
+
+# Controller: Remove schedule / Update schedule ( based on group user id ) if access

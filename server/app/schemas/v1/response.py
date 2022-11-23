@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time
 
 from pydantic.networks import EmailStr
 
@@ -142,8 +142,8 @@ class StartClockSessionResponse(ConfigModel):
 class ScheduleClockSessionResponse(ConfigModel):
     user: BaseUser
     group: BaseGroupIdWrapper
-    start_at: datetime
-    stop_at: datetime
+    start_at: time
+    stop_at: time
     monday: bool
     tuesday: bool
     wednesday: bool

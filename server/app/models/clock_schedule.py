@@ -1,19 +1,23 @@
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from typing import Mapping
 
 from databases import Database
 from pymysql import Error as MySQLError
 from pypika import MySQLQuery, Parameter, Table
 
+from app.core.config import settings
 from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-
+from aredis_om import Field, HashModel, get_redis_connection
+from pymysql.constants.ER import DUP_ENTRY
+from pymysql.err import IntegrityError
+from app.exceptions import clock_schedule as clock_schedule_exceptions
 
 class BaseClockSchedule(ConfigModel):
     groups_users_id: int
-    start_at: datetime
-    stop_at: datetime
+    start_at: time
+    stop_at: time
     monday: bool = False
     tuesday: bool = False
     wednesday: bool = False
@@ -21,6 +25,16 @@ class BaseClockSchedule(ConfigModel):
     friday: bool = False
     saturday: bool = False
     sunday: bool = False
+
+
+class RedisClockSchedule(HashModel, ConfigModel):
+    schedule_id: int = Field(index=True)
+
+    class Meta:
+        global_key_prefix = "clockpoint"
+        database = get_redis_connection(
+            url=settings.REDIS_DATA_URL, decode_responses=True
+        )
 
 
 class DBClockSchedule(DBCoreModel, BaseClockSchedule):
@@ -66,4 +80,16 @@ class DBClockSchedule(DBCoreModel, BaseClockSchedule):
                 detail=f"No {cls.Meta.table_name} found"
             )
 
-        return results
+        formatted_results: list[DBClockSchedule] = []
+        for result in results:
+            formatted_results.append(
+                DBClockSchedule(
+                    **{
+                        **result,
+                        "start_at": str(result["start_at"]),
+                        "stop_at": str(result["stop_at"])
+                    }
+                )
+            )
+
+        return formatted_results

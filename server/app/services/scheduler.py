@@ -24,7 +24,9 @@ async def start_clock_session() -> None:
     logging.info(f"Found {len(schedules)} schedules")
     for schedule in schedules:
         try:
-            await RedisClockSchedule.find(RedisClockSchedule.schedule_id == schedule.id).first()
+            await RedisClockSchedule.find(
+                RedisClockSchedule.schedule_id == schedule.id
+            ).first()
             logging.info(f"Schedule {schedule.id} already started")
         except aredis_om.model.model.NotFoundError:
             logging.info(f"Schedule {schedule.id} not started yet")
@@ -33,11 +35,14 @@ async def start_clock_session() -> None:
             ).save()
 
             start_at = datetime.combine(datetime.today(), schedule.start_at)
-            stop_at: datetime = datetime.combine(
-                datetime.today(), schedule.stop_at
-            )
-            if (datetime.combine(datetime.today(), schedule.stop_at) - datetime.combine(datetime.today(), schedule.start_at)).total_seconds() < 0:
-                stop_at = datetime.combine(datetime.today(), schedule.stop_at) + timedelta(days=1)
+            stop_at: datetime = datetime.combine(datetime.today(), schedule.stop_at)
+            if (
+                datetime.combine(datetime.today(), schedule.stop_at)
+                - datetime.combine(datetime.today(), schedule.start_at)
+            ).total_seconds() < 0:
+                stop_at = datetime.combine(
+                    datetime.today(), schedule.stop_at
+                ) + timedelta(days=1)
 
             seconds_left = math.ceil((stop_at - now).total_seconds())
             await redis_schedule.expire(seconds_left)
@@ -49,6 +54,5 @@ async def start_clock_session() -> None:
 
             await DBClockGroupUserSessionEntry(
                 clock_sessions_id=db_clock_session.id,
-                groups_users_id=schedule.groups_users_id
+                groups_users_id=schedule.groups_users_id,
             ).save(mysql_driver)
-

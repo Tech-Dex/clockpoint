@@ -1,6 +1,7 @@
-from datetime import datetime, time, timedelta
+from datetime import time
 from typing import Mapping
 
+from aredis_om import Field, HashModel, get_redis_connection
 from databases import Database
 from pymysql import Error as MySQLError
 from pypika import MySQLQuery, Parameter, Table
@@ -9,10 +10,7 @@ from app.core.config import settings
 from app.exceptions import base as base_exceptions
 from app.models.config_model import ConfigModel
 from app.models.db_core_model import DBCoreModel
-from aredis_om import Field, HashModel, get_redis_connection
-from pymysql.constants.ER import DUP_ENTRY
-from pymysql.err import IntegrityError
-from app.exceptions import clock_schedule as clock_schedule_exceptions
+
 
 class BaseClockSchedule(ConfigModel):
     groups_users_id: int
@@ -87,7 +85,7 @@ class DBClockSchedule(DBCoreModel, BaseClockSchedule):
                     **{
                         **result,
                         "start_at": str(result["start_at"]),
-                        "stop_at": str(result["stop_at"])
+                        "stop_at": str(result["stop_at"]),
                     }
                 )
             )

@@ -75,12 +75,14 @@ app.add_event_handler("shutdown", app_shutdown)
 async def db_cleaner():
     await remove_inactive_users()
 
+
 @app.on_event("startup")
 @repeat_every(
     seconds=settings.CLOCK_SCHEDULER_CRON_JOB_EVERY_MINUTES, logger=rootLogger
 )
 async def clock_scheduler():
     await start_clock_session()
+
 
 # Exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

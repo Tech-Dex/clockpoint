@@ -1,6 +1,6 @@
 import io
 import logging
-from datetime import datetime, timedelta, time
+from datetime import datetime, time, timedelta
 from http import HTTPStatus
 from typing import Mapping
 
@@ -16,13 +16,13 @@ from app.exceptions import (
     base as base_exceptions,
     clock_entry as clock_entry_exceptions,
     clock_group_user_session_entry as clock_group_user_session_entry_exceptions,
+    clock_schedule as clock_schedule_exceptions,
     clock_session as clock_session_exceptions,
     group as group_exceptions,
     group_user as group_user_exceptions,
     permission as permission_exceptions,
     token as token_exceptions,
     user as user_exceptions,
-    clock_schedule as clock_schedule_exceptions,
 )
 from app.models.clock_entry import DBClockEntry
 from app.models.clock_group_user_session_entry import DBClockGroupUserSessionEntry
@@ -236,9 +236,10 @@ async def schedule_session(
     async with mysql_driver.transaction():
         start_at: time = schedule_clock_session.start_at.time()
 
-        stop_at = (schedule_clock_session.start_at + timedelta(
-            minutes=schedule_clock_session.duration
-        )).time()
+        stop_at = (
+            schedule_clock_session.start_at
+            + timedelta(minutes=schedule_clock_session.duration)
+        ).time()
 
         logging.info(f"start_at: {start_at}")
         logging.info(f"stop_at: {stop_at}")
@@ -253,7 +254,9 @@ async def schedule_session(
             friday=schedule_clock_session.friday,
             saturday=schedule_clock_session.saturday,
             sunday=schedule_clock_session.sunday,
-        ).save(mysql_driver, exc=clock_schedule_exceptions.DuplicateCaseScheduleException())
+        ).save(
+            mysql_driver, exc=clock_schedule_exceptions.DuplicateCaseScheduleException()
+        )
 
         return ScheduleClockSessionResponse(
             user=BaseUser(**user_in_group.user_token.dict()),

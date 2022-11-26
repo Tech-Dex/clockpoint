@@ -35,7 +35,11 @@ from app.models.exception import CustomBaseException
 from app.models.group_user import DBGroupUser
 from app.models.token import QRCodeClockEntryToken, RedisToken
 from app.models.user import BaseUser, DBUser, DBUserToken, UserToken
-from app.schemas.v1.request import ScheduleClockSessionRequest, StartClockSessionRequest
+from app.schemas.v1.request import (
+    ScheduleClockSessionRequest,
+    ScheduleClockSessionUpdateRequest,
+    StartClockSessionRequest,
+)
 from app.schemas.v1.response import (
     BaseGroupIdWrapper,
     GenericResponse,
@@ -255,7 +259,8 @@ async def schedule_session(
             saturday=schedule_clock_session.saturday,
             sunday=schedule_clock_session.sunday,
         ).save(
-            mysql_driver, exc=clock_schedule_exceptions.DuplicateCaseScheduleException()
+            mysql_driver,
+            exc=clock_schedule_exceptions.DuplicateClockScheduleException(),
         )
 
         return ScheduleClockSessionResponse(
@@ -318,6 +323,155 @@ async def get_group_sessions(
     return GroupSessionsResponse(
         sessions=[GroupSessionResponse(**session) for session in sessions]
     )
+
+
+@router.patch(
+    "/{group_id}/schedule/{schedule_id}",
+    response_model=ScheduleClockSessionResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Update a scheduled session",
+    responses={
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def update_schedule_session(
+    schedule_id: int,
+    schedule_clock_session_update: ScheduleClockSessionUpdateRequest,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> ScheduleClockSessionResponse:
+    if (
+        schedule_clock_session_update.start_at
+        and schedule_clock_session_update.duration is None
+    ) or (
+        schedule_clock_session_update.start_at is None
+        and schedule_clock_session_update.duration
+    ):
+        raise clock_schedule_exceptions.ClockScheduleUpdateRequestInvalidException()
+    async with mysql_driver.transaction():
+        db_clock_schedule: DBClockSchedule = await DBClockSchedule.get_by(
+            mysql_driver,
+            "id",
+            schedule_id,
+            exc=clock_schedule_exceptions.ClockScheduleNotFoundException(),
+        )
+
+        if (
+            schedule_clock_session_update.start_at
+            and schedule_clock_session_update.duration
+        ):
+            if schedule_clock_session_update.duration > 16 * 60:
+                raise clock_session_exceptions.ClockSessionDurationTooLongException()
+
+            start_at: time = schedule_clock_session_update.start_at.time()
+            stop_at = (
+                schedule_clock_session_update.start_at
+                + timedelta(minutes=schedule_clock_session_update.duration)
+            ).time()
+
+            db_clock_schedule.start_at = (
+                start_at
+                if schedule_clock_session_update.start_at is not None
+                else db_clock_schedule.start_at
+            )
+            db_clock_schedule.stop_at = (
+                stop_at
+                if schedule_clock_session_update.duration is not None
+                else db_clock_schedule.stop_at
+            )
+
+        db_clock_schedule.monday = (
+            schedule_clock_session_update.monday
+            if schedule_clock_session_update.monday is not None
+            else db_clock_schedule.monday
+        )
+        db_clock_schedule.tuesday = (
+            schedule_clock_session_update.tuesday
+            if schedule_clock_session_update.tuesday is not None
+            else db_clock_schedule.tuesday
+        )
+        db_clock_schedule.wednesday = (
+            schedule_clock_session_update.wednesday
+            if schedule_clock_session_update.wednesday is not None
+            else db_clock_schedule.wednesday
+        )
+        db_clock_schedule.thursday = (
+            schedule_clock_session_update.thursday
+            if schedule_clock_session_update.thursday is not None
+            else db_clock_schedule.thursday
+        )
+        db_clock_schedule.friday = (
+            schedule_clock_session_update.friday
+            if schedule_clock_session_update.friday is not None
+            else db_clock_schedule.friday
+        )
+        db_clock_schedule.saturday = (
+            schedule_clock_session_update.saturday
+            if schedule_clock_session_update.saturday is not None
+            else db_clock_schedule.saturday
+        )
+        db_clock_schedule.sunday = (
+            schedule_clock_session_update.sunday
+            if schedule_clock_session_update.sunday is not None
+            else db_clock_schedule.sunday
+        )
+        await db_clock_schedule.update(mysql_driver)
+
+        return ScheduleClockSessionResponse(
+            user=BaseUser(**user_in_group.user_token.dict()),
+            group=BaseGroupIdWrapper(**user_in_group.group.dict()),
+            **db_clock_schedule.dict(),
+        )
+
+
+@router.delete(
+    "/{group_id}/schedule/{schedule_id}",
+    response_model=GenericResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Remove a scheduled session",
+    responses={
+        **base_responses,
+        404: {
+            "description": base_exceptions.NotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def update_schedule_session(
+    schedule_id: int,
+    _: UserInGroupWrapper = Depends(
+        fetch_user_generate_report_permission_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> GenericResponse:
+    async with mysql_driver.transaction():
+        db_clock_schedule: DBClockSchedule = await DBClockSchedule.get_by(
+            mysql_driver,
+            "id",
+            schedule_id,
+            exc=clock_schedule_exceptions.ClockScheduleNotFoundException(),
+        )
+        await db_clock_schedule.delete(mysql_driver)
+
+        return GenericResponse(
+            message="Successfully deleted schedule",
+        )
 
 
 @router.get(

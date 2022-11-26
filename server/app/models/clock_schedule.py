@@ -40,6 +40,40 @@ class DBClockSchedule(DBCoreModel, BaseClockSchedule):
         table_name: str = "clock_schedules"
 
     @classmethod
+    async def get_by(
+        cls,
+        mysql_driver: Database,
+        column_reflection_name: str,
+        reflection_value: str | int,
+        bypass_exc: bool = False,
+        exc: base_exceptions.CustomBaseException | None = None,
+    ) -> "DBClockSchedule":
+        table: Table = Table(cls.Meta.table_name)
+        query = (
+            MySQLQuery.from_(table)
+            .select("*")
+            .where(
+                getattr(table, column_reflection_name)
+                == Parameter(f":{column_reflection_name}")
+            )
+            .where(table.deleted_at.isnull())
+        )
+        values = {column_reflection_name: reflection_value}
+
+        result: Mapping = await mysql_driver.fetch_one(query.get_sql(), values)
+        if not result:
+            if bypass_exc:
+                return None
+            raise exc or base_exceptions.UnprocessableEntityException(
+                detail=f"No {cls.Meta.table_name} found"
+            )
+
+        dict_result = dict(result)
+        dict_result["start_at"] = str(result["start_at"])
+        dict_result["stop_at"] = str(result["stop_at"])
+        return cls(**dict_result)
+
+    @classmethod
     async def filter(
         cls,
         mysql_driver: Database,

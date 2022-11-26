@@ -77,3 +77,15 @@ class ScheduleClockSessionRequest(ConfigModel):
     friday: bool = False
     saturday: bool = False
     sunday: bool = False
+
+
+class ScheduleClockSessionUpdateRequest(ConfigModel):
+    start_at: datetime | None = None
+    duration: int | None = None  # in minutes
+    monday: bool | None = None
+    tuesday: bool | None = None
+    wednesday: bool | None = None
+    thursday: bool | None = None
+    friday: bool | None = None
+    saturday: bool | None = None
+    sunday: bool | None = None

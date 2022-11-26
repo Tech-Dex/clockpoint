@@ -140,6 +140,7 @@ class StartClockSessionResponse(ConfigModel):
 
 
 class ScheduleClockSessionResponse(ConfigModel):
+    id: int
     user: BaseUser
     group: BaseGroupIdWrapper
     start_at: time

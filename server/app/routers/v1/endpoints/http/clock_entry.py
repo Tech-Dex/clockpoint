@@ -662,16 +662,3 @@ async def generate_qr_code_clock_entry(
     return QRCodeClockEntryResponse(
         token=token, group=BaseGroupIdWrapper(**user_in_group.group.dict())
     )
-
-
-# TODO: Automate session creation with a cron job
-# A user should be able to select a time to start the session, duration of the sessions and the days of the week
-# Or daily, weekly, monthly
-
-# db: clock_sessions_schedule    - id, start_at, duration, days_of_week ( column for every day ), groups_users_id ( of the creator )
-# !Long term plan maybe, add a cronjob option to schedule a session for the user
-# Every minute check if a session should be created. If we create a session with the logic from start_session
-# store in redis that the session was created, so we don't create it again and add expiration to the key in redis to delete it "duration" minutes later
-# If the user is not in the group, we don't create the session
-
-# Controller: Remove schedule / Update schedule ( based on group user id ) if access

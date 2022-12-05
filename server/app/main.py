@@ -21,7 +21,8 @@ from app.core.errors import (
     not_found_error_handler,
     validation_exception_handler,
 )
-from app.routers.v1.router import HTTP_API_V1, router_http as api_v1_router_http
+from app.routers.v1.http_router import HTTP_API_V1, http_router
+from app.routers.v1.ws_router import WS_API_V1, ws_router
 from app.services.cleaner import remove_inactive_users
 from app.services.scheduler import start_clock_session
 from app.services.tasks import repeat_every
@@ -91,4 +92,5 @@ app.add_exception_handler(404, not_found_error_handler)
 app.add_exception_handler(500, internal_server_error_handler)
 
 # Routers
-app.include_router(api_v1_router_http, prefix=HTTP_API_V1)
+app.include_router(http_router, prefix=HTTP_API_V1)
+app.include_router(ws_router, prefix=WS_API_V1)

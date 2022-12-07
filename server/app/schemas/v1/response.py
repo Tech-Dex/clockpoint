@@ -16,6 +16,11 @@ class GenericResponse(ConfigModel):
     message: str
 
 
+class WebsocketResponse(ConfigModel):
+    scope: str
+    payload: dict
+
+
 class UserTokenResponse(BaseUser):
     token: str | None = None
 

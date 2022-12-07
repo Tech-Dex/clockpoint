@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from databases import Database
-from fastapi import Depends, Header
+from fastapi import Depends, Header, WebSocketException
 
 from app.core.database.mysql_driver import get_mysql_driver
-from app.core.jwt import decode_token
+from app.core.jwt import decode_token, ws_decode_token
 from app.exceptions import (
     base as base_exceptions,
     group as group_exceptions,
@@ -39,6 +39,58 @@ async def get_authorization_header(
     elif required:
         raise token_exceptions.MissingTokenException()
     return None
+
+
+async def ws_get_authorization_header(
+    authorization: str = Header(None),
+    required: bool = True,
+) -> str | None:
+    if authorization:
+        prefix, token = authorization.split(" ")
+        if token is None and required:
+            raise WebSocketException(
+                token_exceptions.MissingTokenException().status_code,
+                token_exceptions.MissingTokenException().detail,
+            )
+        if prefix.lower() != "bearer":
+            raise WebSocketException(
+                token_exceptions.BearTokenException().status_code,
+                token_exceptions.BearTokenException().detail,
+            )
+        return token
+    elif required:
+        raise WebSocketException(
+            token_exceptions.MissingTokenException().status_code,
+            token_exceptions.MissingTokenException().detail,
+        )
+    return None
+
+
+async def ws_fetch_db_user_from_token(
+    mysql_driver: Database = Depends(get_mysql_driver),
+    token: str = Depends(ws_get_authorization_header),
+) -> DBUserToken:
+    payload: dict = ws_decode_token(token)
+    token_payload: BaseToken = BaseToken(**payload)
+
+    if token_payload.subject == TokenSubject.ACCESS:
+        user: DBUser = await DBUser.get_by(
+            mysql_driver,
+            "id",
+            token_payload.users_id,
+            bypass_exc=True,
+        )
+        if user is None:
+            raise WebSocketException(
+                user_exceptions.UserNotFoundException().status_code,
+                user_exceptions.UserNotFoundException().detail,
+            )
+        return DBUserToken(**user.dict(), token=token)
+    else:
+        raise WebSocketException(
+            token_exceptions.AccessTokenException().status_code,
+            token_exceptions.AccessTokenException().detail,
+        )
 
 
 async def fetch_db_user_from_token(

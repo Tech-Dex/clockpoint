@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from fastapi import WebSocketException
 from jwt import PyJWTError, decode, encode
 
 from app.core.config import settings
@@ -48,3 +49,21 @@ def decode_token(token: str) -> dict:
         return payload
     except PyJWTError:
         raise token_exceptions.DecodeTokenException()
+
+
+def ws_decode_token(token: str) -> dict:
+    try:
+        payload: dict = decode(
+            token, str(settings.SECRET_KEY), algorithms=[settings.ALGORITHM]
+        )
+        if datetime.fromisoformat(payload.get("expire")) < datetime.utcnow():
+            raise WebSocketException(
+                token_exceptions.ExpiredTokenException().status_code,
+                token_exceptions.ExpiredTokenException().detail,
+            )
+        return payload
+    except PyJWTError:
+        raise WebSocketException(
+            token_exceptions.DecodeTokenException().status_code,
+            token_exceptions.DecodeTokenException().detail,
+        )

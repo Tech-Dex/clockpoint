@@ -6,6 +6,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_200_OK
 
 from app.core.database.mysql_driver import get_mysql_driver
+from app.core.websocket.connection_manager import get_connection_manager
+from app.models.enums.event_type import EventType
+from app.models.enums.notification_scope import NotificationScope
 from app.models.token import RedisToken
 
 router: APIRouter = APIRouter()
@@ -135,6 +138,16 @@ async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
     #     ).dict()
     # )
     # return 1
+
+
+@router.post("/")
+async def test():
+    await get_connection_manager().send_personal_message_with_user_id(
+        {"message": "test from endpoint"},
+        16,
+        EventType.NOTIFICATION,
+        NotificationScope.GROUP_INVITE,
+    )
 
 
 @router.post("/customer")

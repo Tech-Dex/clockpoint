@@ -1,6 +1,3 @@
-import logging
-
-
 class SingletonMeta(type):
     _instances = {}
 

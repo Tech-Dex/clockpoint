@@ -2,6 +2,7 @@ from fastapi import WebSocket
 
 from app.core.singleton import SingletonMeta
 from app.models.enums.event_type import EventType
+from app.schemas.v1.response import WebsocketResponse
 
 
 class ConnectionManager(metaclass=SingletonMeta):
@@ -45,26 +46,43 @@ class ConnectionManager(metaclass=SingletonMeta):
                 return True
         return False
 
-    async def broadcast(self, message: str, event_type: str):
+    async def broadcast(self, message: dict, event_type: str, scope: str = "undefined"):
         for connection in self.active_connections[event_type]:
-            await connection["connection"].send_text(message)
+            await connection["connection"].send_text(
+                self.format_message(message, scope)
+            )
 
     async def send_personal_message(
-        self, message: str, websocket: WebSocket, event_type: str
+        self,
+        message: dict,
+        websocket: WebSocket,
+        event_type: str,
+        scope: str = "undefined",
     ):
         for connection in self.active_connections[event_type]:
             if connection["connection"] == websocket:
-                await connection["connection"].send_text(message)
+                await connection["connection"].send_text(
+                    self.format_message(message, scope)
+                )
                 break
 
     async def send_personal_message_with_user_id(
-        self, message: str, user_id: int, event_type: str
+        self, message: dict, user_id: int, event_type: str, scope: str = "undefined"
     ):
         for connection in self.active_connections[event_type]:
             if connection["user_id"] == user_id:
-                await connection["connection"].send_text(message)
+                await connection["connection"].send_text(
+                    self.format_message(message, scope)
+                )
                 break
+
+    @staticmethod
+    def format_message(message: dict, scope: str) -> str:
+        return WebsocketResponse(scope=scope, payload=message).json()
+
+
+CONNECTION_MANAGER: ConnectionManager = ConnectionManager()
 
 
 def get_connection_manager():
-    return ConnectionManager()
+    return CONNECTION_MANAGER

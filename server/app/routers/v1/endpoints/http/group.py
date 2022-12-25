@@ -5,13 +5,17 @@ from typing import Mapping
 import aredis_om.model.model
 import numpy as np
 from databases import Database
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from fastapi_cache.decorator import cache
 from pydantic.networks import EmailStr
 
 from app.core.config import settings
 from app.core.database.mysql_driver import get_mysql_driver
 from app.core.jwt import create_token, decode_token
+from app.core.websocket.connection_manager import (
+    ConnectionManager,
+    get_connection_manager,
+)
 from app.exceptions import (
     base as base_exceptions,
     group as group_exceptions,
@@ -21,6 +25,8 @@ from app.exceptions import (
     token as token_exceptions,
     user as user_exceptions,
 )
+from app.models.enums.event_type import EventType
+from app.models.enums.notification_scope import NotificationScope
 from app.models.enums.roles import Roles
 from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
@@ -59,6 +65,8 @@ from app.services.dependencies import (
 )
 
 router: APIRouter = APIRouter()
+
+CONNECTION_MANAGER: ConnectionManager = get_connection_manager()
 
 base_responses = {
     400: {
@@ -239,7 +247,6 @@ async def get_user_groups(
 )
 async def invite(
     group_invite: GroupInviteRequest,
-    bg_tasks: BackgroundTasks,
     user_in_group: UserInGroupWrapper = Depends(
         fetch_user_invite_permission_from_token_br_invite
     ),
@@ -249,7 +256,7 @@ async def invite(
         users_invite: list[DBUser] = await DBUser.get_all_in(
             mysql_driver, "email", group_invite.emails, bypass_exc=True
         )
-        invitation_receivers: list[EmailStr] = []
+        invitation_receivers: list[tuple[int, EmailStr]] = []
         users_ids_invite: list[int] = [user.id for user in users_invite]
         users_ids_not_in_group: list[int] = []
 
@@ -269,27 +276,38 @@ async def invite(
 
         for user_invite in users_invite:
             if user_invite.id in users_ids_not_in_group:
-                invitation_receivers.append(user_invite.email)
+                invitation_receivers.append((user_invite.id, user_invite.email))
 
         user_emails_bypassed: list[EmailStr] = list(
-            np.setdiff1d(group_invite.emails, invitation_receivers)
+            np.setdiff1d(
+                group_invite.emails,
+                [
+                    invitation_receiver_email
+                    for _, invitation_receiver_email in invitation_receivers
+                ],
+            )
         )
 
-        tasks = []
-        for invitation_receiver in invitation_receivers:
-            tasks.append(
-                create_token(
-                    data=InviteGroupToken(
-                        users_id=user_in_group.user_token.id,
-                        invite_user_email=invitation_receiver,
-                        groups_id=user_in_group.group.id,
-                        subject=TokenSubject.GROUP_INVITE,
-                    ).dict(),
-                    expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
-                )
+        for invitation_receiver_id, invitation_receiver_email in invitation_receivers:
+            token_invite: str = await create_token(
+                data=InviteGroupToken(
+                    users_id=user_in_group.user_token.id,
+                    invite_user_email=invitation_receiver_email,
+                    groups_id=user_in_group.group.id,
+                    subject=TokenSubject.GROUP_INVITE,
+                ).dict(),
+                expire=settings.INVITE_TOKEN_EXPIRE_MINUTES,
             )
 
-        await asyncio.gather(*tasks)
+            # Try to send a notification to the user if he is online and connected to the websocket
+            await CONNECTION_MANAGER.send_personal_message_with_user_id(
+                {
+                    "token": token_invite,
+                },
+                invitation_receiver_id,
+                EventType.NOTIFICATION,
+                NotificationScope.GROUP_INVITE,
+            )
 
         return BypassedInvitesGroupsResponse(bypassed_invites=user_emails_bypassed)
 

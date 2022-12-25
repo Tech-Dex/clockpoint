@@ -89,3 +89,7 @@ class ScheduleClockSessionUpdateRequest(ConfigModel):
     friday: bool | None = None
     saturday: bool | None = None
     sunday: bool | None = None
+
+
+class UserMetaUpdateRequest(ConfigModel):
+    has_push_notifications: bool | None = None

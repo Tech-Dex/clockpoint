@@ -195,16 +195,10 @@ async def test_exceptions(
     return r
 
 
-# TODO: brainstorming user preferences
-# no push notification
-# no friend requests
-# no whatever
-
 # TODO: WSS push notification:
-# invites
-# updates
-# friend request
-# messages
-# etc
+# invites - DONE
+# updates - I am not sure if we need it or what kind of updates
+# friend request - Not implemented yet
+# messages - Not implemented yet
 
-# TODO: refactorize naming
+# TODO: Unit tests

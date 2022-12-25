@@ -265,3 +265,12 @@ class GroupSessionResponse(ConfigModel):
 
 class GroupSessionsResponse(ConfigModel):
     sessions: list[GroupSessionResponse]
+
+
+class UserMetaResponse(ConfigModel):
+    has_push_notifications: bool
+
+
+class BaseUserMetaResponse(ConfigModel):
+    user: BaseUser
+    meta: UserMetaResponse

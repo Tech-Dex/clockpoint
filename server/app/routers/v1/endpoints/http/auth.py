@@ -17,6 +17,7 @@ from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
 from app.models.token import BaseToken, RedisToken
 from app.models.user import DBUser, DBUserToken, UserToken
+from app.models.user_meta import DBUserMeta
 from app.schemas.v1.request import (
     UserChangePasswordRequest,
     UserLoginRequest,
@@ -121,29 +122,36 @@ async def register(
     """
     Register a new user.
     """
-    user: DBUser = DBUser(**user_register.dict())
-    user.parse_phone_number(user_register.phone_number_country_name)
-    user.change_password(user_register.password)
-    await user.save(
-        mysql_driver, exc=auth_exceptions.DuplicateEmailOrUsernameException()
-    )
-    token: str = await create_token(
-        data=BaseToken(
-            **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
-        ).dict(),
-        expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-    )
+    async with mysql_driver.transaction():
+        user: DBUser = DBUser(**user_register.dict())
+        user.parse_phone_number(user_register.phone_number_country_name)
+        user.change_password(user_register.password)
+        await user.save(
+            mysql_driver, exc=auth_exceptions.DuplicateEmailOrUsernameException()
+        )
 
-    verify_account_token: str = await create_token(
-        data=BaseToken(users_id=user.id, subject=TokenSubject.VERIFY_ACCOUNT).dict(),
-        expire=settings.VERIFY_ACCOUNT_TOKEN_EXPIRE_MINUTES,
-    )
+        user_meta: DBUserMeta = DBUserMeta(user_id=user.id)
+        await user_meta.save(mysql_driver)
 
-    bg_tasks.add_task(
-        send_register_email, user.email, verify_account_token, user.username
-    )
+        token: str = await create_token(
+            data=BaseToken(
+                **user.dict(), users_id=user.id, subject=TokenSubject.ACCESS
+            ).dict(),
+            expire=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
 
-    return BaseUserResponse(user=UserToken(**user.dict(), token=token))
+        verify_account_token: str = await create_token(
+            data=BaseToken(
+                users_id=user.id, subject=TokenSubject.VERIFY_ACCOUNT
+            ).dict(),
+            expire=settings.VERIFY_ACCOUNT_TOKEN_EXPIRE_MINUTES,
+        )
+
+        bg_tasks.add_task(
+            send_register_email, user.email, verify_account_token, user.username
+        )
+
+        return BaseUserResponse(user=UserToken(**user.dict(), token=token))
 
 
 @router.post(

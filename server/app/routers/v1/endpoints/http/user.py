@@ -11,8 +11,10 @@ from app.models.enums.token_subject import TokenSubject
 from app.models.exception import CustomBaseException
 from app.models.token import BaseToken
 from app.models.user import BaseUser, DBUser, DBUserToken, UserToken
-from app.schemas.v1.request import UserUpdateRequest
+from app.models.user_meta import DBUserMeta
+from app.schemas.v1.request import UserMetaUpdateRequest, UserUpdateRequest
 from app.schemas.v1.response import (
+    BaseUserMetaResponse,
     BaseUserResponse,
     BaseUserSearchResponse,
     BaseUsersSearchResponse,
@@ -20,7 +22,6 @@ from app.schemas.v1.response import (
 from app.services.dependencies import fetch_db_user_from_token
 
 router: APIRouter = APIRouter()
-
 
 base_responses = {
     400: {
@@ -78,6 +79,65 @@ async def update(
 
 
 @router.get(
+    "/meta",
+    response_model=BaseUserMetaResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="current user meta",
+    responses={
+        **base_responses,
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_meta(
+    mysql_driver: Database = Depends(get_mysql_driver),
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+) -> BaseUserMetaResponse:
+    return BaseUserMetaResponse(
+        user=BaseUser(**db_user_token.dict()),
+        meta=(
+            await DBUserMeta.get_by(mysql_driver, "user_id", db_user_token.id)
+        ).dict(),
+    )
+
+
+@router.put(
+    "/meta",
+    response_model=BaseUserMetaResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="update current user meta",
+    responses={
+        **base_responses,
+        404: {
+            "description": user_exceptions.UserNotFoundException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def update_meta(
+    user_meta_update: UserMetaUpdateRequest,
+    mysql_driver: Database = Depends(get_mysql_driver),
+    db_user_token: DBUserToken = Depends(fetch_db_user_from_token),
+) -> BaseUserMetaResponse:
+    db_user_meta: DBUserMeta = await DBUserMeta.get_by(
+        mysql_driver, "user_id", db_user_token.id
+    )
+    if user_meta_update.has_push_notifications is not None:
+        db_user_meta.has_push_notifications = user_meta_update.has_push_notifications
+
+    await db_user_meta.update(mysql_driver)
+
+    return BaseUserMetaResponse(
+        user=BaseUser(**db_user_token.dict()),
+        meta=db_user_meta.dict(),
+    )
+
+
+@router.get(
     "/search/{identifier}",
     response_model=BaseUserSearchResponse,
     response_model_exclude_unset=True,
@@ -118,7 +178,7 @@ async def search(
     response_model=BaseUsersSearchResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
-    name="search",
+    name="filter",
     responses={
         **base_responses,
     },

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from "$app/forms";
-	import "../auth.css";
 </script>
 
 <svelte:head>
@@ -32,6 +31,3 @@
 	</fieldset>
 	<button type="submit">Register</button>
 </form>
-
-<style>
-</style>

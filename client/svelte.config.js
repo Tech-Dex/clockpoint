@@ -11,7 +11,6 @@ const config = {
 		adapter: adapter(),
 		alias: {
 			$globalCss: "./src/global.css",
-			$components: "./src/components",
 		},
 	},
 };

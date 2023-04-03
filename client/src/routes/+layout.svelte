@@ -2,18 +2,25 @@
 	import { page } from "$app/stores";
 
 	// Skeleton Features
-	import { AppShell, AppBar } from "@skeletonlabs/skeleton";
-	import type { DrawerSettings } from "@skeletonlabs/skeleton";
+	import { AppShell, AppBar, Modal } from "@skeletonlabs/skeleton";
+	import type { DrawerSettings, ModalSettings } from "@skeletonlabs/skeleton";
 	import { Drawer, drawerStore } from "@skeletonlabs/skeleton";
+	import { LightSwitch } from "@skeletonlabs/skeleton";
+	import { modalStore } from "@skeletonlabs/skeleton";
 
 	// Local Features
 	import Navigation from "$lib/components/Navigation.svelte";
+	import RegisterModal from "$lib/components/RegisterModal.svelte";
 
 	// Stylesheets
 	import "@skeletonlabs/skeleton/themes/theme-crimson.css";
 	import "@skeletonlabs/skeleton/styles/all.css";
 	import "../app.postcss";
 	import "$globalCss";
+	import { onMount } from "svelte";
+
+	// Reactive Properties
+	$: classesSidebarLeft = $page.url.pathname === "/" ? "w-0" : "w-0";
 
 	const drawerSettings: DrawerSettings = {
 		id: "main-drawer",
@@ -29,8 +36,20 @@
 		drawerStore.open(drawerSettings);
 	}
 
-	// Reactive Properties
-	$: classesSidebarLeft = $page.url.pathname === "/" ? "w-0" : "w-0";
+	const modals: Record<string, RegisterModal> = {
+		registerModal: {
+			ref: RegisterModal,
+		},
+	};
+
+	const onRegisterOpen = () => {
+		modalStore.trigger({
+			type: "component",
+			component: "registerModal",
+			title: "Create an Account",
+			body: "Be part of the community!",
+		});
+	};
 </script>
 
 <!-- Drawer -->
@@ -39,6 +58,8 @@
 	<hr />
 	<Navigation />
 </Drawer>
+
+<Modal components={modals} />
 
 <!-- App Shell -->
 <AppShell slotSidebarLeft="bg-surface-500/5 {classesSidebarLeft}">
@@ -56,12 +77,13 @@
 							</svg>
 						</span>
 					</button>
-					<strong class="text-xl uppercase">Skeleton</strong>
+					<strong class="text-xl uppercase">Clockpoint</strong>
 				</div>
 			</svelte:fragment>
 			<svelte:fragment slot="trail">
+				<LightSwitch />
 				<a class="btn btn-sm" href="/">Home</a>
-				<a class="btn btn-sm" href="/about">About</a>
+				<button class="btn btn-sm" on:click={onRegisterOpen}>Register</button>
 			</svelte:fragment>
 		</AppBar>
 	</svelte:fragment>

@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	async default({ cookies, request }) {
+	async default({ request }) {
 		const formData = Object.fromEntries(await request.formData());
 
 		const zodParse = await registerSchema.safeParseAsync(formData);

@@ -57,17 +57,23 @@ export const registerSchema = z
 			})
 			.max(50, {
 				message: "Password must be at most 50 characters long",
-			}),
-		confirmPassword: z
-			.string({
-				required_error: "Confirm password is required",
 			})
-			.min(8, {
-				message: "Confirm password must be at least 8 characters long",
-			})
-			.max(50, {
-				message: "Confirm password must be at most 50 characters long",
-			}),
+			.refine(
+				(value) => {
+					const hasLowercase = /[a-z]/.test(value);
+					const hasUppercase = /[A-Z]/.test(value);
+					const hasNumber = /\d/.test(value);
+					const hasSpecial = /[^a-zA-Z\d]/.test(value);
+					return hasLowercase && hasUppercase && hasNumber && hasSpecial;
+				},
+				{
+					message:
+						"Password must contain at least one lowercase letter, one uppercase letter, one number and one special character",
+				},
+			),
+		confirmPassword: z.string({
+			required_error: "Confirm password is required",
+		}),
 	})
 	.superRefine(({ password, confirmPassword }, ctx) => {
 		if (password !== confirmPassword) {

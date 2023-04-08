@@ -3,7 +3,7 @@
 
 	// Skeleton Features
 	import { AppShell, AppBar, Modal } from "@skeletonlabs/skeleton";
-	import type { DrawerSettings, ModalSettings } from "@skeletonlabs/skeleton";
+	import type { DrawerSettings } from "@skeletonlabs/skeleton";
 	import { Drawer, drawerStore } from "@skeletonlabs/skeleton";
 	import { LightSwitch } from "@skeletonlabs/skeleton";
 	import { modalStore } from "@skeletonlabs/skeleton";
@@ -17,7 +17,6 @@
 	import "@skeletonlabs/skeleton/styles/all.css";
 	import "../app.postcss";
 	import "$globalCss";
-	import { onMount } from "svelte";
 
 	// Reactive Properties
 	$: classesSidebarLeft = $page.url.pathname === "/" ? "w-0" : "w-0";

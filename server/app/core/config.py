@@ -15,11 +15,13 @@ class Settings(BaseSettings):
         "http://localhost:4200",
         "http://localhost:3000",
         "http://localhost:8080",
+        "http://localhost:5173",
         "https://localhost",
         "https://localhost:8000",
         "https://localhost:4200",
         "https://localhost:3000",
         "https://localhost:8080",
+        "https://localhost:5173",
     ]
 
     JWT_TOKEN_PREFIX: str

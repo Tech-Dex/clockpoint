@@ -19,7 +19,7 @@ router: APIRouter = APIRouter()
     status_code=HTTP_200_OK,
     name="debug",
 )
-async def debug(mysql_driver: Database = Depends(get_mysql_driver)) -> any:
+async def debug(mysql_driver: Database = Depends(get_mysql_driver)):
     """
     Debug controller
     """

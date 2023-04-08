@@ -56,15 +56,16 @@ class DBUser(DBCoreModel, BaseUser):
         self.hashed_password = hash_password(self.salt, password)
 
     def parse_phone_number(self, phone_number_country_name: str | None):
-        try:
-            parsed_phone_number = parse_phone_number(
-                self.phone_number, phone_number_country_name
-            )
-            self.phone_number = format_number(
-                parsed_phone_number, PhoneNumberFormat.E164
-            )
-        except NumberParseException:
-            raise user_exceptions.PhoneNumberFormatException()
+        if self.phone_number and phone_number_country_name:
+            try:
+                parsed_phone_number = parse_phone_number(
+                    self.phone_number, phone_number_country_name
+                )
+                self.phone_number = format_number(
+                    parsed_phone_number, PhoneNumberFormat.E164
+                )
+            except NumberParseException:
+                raise user_exceptions.PhoneNumberFormatException()
 
     @classmethod
     async def remove_inactive_users(cls, mysql_driver: Database) -> None:

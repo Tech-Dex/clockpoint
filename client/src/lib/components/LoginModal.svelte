@@ -5,7 +5,7 @@
 	import { isFetching, jwt, user } from "$lib/store";
 	import { enhance } from "$app/forms";
 	import { superValidate } from "sveltekit-superforms/server";
-	import { registerSchema } from "$lib/validations";
+	import { loginSchema } from "$lib/validations";
 	import { API } from "$lib/api";
 	import { updateStoreJwtAndUser } from "$lib/utils";
 
@@ -20,11 +20,7 @@
 
 	const formData = {
 		email: "",
-		username: "",
-		firstName: "",
-		lastName: "",
 		password: "",
-		confirmPassword: "",
 	};
 
 	let errors = {};
@@ -34,7 +30,7 @@
 		{ color: "rgb(var(--color-primary-500))", start: 75, end: 100 },
 	];
 
-	const cBase = "card p-4 w-modal shadow-xl space-y-4 max-h-full";
+	const cBase = "card p-4 w-modal-slim shadow-xl space-y-4 max-h-full";
 	const cHeader = "text-2xl font-bold";
 	const cForm = "border border-surface-500 p-4 space-y-4 rounded-container-token";
 	const cInput = "border border-surface-500 p-2 rounded-container-token";
@@ -42,7 +38,7 @@
 
 	const handleSubmission = async () => {
 		// noinspection TypeScriptValidateTypes
-		const form = await superValidate(formData, registerSchema);
+		const form = await superValidate(formData, loginSchema);
 		if (!form.valid) {
 			errors = form.errors;
 			return;
@@ -50,7 +46,7 @@
 
 		// handle the api call and jwt in local storage
 		{
-			const response = await API.auth.register(formData, signal);
+			const response = await API.auth.login(formData, signal);
 
 			if (!response.ok) {
 				// TODO: handle errors from the server in order to point out the specific field
@@ -74,7 +70,6 @@
 		abortController.abort();
 		$isFetching = false;
 		modalStore.close();
-		console.log($modalStore);
 	};
 </script>
 
@@ -101,45 +96,6 @@
 		</label>
 
 		<label class="label {cLabel}">
-			<span>Username</span>
-			{#if errors.username}
-				<p class="text-red-500 text-sm">{errors.username}</p>
-			{/if}
-			<input
-				class="input {cInput}"
-				type="text"
-				bind:value={formData.username}
-				placeholder="Enter username..."
-			/>
-		</label>
-
-		<label class="label {cLabel}">
-			<span>First Name</span>
-			{#if errors.firstName}
-				<p class="text-red-500 text-sm">{errors.firstName}</p>
-			{/if}
-			<input
-				class="input {cInput}"
-				type="text"
-				bind:value={formData.firstName}
-				placeholder="Enter first name..."
-			/>
-		</label>
-
-		<label class="label {cLabel}">
-			<span>Last Name</span>
-			{#if errors.lastName}
-				<p class="text-red-500 text-sm">{errors.lastName}</p>
-			{/if}
-			<input
-				class="input {cInput}"
-				type="text"
-				bind:value={formData.lastName}
-				placeholder="Enter last name..."
-			/>
-		</label>
-
-		<label class="label {cLabel}">
 			<span>Password</span>
 			{#if errors.password}
 				<p class="text-red-500 text-sm">{errors.password}</p>
@@ -151,19 +107,6 @@
 				placeholder="Enter password..."
 			/>
 		</label>
-
-		<label class="label {cLabel}">
-			<span>Confirm Password</span>
-			{#if errors.confirmPassword}
-				<p class="text-red-500 text-sm">{errors.confirmPassword}</p>
-			{/if}
-			<input
-				class="input {cInput}"
-				type="password"
-				bind:value={formData.confirmPassword}
-				placeholder="Enter password..."
-			/>
-		</label>
 	</form>
 	<!-- prettier-ignore -->
 	<footer class="{parent.regionFooter}">
@@ -171,7 +114,7 @@
 		{#if $isFetching}
 			<ConicGradient width="w-10" stops={conicStops} spin />
 		{:else}
-			<button class="btn {parent.buttonPositive} hover:variant-filled-primary" on:click={handleSubmission}>Register
+			<button class="btn {parent.buttonPositive} hover:variant-filled-primary" on:click={handleSubmission}>Login
 			</button>
 		{/if}
 	</footer>

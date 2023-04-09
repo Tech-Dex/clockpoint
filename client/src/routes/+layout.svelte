@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/stores";
+	import { jwt } from "$lib/store";
 
 	// Skeleton Features
 	import { AppShell, AppBar, Modal } from "@skeletonlabs/skeleton";
@@ -17,8 +18,16 @@
 	import "@skeletonlabs/skeleton/styles/all.css";
 	import "../app.postcss";
 	import "$globalCss";
+	import LoginModal from "$lib/components/LoginModal.svelte";
+	import { API } from "$lib/api";
+	import { onMount } from "svelte";
+	import { updateStoreJwtAndUser, validateJwt } from "$lib/utils";
+
+	const abortController = new AbortController();
+	const signal = abortController.signal;
 
 	// Reactive Properties
+	$: validateJwt(signal, $page); // when user navigates to a new page, validate the JWT if last checked more than 5 minutes ago
 	$: classesSidebarLeft = $page.url.pathname === "/" ? "w-0" : "w-0";
 
 	const drawerSettings: DrawerSettings = {
@@ -31,13 +40,21 @@
 		rounded: "rounded-r-2xl",
 	};
 
-	function drawerOpen(): void {
+	// Page Load
+	(async () => {
+		await validateJwt(signal);
+	})();
+
+	const drawerOpen = () => {
 		drawerStore.open(drawerSettings);
-	}
+	};
 
 	const modals: Record<string, RegisterModal> = {
 		registerModal: {
 			ref: RegisterModal,
+		},
+		loginModal: {
+			ref: LoginModal,
 		},
 	};
 
@@ -47,6 +64,15 @@
 			component: "registerModal",
 			title: "Create an Account",
 			body: "Be part of the community!",
+		});
+	};
+
+	const onLoginOpen = () => {
+		modalStore.trigger({
+			type: "component",
+			component: "loginModal",
+			title: "Login",
+			body: "Welcome back!",
 		});
 	};
 </script>
@@ -82,7 +108,10 @@
 			<svelte:fragment slot="trail">
 				<LightSwitch />
 				<a class="btn btn-sm" href="/">Home</a>
-				<button class="btn btn-sm" on:click={onRegisterOpen}>Register</button>
+				{#if !$jwt}
+					<button class="btn btn-sm" on:click={onRegisterOpen}>Register</button>
+					<button class="btn btn-sm" on:click={onLoginOpen}>Login</button>
+				{/if}
 			</svelte:fragment>
 		</AppBar>
 	</svelte:fragment>

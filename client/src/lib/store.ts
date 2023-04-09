@@ -13,4 +13,5 @@ export interface IUser {
 
 export const isFetching: Writable<boolean> = localStorageStore("isFetching", false);
 export const jwt: Writable<string | null> = localStorageStore("jwt", null);
+export const lastRefresh: Writable<number | null> = localStorageStore("lastRefresh", null);
 export const user: Writable<IUser | null> = localStorageStore("user", null);

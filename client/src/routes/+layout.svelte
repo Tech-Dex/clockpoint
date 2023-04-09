@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/stores";
-	import { jwt } from "$lib/store";
+	import { jwt, user } from "$lib/store";
 
 	// Skeleton Features
 	import { AppShell, AppBar, Modal } from "@skeletonlabs/skeleton";
@@ -19,9 +19,7 @@
 	import "../app.postcss";
 	import "$globalCss";
 	import LoginModal from "$lib/components/LoginModal.svelte";
-	import { API } from "$lib/api";
-	import { onMount } from "svelte";
-	import { updateStoreJwtAndUser, validateJwt } from "$lib/utils";
+	import { validateJwt } from "$lib/utils";
 
 	const abortController = new AbortController();
 	const signal = abortController.signal;
@@ -111,6 +109,11 @@
 				{#if !$jwt}
 					<button class="btn btn-sm" on:click={onRegisterOpen}>Register</button>
 					<button class="btn btn-sm" on:click={onLoginOpen}>Login</button>
+				{:else if $user}
+					<!--add a vertical divider and the user's name-->
+					<div class="divider-vertical">
+						<span class="btn btn-sm">Welcome, {$user.username}</span>
+					</div>
 				{/if}
 			</svelte:fragment>
 		</AppBar>

@@ -41,7 +41,7 @@ def upgrade():
 def downgrade():
     op.drop_constraint(
         "fk_clock_g_u_s_entries_clock_sessions_id_clock_sessions",
-        "clock_groups_users_entries",
+        "clock_groups_users_sessions_entries",
         type_="foreignkey",
     )
     op.drop_column("clock_groups_users_sessions_entries", "clock_sessions_id")

@@ -359,7 +359,6 @@ async def get_invites(
     return InvitesGroupsResponse(invites=invites)
 
 
-@cache(expire=300)
 @router.post(
     "/join",
     response_model_exclude_unset=True,

@@ -476,8 +476,8 @@ async def update_schedule_session(
 
 @router.get(
     "/{group_id}/sessions/report",
-    response_model=SessionsReportResponse | SessionsSmartReportResponse,
-    response_class=StreamingResponse,
+    # response_model=SessionsReportResponse | SessionsSmartReportResponse,
+    # response_class=StreamingResponse,
     response_model_exclude_unset=True,
     status_code=HTTPStatus.OK,
     name="Get report for sessions in a group",
@@ -508,7 +508,7 @@ async def get_group_sessions_report(
         fetch_user_generate_report_permission_from_token_qp_id
     ),
     mysql_driver: Database = Depends(get_mysql_driver),
-) -> SessionsReportResponse | SessionsSmartReportResponse | StreamingResponse:
+):
     filters = {}
     # If session_id is not None, then it means we want a specific session report
     # No reason to check for other filters, those where used in /{group_id}/sessions/report
@@ -588,7 +588,7 @@ async def get_group_sessions_report(
         if smart_entries_format == SmartEntriesFormat.JSON:
             return sessions_smart_report
         elif smart_entries_format == SmartEntriesFormat.EXCEL:
-            filename: str = f'Group "test" Sessions Report.xlsx'
+            filename: str = f'Group Sessions Report.xlsx'
             bytes_file = await build_in_memory_file(
                 data=sessions_smart_report,
             )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pprint
 from datetime import datetime, time
 
 from pydantic.networks import EmailStr
@@ -158,6 +159,9 @@ class ScheduleClockSessionResponse(ConfigModel):
     saturday: bool
     sunday: bool
 
+class ScheduleClockSessionsResponse(ConfigModel):
+    schedules: list[ScheduleClockSessionResponse]
+
 
 class SessionEntryResponse(ConfigModel):
     username: str
@@ -235,7 +239,11 @@ class SessionsSmartReportResponse(ConfigModel):
                         "clock_out": v[1]["clock_at"],
                     }
                 )
-                del session["entries"]
+
+                try:
+                    del session["entries"]
+                except KeyError:
+                    pass
 
         return SessionsSmartReportResponse(
             sessions=[

@@ -97,6 +97,12 @@ class DBClockSchedule(DBCoreModel, BaseClockSchedule):
             query = query.where(clock_schedules.start_at > Parameter(":start_at"))
             values["start_at"] = filters["future"]
 
+        if filters.get("groups_users_id"):
+            query = query.where(
+                clock_schedules.groups_users_id == Parameter(":groups_users_id")
+            )
+            values["groups_users_id"] = filters["groups_users_id"]
+
         try:
             results: list[Mapping] = await mysql_driver.fetch_all(
                 query.get_sql(), values

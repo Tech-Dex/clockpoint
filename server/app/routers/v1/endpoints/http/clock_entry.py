@@ -1,5 +1,6 @@
 import io
 import logging
+import pprint
 from datetime import datetime, time, timedelta
 from http import HTTPStatus
 from typing import Mapping
@@ -51,13 +52,13 @@ from app.schemas.v1.response import (
     SessionEntryResponse,
     SessionsReportResponse,
     SessionsSmartReportResponse,
-    StartClockSessionResponse,
+    StartClockSessionResponse, ScheduleClockSessionsResponse,
 )
 from app.schemas.v1.wrapper import UserInGroupWrapper
 from app.services.dependencies import (
     fetch_db_user_from_token,
     fetch_user_generate_report_permission_from_token_qp_id,
-    fetch_user_in_group_from_token,
+    fetch_user_in_group_from_token, fetch_user_in_group_from_token_qp_id,
 )
 from app.services.exceler import build_in_memory_file
 
@@ -313,9 +314,10 @@ async def get_group_sessions(
     if start_at and stop_at and start_at > stop_at:
         raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
 
+    print(user_in_group.group_user.groups_id)
     sessions: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
         mysql_driver,
-        user_in_group.group_user.id,
+        user_in_group.group_user.groups_id,
         filters,
         exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
     )
@@ -324,6 +326,58 @@ async def get_group_sessions(
         sessions=[GroupSessionResponse(**session) for session in sessions]
     )
 
+@router.get(
+    "/{group_id}/schedules",
+    response_model=ScheduleClockSessionsResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Get all sessions for a group",
+    responses={
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToGenerateQRCodeEntryAndGenerateReportException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_group_schedules(
+    start_at: datetime | None = None,
+    stop_at: datetime | None = None,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_in_group_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+) -> ScheduleClockSessionsResponse:
+    filters = {
+        "groups_users_id": user_in_group.group_user.id,
+    }
+    if start_at:
+        filters["past"] = start_at
+
+    if stop_at:
+        filters["future"] = stop_at
+
+    if start_at and stop_at and start_at > stop_at:
+        raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
+
+    schedules: list[DBClockSchedule] = await DBClockSchedule.filter(
+        mysql_driver, filters, bypass_exc=True
+    )
+
+    return ScheduleClockSessionsResponse(
+        schedules=[ScheduleClockSessionResponse(
+            user=BaseUser(**user_in_group.user_token.dict()),
+            group=BaseGroupIdWrapper(**user_in_group.group.dict()),
+            **schedule.dict()) for schedule in schedules]
+    )
 
 @router.patch(
     "/{group_id}/schedule/{schedule_id}",
@@ -453,7 +507,7 @@ async def update_schedule_session(
         },
     },
 )
-async def update_schedule_session(
+async def delete_schedule_session(
     schedule_id: int,
     _: UserInGroupWrapper = Depends(
         fetch_user_generate_report_permission_from_token_qp_id
@@ -533,7 +587,9 @@ async def get_group_sessions_report(
                 detail="This one should not appear in any case. This is a bug. Please report it."
             ),
         )
-        if isinstance(users[0], str):
+        try:
+            users_ids.extend([int(user) for user in users])
+        except ValueError:
             db_users: list[DBUser] = await DBUser.get_all_in(
                 mysql_driver,
                 "email",
@@ -541,13 +597,11 @@ async def get_group_sessions_report(
                 exc=user_exceptions.UserNotFoundException(),
             )
             users_ids.extend([db_user.id for db_user in db_users])
-        if isinstance(users[0], int):
-            users_ids.extend(users)
-        print(users)
-        filters["users_id"] = users_ids
+        filters["users_ids"] = users_ids
+
     entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
         mysql_driver,
-        user_in_group.group_user.id,
+        user_in_group.group_user.groups_id,
         filters,
         exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
     )
@@ -556,6 +610,153 @@ async def get_group_sessions_report(
     is_first_session = True
     session = {}
     entries_in_session = []
+    clock_sessions_ids = set()
+    for entry in entries:
+        clock_sessions_ids.add(entry["clock_sessions_id"])
+
+    if users:
+        filters = {
+            "clock_sessions_ids": list(clock_sessions_ids),
+            "only_sessions": True,
+        }
+        start_entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
+            mysql_driver,
+            user_in_group.group_user.groups_id,
+            filters,
+            exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+        )
+        entries = start_entries + entries
+        entries = sorted(entries, key=lambda entry: entry["start_at"])
+
+    for entry in entries:
+        if not entry["clock_entries_id"]:
+            # If the entry doesn't have a clock entry, it means that this entry in indeed a session entry
+            if not is_first_session:
+                session.update({"entries": entries_in_session})
+                sessions.append(session)
+                entries_in_session = []
+                session = {}
+
+            if is_first_session:
+                is_first_session = False
+
+            session.update({"details": entry})
+        if entry["clock_entries_id"]:
+            entries_in_session.append(entry)
+
+    # In case that the last entry is not a new session, we need to append previous session to the payload
+    session.update({"entries": entries_in_session})
+    sessions.append(session)
+
+    if smart_entries:
+        # If a user forgot to clock out, we need to add the session stop_at as the stop_at for entry
+        # This is done to make the report more accurate
+        # Instead of returning 2 entries, one for clock in and one for clock out, we return only one entry
+        # In that entry we have the clock in and clock out time for entry & details
+        sessions_smart_report: SessionsSmartReportResponse = (
+            SessionsSmartReportResponse.prepare_response(sessions)
+        )
+
+        if smart_entries_format == SmartEntriesFormat.JSON:
+            return sessions_smart_report
+        elif smart_entries_format == SmartEntriesFormat.EXCEL:
+            filename: str = f'Group Sessions Report.xlsx'
+            bytes_file = await build_in_memory_file(
+                data=sessions_smart_report,
+            )
+            return StreamingResponse(
+                io.BytesIO(bytes_file),
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+    return SessionsReportResponse(
+        sessions=[
+            SessionEntriesResponse(
+                details=SessionEntryResponse(**session["details"]),
+                entries=[SessionEntryResponse(**entry) for entry in session["entries"]],
+            )
+            for session in sessions
+        ]
+    )
+
+@router.get(
+    "/{group_id}/sessions/report/me",
+    # response_model=SessionsReportResponse | SessionsSmartReportResponse,
+    # response_class=StreamingResponse,
+    response_model_exclude_unset=True,
+    status_code=HTTPStatus.OK,
+    name="Get report for sessions in a group for the current user",
+    responses={
+        **base_responses,
+        403: {
+            "description": permission_exceptions.NotAllowedToGenerateQRCodeEntryAndGenerateReportException.description,
+            "model": CustomBaseException,
+        },
+        404: {
+            "description": group_exceptions.GroupNotFoundException.description,
+            "model": CustomBaseException,
+        },
+        422: {
+            "description": group_user_exceptions.UserNotInGroupException.description,
+            "model": CustomBaseException,
+        },
+    },
+)
+async def get_user_group_sessions_report(
+    session_id: int | None = None,
+    start_at: datetime | None = None,
+    stop_at: datetime | None = None,
+    smart_entries: bool = False,
+    smart_entries_format: SmartEntriesFormat = SmartEntriesFormat.JSON,
+    user_in_group: UserInGroupWrapper = Depends(
+        fetch_user_in_group_from_token_qp_id
+    ),
+    mysql_driver: Database = Depends(get_mysql_driver),
+):
+    filters = {}
+    if not session_id:
+        if start_at:
+            filters["start_at"] = start_at
+
+        if stop_at:
+            filters["stop_at"] = stop_at
+
+        if start_at and stop_at and start_at > stop_at:
+            raise clock_group_user_session_entry_exceptions.InvalidStartAtAndStopAtException()
+    else:
+        filters["clock_sessions_id"] = session_id
+
+    filters["users_ids"] = [user_in_group.user_token.id]
+    entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
+        mysql_driver,
+        user_in_group.group_user.groups_id,
+        filters,
+        exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+    )
+
+    sessions = []
+    is_first_session = True
+    session = {}
+    entries_in_session = []
+
+    clock_sessions_ids = set()
+    for entry in entries:
+        clock_sessions_ids.add(entry["clock_sessions_id"])
+
+    filters = {
+        "clock_sessions_ids": list(clock_sessions_ids),
+        "only_sessions": True,
+    }
+    start_entries: list[Mapping] = await DBClockGroupUserSessionEntry.filter(
+        mysql_driver,
+        user_in_group.group_user.groups_id,
+        filters,
+        exc=clock_group_user_session_entry_exceptions.ClockGroupUserEntryNotFoundException(),
+    )
+    entries = start_entries + entries
+    entries = sorted(entries, key=lambda entry: entry["start_at"])
+
     for entry in entries:
         if not entry["clock_entries_id"]:
             # If the entry doesn't have a clock entry, it means that this entry in indeed a session entry

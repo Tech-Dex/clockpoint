@@ -27,7 +27,7 @@ cmd2==2.4.3
 colorama==0.4.6
 commitizen==2.37.0
 crashtest==0.4.1
-cryptography==41.0.4
+cryptography==41.0.6
 databases==0.7.0
 decli==0.5.2
 decorator==5.1.1

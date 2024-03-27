@@ -1,0 +1,33 @@
+.gridArea {
+    display: grid;
+    height: 100%;
+    grid-template-columns: auto auto auto auto;
+    grid-template-areas: "logo . register login";
+    grid-gap: 0.5rem;
+}
+
+@media (min-width: 640px) {
+    .gridArea {
+        grid-template-columns: auto auto auto auto;
+        grid-template-areas: "logo . login register";
+    }
+}
+
+.logoArea {
+    grid-area: logo;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.registerArea {
+    grid-area: register;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.loginArea {
+    grid-area: login;
+    max-width: 100%;
+    max-height: 100%;
+}
+

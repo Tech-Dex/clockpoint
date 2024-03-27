@@ -1,0 +1,16 @@
+.gridArea {
+    height: 100dvh;
+    display: grid;
+    grid-template-areas:
+    "navbar"
+    "main";
+    grid-template-rows: 10dvh 90dvh;
+}
+
+.navbarArea {
+    grid-area: navbar;
+}
+
+.mainArea {
+    grid-area: main;
+}

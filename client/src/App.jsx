@@ -1,6 +1,7 @@
 import "@/App.css";
 import { useRefreshToken } from "@features/auth/api/use-refresh-token.jsx";
-import Component from "@/Component.jsx";
+import LayoutNavbarAndMain from "@/components/LayoutNavbarAndMain/LayoutNavbarAndMain.jsx";
+import LoginForm from "@/features/auth/components/LoginForm/LoginForm.jsx";
 
 function App() {
 	const {
@@ -16,7 +17,12 @@ function App() {
 
 	return (
 		<>
-			<Component />
+			<LayoutNavbarAndMain>
+				{/*<Component />*/}
+				<div className='grid justify-center items-center h-full'>
+					<LoginForm />
+				</div>
+			</LayoutNavbarAndMain>
 		</>
 	);
 }

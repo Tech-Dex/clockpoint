@@ -2,6 +2,7 @@ import "@/App.css";
 import { useLogin } from "@features/auth/api/use-login.jsx";
 import { useRegister } from "@features/auth/api/use-register.jsx";
 import useZuStore from "@store/store.js";
+import { Button } from "@/components/ui/button.jsx";
 
 function Component() {
 	const authToken = useZuStore((state) => state.auth?.token);
@@ -49,22 +50,22 @@ function Component() {
 	};
 
 	if (authToken) {
-		return <div>Data current {JSON.stringify(user)}</div>;
+		return <div>Data current</div>;
 	}
 
 	return (
 		<>
 			<div>
-				<button onClick={handleLogin} disabled={isLoadingLogin}>
-					{isLoadingLogin ? "Logging in..." : "Login"}
-				</button>
+				<Button onClick={handleLogin} disabled={isLoadingLogin}>
+					{isLoadingLogin ? "Logging in..." : "LoginForm"}
+				</Button>
 				{isErrorLogin && <div>Error: {errorLogin.message}</div>}
 			</div>
 
 			<div>
-				<button onClick={handleRegister} disabled={isLoadingRegister}>
+				<Button onClick={handleRegister} disabled={isLoadingRegister}>
 					{isLoadingRegister ? "Registering..." : "Register"}
-				</button>
+				</Button>
 				{isErrorRegister && <div>Error: {errorRegister.message}</div>}
 			</div>
 		</>

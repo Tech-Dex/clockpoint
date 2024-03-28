@@ -1,33 +1,193 @@
-.gridArea {
-    display: grid;
-    height: 100%;
-    grid-template-columns: auto auto auto auto;
-    grid-template-areas: "logo . register login";
-    grid-gap: 0.5rem;
+* {
+    box-sizing: border-box;
+    min-height: 100%;
 }
 
-@media (min-width: 640px) {
-    .gridArea {
-        grid-template-columns: auto auto auto auto;
-        grid-template-areas: "logo . login register";
-    }
+.navGrid {
+    display: grid;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    grid-template-areas: "logo navLinks";
+    grid-template-columns: 1fr 1fr;
+    background-color: var(--primary);
+    filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.25));
 }
 
 .logoArea {
     grid-area: logo;
+    width: 100%;
+    height: 100%;
     max-width: 100%;
     max-height: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    place-items: center;
+}
+
+.logo {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.navLinksArea {
+    grid-area: navLinks;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    padding-right: 1rem;
+    padding-left: 1rem;
+    place-items: center;
+}
+
+.navLinksGrid {
+    display: grid;
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    grid-template-areas: "register login";
+    grid-template-columns: 2fr 1fr;
+    place-items: center;
 }
 
 .registerArea {
     grid-area: register;
+    width: 100%;
+    height: 100%;
     max-width: 100%;
     max-height: 100%;
+    display: grid;
+    place-items: center;
 }
 
 .loginArea {
     grid-area: login;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: grid;
+    place-items: center;
+}
+
+.loginLogo {
+    width: calc(var(--paragraph-font-size) * 2);
+    height: calc(var(--paragraph-font-size) * 2);
     max-width: 100%;
     max-height: 100%;
 }
+
+.registerButton {
+    min-width: min-content;
+    width: 100%;
+    min-height: min-content;
+    height: 50%;
+    background-color: var(--secondary);
+    color: var(--white);
+    border: none;
+    border-radius: 0.25rem;
+    font-size: var(--paragraph-font-size);
+    cursor: pointer;
+    transition: background-color 0.5s;
+}
+
+.registerButton:hover {
+    background-color: var(--secondary-60);
+    transition: background-color 0.5s;
+}
+
+.registerAlign {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    justify-items: center;
+    align-items: center;
+}
+
+.loginButton {
+    min-width: min-content;
+    width: 100%;
+    min-height: min-content;
+    height: 50%;
+    color: var(--black);
+    border: none;
+    border-radius: 0.25rem;
+    font-size: var(--paragraph-font-size);
+    cursor: pointer;
+    transition: background-color 0.5s;
+}
+
+.loginButton:hover {
+    background-color: var(--primary-55);
+    transition: background-color 0.5s;
+}
+
+/* Media Queries */
+@media only screen and (min-width: 480px) {
+    .logoArea {
+        padding-left: 4rem;
+        padding-right: 0;
+    }
+
+    .navLinksArea {
+        padding-right: 4rem;
+        padding-left: 0;
+    }
+
+    .logo {
+        width: 50%;
+        max-width: 50%;
+    }
+
+    .navLinksGrid {
+        grid-template-areas: "login register";
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .registerAlign {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        justify-items: start;
+        align-items: center;
+        padding-left: 0.5rem;
+    }
+
+    .loginAlign {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        justify-items: end;
+        align-items: center;
+        padding-right: 0.5rem;
+    }
+
+    .registerButton {
+        width: 75%;
+        height: 75%;
+        background-color: var(--secondary);
+        color: var(--white);
+        border: none;
+        border-radius: 0.25rem;
+        font-size: var(--paragraph-font-size);
+        cursor: pointer;
+    }
+
+    .loginButton {
+        width: 75%;
+        height: 75%;
+        background-color: transparent;
+        color: var(--black);
+        border: none;
+        border-radius: 0.25rem;
+        font-size: var(--paragraph-font-size);
+        cursor: pointer;
+    }
+}
+
 

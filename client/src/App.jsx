@@ -19,9 +19,7 @@ function App() {
 		<>
 			<LayoutNavbarAndMain>
 				{/*<Component />*/}
-				<div className='grid justify-center items-center h-full'>
-					<LoginForm />
-				</div>
+				Test
 			</LayoutNavbarAndMain>
 		</>
 	);

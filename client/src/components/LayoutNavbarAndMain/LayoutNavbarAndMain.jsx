@@ -3,11 +3,9 @@ import styles from "./LayoutNavbarAndMain.module.css";
 
 function LayoutNavbarAndMain({ children }) {
 	return (
-		<div className={`${styles.gridArea}`}>
-			<div className={`${styles.navbarArea}`}>
-				<Navbar />
-			</div>
-			<div className={`${styles.mainArea} bg-primary`}>{children}</div>
+		<div className={styles.gridArea}>
+			<Navbar className={styles.navbarArea} />
+			<div className={styles.mainArea}>{children}</div>
 		</div>
 	);
 }

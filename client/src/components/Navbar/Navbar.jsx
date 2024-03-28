@@ -2,37 +2,50 @@ import LogoSvg from "@assets/logo.svg?react";
 import LoginSvg from "@assets/login.svg?react";
 import styles from "./Navbar.module.css";
 import { useMediaQuery } from "@uidotdev/usehooks";
+import { MOBILE_MEDIA_QUERY } from "@/utils/breakpoints.js";
+import classNames from "classnames";
 
 function Navbar() {
-	const isSm = useMediaQuery("(min-width: 640px)");
+	const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
 
 	return (
-		<nav className={`${styles.gridArea} bg-primary drop-shadow-xl px-4 sm:px-0`}>
-			<div className={`${styles.logoArea} flex items-center justify-center`}>
-				<LogoSvg className={"max-h-full max-w-full"} />
+		<nav className={styles.navGrid}>
+			<div className={styles.logoArea}>
+				<LogoSvg className={styles.logo} onClick={() => alert("Logo")} />
 			</div>
-			<div
-				className={`${styles.registerArea} flex items-center justify-end sm:justify-start`}
-			>
-				<button
-					className={
-						"bg-cyrannus-secondary w-3/4 h-1/2  lg:w-2/4 text-inherit text-sm lg:text-lg"
-					}
-				>
-					Start Campaign
-				</button>
+			<div className={classNames(styles.navLinksArea, styles.navLinksGrid)}>
+				<div className={styles.registerArea}>
+					<div className={styles.registerAlign}>
+						<button
+							className={styles.registerButton}
+							onClick={() => {
+								alert("Start Campaign");
+							}}
+						>
+							Start Campaign
+						</button>
+					</div>
+				</div>
+				{isMobile ? (
+					<div className={styles.loginArea}>
+						<LoginSvg className={styles.loginLogo} />
+					</div>
+				) : (
+					<div className={styles.loginArea}>
+						<div className={styles.loginAlign}>
+							{/*TODO: Create a button component that accepts css classes as props and a default hover effect*/}
+							<button
+								className={styles.loginButton}
+								onClick={() => {
+									alert("Login");
+								}}
+							>
+								Login
+							</button>
+						</div>
+					</div>
+				)}
 			</div>
-			{isSm ? (
-				<div className={`${styles.loginArea} flex items-center justify-end`}>
-					<button className={'w-3/4 h-1/2  lg:w-2/4 text-inherit text-sm lg:text-lg"'}>
-						Login
-					</button>
-				</div>
-			) : (
-				<div className={`${styles.loginArea} flex items-center justify-start`}>
-					<LoginSvg className={"max-h-full max-w-full"} />
-				</div>
-			)}
 		</nav>
 	);
 }

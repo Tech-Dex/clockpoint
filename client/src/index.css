@@ -1,79 +1,72 @@
 @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-
 :root {
-    --background: 45 100% 95%;
-    --foreground: 45 5% 0%;
-    --card: 45 50% 90%;
-    --card-foreground: 45 5% 10%;
-    --popover: 45 100% 95%;
-    --popover-foreground: 45 100% 0%;
-    --primary: 45 96.1% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 45 30% 70%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 7 30% 85%;
-    --muted-foreground: 45 5% 35%;
-    --accent: 7 30% 80%;
-    --accent-foreground: 45 5% 10%;
-    --destructive: 0 100% 30%;
-    --destructive-foreground: 45 5% 90%;
-    --border: 45 30% 50%;
-    --input: 45 30% 18%;
-    --ring: 45 96.1% 50%;
-    --radius: 0.5rem;
-    font-family: 'Comfortaa', sans-serif;
-    --cyrannus-primary: #FABC05;
-    --cyrannus-primary-55: #FFC51A;
-    --cyrannus-primary-65: #FCD769;
-    --cyranus-primary-70: #FBD050;
-    --cyrannus-secondary: #EC4E20;
-    --cyrannus-secondary-60: #EF6A43;
-    --cyrannus-gray: #847E89;
-    --cyrannus-light-gray-95: #F2F2F2;
-    --cyrannus-light-gray-90: #E6E4E7;
-    --cyrannus-success: #52E718;
-    --cyrannus-succes-80: #215C0A;
-    --cyrannus-white: #F7F5FB;
-    --cyrannus-black: #0A0908;
-
+    --base-font-size: 1rem;
+    --heading-font-size: 2rem;
+    --paragraph-font-size: 1.25rem;
+    --small-font-size: 0.875rem;
+    --primary: #FABC05;
+    --primary-55: #FFC51A;
+    --primary-65: #FCD769;
+    --primary-70: #FBD050;
+    --secondary: #EC4E20;
+    --secondary-60: #EF6A43;
+    --gray: #847E89;
+    --light-gray-95: #F2F2F2;
+    --light-gray-90: #E6E4E7;
+    --success: #52E718;
+    --success-80: #215C0A;
+    --white: #F7F5FB;
+    --black: #0A0908;
+    --font-family: 'Comfortaa', sans-serif;
+    font-weight: 900;
+    background-color: var(--primary);
 }
 
 .dark {
-    --background: 45 50% 5%;
-    --foreground: 45 5% 90%;
-    --card: 45 50% 0%;
-    --card-foreground: 45 5% 90%;
-    --popover: 45 50% 5%;
-    --popover-foreground: 45 5% 90%;
-    --primary: 45 96.1% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 45 30% 10%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 7 30% 15%;
-    --muted-foreground: 45 5% 60%;
-    --accent: 7 30% 15%;
-    --accent-foreground: 45 5% 90%;
-    --destructive: 0 100% 30%;
-    --destructive-foreground: 45 5% 90%;
-    --border: 45 30% 18%;
-    --input: 45 30% 18%;
-    --ring: 45 96.1% 50%;
-    --radius: 0.5rem;
-    font-family: 'Comfortaa', sans-serif;
+    --primary: #FABC05;
+    --primary-55: #FFC51A;
+    --primary-65: #FCD769;
+    --primary-70: #FBD050;
+    --secondary: #EC4E20;
+    --secondary-60: #EF6A43;
+    --gray: #847E89;
+    --light-gray-95: #F2F2F2;
+    --light-gray-90: #E6E4E7;
+    --success: #52E718;
+    --success-80: #215C0A;
+    --white: #F7F5FB;
+    --black: #0A0908;
+    --font-family: 'Comfortaa', sans-serif;
+    background-color: var(--primary);
+}
+
+* {
+    font-family: var(--font-family);
+    font-size: var(--base-font-size);
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 
-@layer base {
-    * {
-        @apply border-border;
+@media only screen and (max-width: 768px) {
+    :root {
+        --base-font-size: 0.875rem;
+        --heading-font-size: 1.75rem;
+        --paragraph-font-size: 1.125rem;
+        --small-font-size: 0.75rem;
     }
+}
 
-    body {
-        @apply bg-background text-foreground;
+@media only screen and (max-width: 480px) {
+    :root {
+        --base-font-size: 0.75rem;
+        --heading-font-size: 1.5rem;
+        --paragraph-font-size: 1rem;
+        --small-font-size: 0.625rem;
     }
 }
